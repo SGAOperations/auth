@@ -31,7 +31,8 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+*.env*
+!.env.example
 
 # vercel
 .vercel
@@ -42,3 +43,7 @@ next-env.d.ts
 
 # prisma types
 /src/generated/prisma
+
+# supabase
+/supabase/.branches
+/supabase/.temp
