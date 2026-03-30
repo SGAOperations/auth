@@ -2,6 +2,7 @@
   "name": "auth",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -36,6 +37,7 @@
     "prisma": "^7.5.0",
     "supabase": "^2.84.0",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }
