@@ -4,10 +4,52 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+model User {
+  id             String        @id @default(uuid())
+  supabaseUserId String        @unique  // FK to auth.users(id)
+  isAdmin        Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  sessions       Session[]
+  projects       UserProject[]
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  apiKey      String        @unique @default(uuid())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  sessions    Session[]
+  users       UserProject[]
+}
+
+model UserProject {
+  userId    String
+  projectId String
+  user      User     @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+  @@id([userId, projectId])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  projectId String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id])
 }
