@@ -24,3 +24,17 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+h1 {
+  color: #C8102E;
+}
+
+button {
+  background-color: #C8102E;
+  color: white;
+  text-align: center;
+}
+
+button:hover {
+  background-color: #a8001e;
+}
