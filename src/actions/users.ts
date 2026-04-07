@@ -37,10 +37,6 @@ export async function getUser(
     throw new Error(error.message);
   }
 
-  if (!data.user) {
-    throw new Error("Supabase auth user not found");
-  }
-
   return { ...user, email: data.user.email };
 }
 
