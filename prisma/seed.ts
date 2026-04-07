@@ -6,7 +6,7 @@ import { PrismaClient } from '../src/generated/prisma/index.js'
 // Connect to whatever database is specified by DATABASE_URL
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
 
-const adapter = new PrismaPg(pool as any)
+const adapter = new PrismaPg(pool)
 
 const prisma = new PrismaClient({ adapter })
 
