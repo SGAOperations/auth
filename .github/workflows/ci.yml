@@ -20,6 +20,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+        env:
+          DIRECT_URL: "postgresql://placeholder"
       - run: npx tsc --noEmit
 
   lint:
