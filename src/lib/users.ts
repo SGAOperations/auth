@@ -10,8 +10,7 @@ import type { User } from "@/generated/prisma/client";
  * @returns The created User
  */
 export async function createUser(supabaseUserId: string): Promise<User> {
-  const { error } =
-    await supabaseAdmin.auth.admin.getUserById(supabaseUserId);
+  const { error } = await supabaseAdmin.auth.admin.getUserById(supabaseUserId);
 
   if (error) {
     throw new Error("Supabase auth user not found");
@@ -29,7 +28,7 @@ export async function createUser(supabaseUserId: string): Promise<User> {
  */
 export async function getUser(
   id: string,
-  includeEmail?: boolean
+  includeEmail?: boolean,
 ): Promise<User & { email?: string }> {
   const user = await prisma.user.findUnique({ where: { id } });
 
@@ -42,7 +41,7 @@ export async function getUser(
   }
 
   const { data, error } = await supabaseAdmin.auth.admin.getUserById(
-    user.supabaseUserId
+    user.supabaseUserId,
   );
 
   if (error) {
@@ -74,13 +73,13 @@ export async function getUsers(filters?: {
  */
 export async function updateUser(
   id: string,
-  data: { isAdmin?: boolean }
+  data: { isAdmin?: boolean },
 ): Promise<User> {
   return prisma.user.update({ where: { id }, data });
 }
 
 /**
- * Deletes a User by ID. Attempts to delete the linked Supabase auth user first, 
+ * Deletes a User by ID. Attempts to delete the linked Supabase auth user first,
  * then hard deletes all related data in a transaction
  * @param id User UUID to delete
  * @throws If the User is not found, or the Supabase auth user deletion fails
@@ -93,7 +92,7 @@ export async function deleteUser(id: string): Promise<void> {
   }
 
   const { error } = await supabaseAdmin.auth.admin.deleteUser(
-    user.supabaseUserId
+    user.supabaseUserId,
   );
 
   if (error) {
