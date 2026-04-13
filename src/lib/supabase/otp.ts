@@ -1,13 +1,25 @@
 import "server-only";
 import type { AuthOtpResponse } from "@supabase/supabase-js";
+import {
+  AUTH_CALLBACK_PATH,
+  DEFAULT_OTP_SHOULD_CREATE_USER,
+} from "./auth-constants";
 import { createServerSupabaseClient } from "./server";
 
 export type SendOtpOptions = {
-  /** Where email links should redirect (magic link / PKCE). Must be in Supabase redirect allow list. */
+  /** Overrides default magic-link callback URL when set. */
   emailRedirectTo?: string;
   shouldCreateUser?: boolean;
   data?: Record<string, unknown>;
 };
+
+function getDefaultEmailRedirectTo(): string | undefined {
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  if (!base) {
+    return undefined;
+  }
+  return `${base}${AUTH_CALLBACK_PATH}`;
+}
 
 /**
  * Sends a one-time code / magic link via Supabase Auth (configured email provider).
@@ -20,8 +32,10 @@ export async function sendOtp(
   return supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: options?.emailRedirectTo,
-      shouldCreateUser: options?.shouldCreateUser,
+      emailRedirectTo:
+        options?.emailRedirectTo ?? getDefaultEmailRedirectTo(),
+      shouldCreateUser:
+        options?.shouldCreateUser ?? DEFAULT_OTP_SHOULD_CREATE_USER,
       data: options?.data,
     },
   });
