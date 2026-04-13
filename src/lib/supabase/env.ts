@@ -12,7 +12,9 @@ export function getSupabaseUrl(): string {
 export function getSupabaseAnonKey(): string {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!key) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable");
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable",
+    );
   }
   return key;
 }

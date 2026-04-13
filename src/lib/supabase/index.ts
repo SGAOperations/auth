@@ -2,10 +2,7 @@
  * Server-oriented exports; individual modules use `server-only` where needed.
  * Root middleware imports `updateSession` from here — do not add `import "server-only"` to this file.
  */
-export {
-  createAdminSupabaseClient,
-  getAuthUser,
-} from "./admin";
+export { createAdminSupabaseClient, getAuthUser } from "./admin";
 export {
   AUTH_CALLBACK_PATH,
   DEFAULT_OTP_SHOULD_CREATE_USER,

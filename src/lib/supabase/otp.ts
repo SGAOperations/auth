@@ -32,8 +32,7 @@ export async function sendOtp(
   return supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo:
-        options?.emailRedirectTo ?? getDefaultEmailRedirectTo(),
+      emailRedirectTo: options?.emailRedirectTo ?? getDefaultEmailRedirectTo(),
       shouldCreateUser:
         options?.shouldCreateUser ?? DEFAULT_OTP_SHOULD_CREATE_USER,
       data: options?.data,
