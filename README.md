@@ -39,13 +39,13 @@ Internal authentication service
    cp .env.example .env
    ```
 
-   | Variable | Purpose |
-   | --- | --- |
-   | `DATABASE_URL` | Pooled Postgres connection used by the application (via PgBouncer in prod) |
-   | `DIRECT_URL` | Direct Postgres connection used by Prisma for migrations |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (public) |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key — "Publishable" in CLI output (public) |
-   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key — "Secret" in CLI output (**never expose to the client**) |
+   | Variable                        | Purpose                                                                             |
+   | ------------------------------- | ----------------------------------------------------------------------------------- |
+   | `DATABASE_URL`                  | Pooled Postgres connection used by the application (via PgBouncer in prod)          |
+   | `DIRECT_URL`                    | Direct Postgres connection used by Prisma for migrations                            |
+   | `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL (public)                                                       |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key — "Publishable" in CLI output (public)                            |
+   | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key — "Secret" in CLI output (**never expose to the client**) |
 
    > Locally there is no connection pooling, so `DATABASE_URL` and `DIRECT_URL` will be the same.
 
@@ -63,11 +63,11 @@ Internal authentication service
 
 ## Scripts
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start Next.js dev server |
-| `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run format` | Format code with Prettier |
+| Command                | Description                      |
+| ---------------------- | -------------------------------- |
+| `npm run dev`          | Start Next.js dev server         |
+| `npm run build`        | Production build                 |
+| `npm run start`        | Start production server          |
+| `npm run lint`         | Run ESLint                       |
+| `npm run format`       | Format code with Prettier        |
 | `npm run format:check` | Check formatting without writing |
