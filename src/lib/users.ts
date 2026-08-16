@@ -1,7 +1,12 @@
 "use server";
 
+// TODO(auth): none of these actions check caller identity/authority yet.
+// Add an authorization check (self-access or User.isAdmin) once session
+// infra lands (see #3 / auth-11's createServerSupabaseClient) — track in
+// a follow-up ticket before this is wired into any client component.
+
 import { prisma } from "@/lib/prisma";
-import { supabaseAdmin } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import type { User } from "@/generated/prisma/client";
 
 /**
@@ -45,7 +50,8 @@ export async function getUser(
   );
 
   if (error) {
-    throw new Error(error.message);
+    console.error("Failed to fetch Supabase auth user email", error);
+    throw new Error("Failed to fetch user email");
   }
 
   return { ...user, email: data.user.email };
@@ -60,7 +66,7 @@ export async function getUsers(filters?: {
   isAdmin?: boolean;
 }): Promise<User[]> {
   return prisma.user.findMany({
-    where: filters,
+    where: { isAdmin: filters?.isAdmin },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -75,12 +81,13 @@ export async function updateUser(
   id: string,
   data: { isAdmin?: boolean },
 ): Promise<User> {
-  return prisma.user.update({ where: { id }, data });
+  const { isAdmin } = data;
+  return prisma.user.update({ where: { id }, data: { isAdmin } });
 }
 
 /**
- * Deletes a User by ID. Attempts to delete the linked Supabase auth user first,
- * then hard deletes all related data in a transaction
+ * Deletes a User by ID. Hard deletes all related data in a transaction first,
+ * then deletes the linked Supabase auth user.
  * @param id User UUID to delete
  * @throws If the User is not found, or the Supabase auth user deletion fails
  */
@@ -91,17 +98,18 @@ export async function deleteUser(id: string): Promise<void> {
     throw new Error("User not found");
   }
 
-  const { error } = await supabaseAdmin.auth.admin.deleteUser(
-    user.supabaseUserId,
-  );
-
-  if (error) {
-    throw new Error("Failed to delete Supabase auth user");
-  }
-
   await prisma.$transaction([
     prisma.session.deleteMany({ where: { userId: id } }),
     prisma.userProject.deleteMany({ where: { userId: id } }),
     prisma.user.delete({ where: { id } }),
   ]);
+
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(
+    user.supabaseUserId,
+  );
+
+  if (error) {
+    console.error("Failed to delete Supabase auth user", error);
+    throw new Error("Failed to delete Supabase auth user");
+  }
 }
