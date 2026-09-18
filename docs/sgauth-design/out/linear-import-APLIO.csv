@@ -1,0 +1,75 @@
+﻿"Title","Description","Priority","Estimate","Status","Labels"
+"Export Aplio users for the SGAuth import and receive the id mapping","**Ticket:** APLIO-P01  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** AUTH-T88 (Aplio user import (emails and names, no passwords) with invites and id mapping)
+
+Export `User` rows (id, email, name, isAdmin, deletedAt) to JSON for the SGAuth import; receive the SGAuth id-mapping file; verify every active Aplio user maps to an SGAuth user.
+
+**Acceptance criteria**
+- [ ] Mapping verified with a script; discrepancies resolved before cutover.","High","2","Backlog","epic:sgauth-integration, phase:4, sgauth, migration"
+"Replace local Better Auth with the SGAuth SDK","**Ticket:** APLIO-P02  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** APLIO-P01 (Export Aplio users for the SGAuth import and receive the id mapping); AUTH-T59 (SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs)); AUTH-T80 (Integration guide for Neon-based products (Next.js))
+
+Remove `lib/auth/config.ts` (emailOTP, rate limits), `app/api/auth/[...path]`, the OTP email template and Resend usage for OTP, the login/OTP pages, and `resolveUser`'s Better Auth branch; implement `getCurrentUser`/`getOptionalUser`/`getDeactivatedSessionUser` over the SDK. Keep Aplio's deactivation concept (`deletedAt`) as a product-level state. Drop the `Session`, `Account`, and `Verification` tables in a follow-up migration after cutover.
+
+**Acceptance criteria**
+- [ ] No `better-auth` dependency remains in Aplio; all `(auth)` routes are protected by the SGAuth proxy.
+- [ ] Deactivated Aplio users still see the explanatory screen rather than a login loop.","High","5","Backlog","epic:sgauth-integration, phase:4, sgauth, backend"
+"Key Aplio users by SGAuth user id","**Ticket:** APLIO-P03  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** APLIO-P02 (Replace local Better Auth with the SGAuth SDK)
+
+Add `sgauthUserId String @unique` to `User`, backfill from the id-mapping file, and make all lookups go through it; create-on-first-login for new applicants (name/email from the session). Keep Aplio's own `User.id` as the FK target for the many audit relations to avoid rewriting every table. Remove `neonAuthId`.
+
+**Acceptance criteria**
+- [ ] Every existing application, answer, and email log still resolves to the right person after backfill (verification query).","High","5","Backlog","epic:sgauth-integration, phase:4, sgauth, data"
+"Derive Aplio admin from an SGAuth position; managers stay product-level","**Ticket:** APLIO-P04  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** APLIO-P02 (Replace local Better Auth with the SGAuth SDK); AUTH-T44 (Seed the curated SGA position list)
+
+Replace `User.isAdmin` with a position check (e.g. `aplio-admin` or the relevant exec positions) in `requireAdmin`/`requireAdminOr404` and `buildReviewablePositionWhere`; position managers remain an Aplio relation. Provide a one-time script that assigns the `aplio-admin` position in SGAuth to current Aplio admins (via the SGAuth bulk assign API or CSV).
+
+**Acceptance criteria**
+- [ ] Admin pages gate on positions; the `isAdmin` column is removed after cutover.","High","2","Backlog","epic:sgauth-integration, phase:4, sgauth, permissions"
+"Applicant flow on SGAuth accounts (northeastern.edu required)","**Ticket:** APLIO-P05  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** APLIO-P02 (Replace local Better Auth with the SGAuth SDK)
+
+Applicants now create SGAuth accounts via northeastern.edu self-sign-up with verification. Decision: every student has a northeastern.edu address, so no domain exception exists; applicants who previously used another address must use their Northeastern one. Update the apply entry points to redirect to SGAuth sign-up with a redirect back to the position, and add copy explaining the Northeastern-email requirement. Existing Aplio users with non-NU addresses are imported as legacy accounts (AUTH-T88) and keep working until an admin moves them to their NU address.
+
+**Acceptance criteria**
+- [ ] A new student can apply end-to-end: SGAuth sign-up → verify → land on the application form.
+- [ ] Apply pages state the northeastern.edu requirement before the redirect.","High","3","Backlog","epic:sgauth-integration, phase:4, sgauth, product"
+"Local dev bypass and preview topology","**Ticket:** APLIO-P06  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** APLIO-P02 (Replace local Better Auth with the SGAuth SDK); AUTH-T34 (Non-production SSO topology: dev deployment, local hostnames, product preview domains)
+
+Keep the dev-bypass user cookie for local only (never on any deployed host), and configure `apply-dev.northeasternsga.com` with the dev SGAuth URL and cookie name.
+
+**Acceptance criteria**
+- [ ] Bypass is a no-op on all Vercel deployments; preview branch domain shares the dev SSO session.","Low","1","Backlog","epic:sgauth-integration, phase:4, sgauth, dev"
+"Aplio hard cutover outside an application window","**Ticket:** APLIO-P07  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** APLIO-P03 (Key Aplio users by SGAuth user id); APLIO-P04 (Derive Aplio admin from an SGAuth position; managers stay product-level); APLIO-P05 (Applicant flow on SGAuth accounts (northeastern.edu required)); AUTH-T91 (Production launch checklist and Primary Admin bootstrap)
+
+Schedule the cutover when no application cycle is open; users were pre-imported and invited; announce; rollback = redeploy previous release (local Better Auth tables retained for 14 days); 3-day support window.
+
+**Acceptance criteria**
+- [ ] Cutover completed; no applicant lost draft access (verified with a sample of drafts).","High","2","Backlog","epic:sgauth-integration, phase:4, sgauth, rollout"
+"Update Aplio tests for SDK-based auth","**Ticket:** APLIO-P08  
+**Epic:** SGAuth integration — Aplio  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** APLIO-P04 (Derive Aplio admin from an SGAuth position; managers stay product-level)
+
+Replace Better Auth session mocks with SDK session mocks; cover admin, manager, applicant, deactivated, and anonymous paths for guards and scopes.
+
+**Acceptance criteria**
+- [ ] Aplio CI green; guard coverage unchanged or higher.","Medium","3","Backlog","epic:sgauth-integration, phase:4, sgauth, testing"
