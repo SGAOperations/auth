@@ -137,8 +137,29 @@ async function link() {
   console.log(`done link: ${n} updated`);
 }
 
+async function relabel(team) {
+  let n = 0;
+  for (const t of all.filter((x) => x.team === team)) {
+    const m = map[t.id];
+    if (!m) continue;
+    const file = join(TMP, `${t.id}.labels.json`);
+    writeFileSync(file, JSON.stringify({ labels: labelsFor(t) }));
+    try {
+      gh(["api", `repos/${m.repo}/issues/${m.number}/labels`, "--method", "PUT", "--input", file]);
+      console.log(`relabeled: ${t.id} (#${m.number})`);
+      n++;
+    } catch (e) {
+      console.error(`FAILED relabel ${t.id}: ${String(e.stderr || e.message).trim()}`);
+      process.exit(1);
+    }
+    await sleep(1500);
+  }
+  console.log(`done relabel ${team}: ${n}`);
+}
+
 const [cmd, team, flag] = process.argv.slice(2);
 if (cmd === "labels") { if (!REPOS[team]) throw new Error("unknown team"); await createLabels(team); }
+else if (cmd === "relabel") { if (!REPOS[team]) throw new Error("unknown team"); await relabel(team); }
 else if (cmd === "create") { if (!REPOS[team]) throw new Error("unknown team"); await create(team, { withLabels: flag !== "--no-labels" }); }
 else if (cmd === "link") await link();
 else console.log("usage: node gh-issues.mjs labels TEAM | create TEAM [--no-labels] | link");
