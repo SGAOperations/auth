@@ -39,7 +39,7 @@ Define the permissions map from position keys to Attendance roles (MEMBER/OFFICE
 "User import and cutover","**Ticket:** ATTENDANCE-M05  
 **Epic:** SGAuth integration — Attendance Manager  
 **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
-**Depends on:** ATTENDANCE-M04 (Map roles to SGAuth positions; keep NUID product-side); AUTH-T89 (SenatePath and Attendance Manager user import)
+**Depends on:** ATTENDANCE-M04 (Map roles to SGAuth positions; keep NUID product-side); AUTH-T89 (SenatePath and SenatePortal user import)
 
 Export users (email, names, role) for the SGAuth import, receive the id mapping, backfill `sgauthUserId`, run the per-product cutover checklist.
 

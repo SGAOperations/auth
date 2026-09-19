@@ -658,5 +658,10 @@
     "repo": "SGAOperations/auth",
     "number": 115,
     "url": "https://github.com/SGAOperations/auth/issues/115"
+  },
+  "AUTH-T105": {
+    "repo": "SGAOperations/auth",
+    "number": 116,
+    "url": "https://github.com/SGAOperations/auth/issues/116"
   }
 }

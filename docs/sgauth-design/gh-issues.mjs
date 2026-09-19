@@ -157,7 +157,30 @@ async function relabel(team) {
   console.log(`done relabel ${team}: ${n}`);
 }
 
+// Re-renders title + body for the given ticket ids (or all created tickets) from the current sources.
+async function update(ids) {
+  const targets = ids.length ? ids : all.map((t) => t.id);
+  let n = 0;
+  for (const id of targets) {
+    const t = byId.get(id), m = map[id];
+    if (!t || !m) { console.log(`skip (not created): ${id}`); continue; }
+    const file = join(TMP, `${id}.update.json`);
+    writeFileSync(file, JSON.stringify({ title: t.title, body: body(t) }));
+    try {
+      gh(["api", `repos/${m.repo}/issues/${m.number}`, "--method", "PATCH", "--input", file]);
+      console.log(`updated: ${id} (#${m.number})`);
+      n++;
+    } catch (e) {
+      console.error(`FAILED update ${id}: ${String(e.stderr || e.message).trim()}`);
+      process.exit(1);
+    }
+    await sleep(1500);
+  }
+  console.log(`done update: ${n}`);
+}
+
 const [cmd, team, flag] = process.argv.slice(2);
+if (cmd === "update") { await update(process.argv.slice(3)); process.exit(0); }
 if (cmd === "labels") { if (!REPOS[team]) throw new Error("unknown team"); await createLabels(team); }
 else if (cmd === "relabel") { if (!REPOS[team]) throw new Error("unknown team"); await relabel(team); }
 else if (cmd === "create") { if (!REPOS[team]) throw new Error("unknown team"); await create(team, { withLabels: flag !== "--no-labels" }); }

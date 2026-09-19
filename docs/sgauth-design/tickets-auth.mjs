@@ -288,12 +288,14 @@ No breached-password (HIBP) check, per decision.`,
   {
     id: "AUTH-T20", epic: "authcore", phase: 1, priority: "High", estimate: 3, labels: ["backend", "email", "infra"], deps: ["AUTH-T07"],
     title: "Email infrastructure: Resend on a dedicated SGAuth sending domain with volume caps",
-    description: `Password login keeps email volume low (verification, reset, invite, lock/unlock, security notices, PA transfer steps). To avoid sharing Aplio's and Chambers' Resend quota:
-- Separate Resend API key and a dedicated sending domain \`mail.northeasternsga.com\` with SPF, DKIM, and DMARC (p=quarantine) records; \`from\` = \`SGA Auth <no-reply@mail.northeasternsga.com>\`.
+    description: `Password login keeps email volume low (verification, reset, set-password, lock/unlock, security notices, PA transfer steps). Chambers sends almost all of SGA's current email, and Resend's free quota is **per account**, so a separate API key inside the shared account would not isolate anything. Therefore:
+- **Separate Resend account** owned by an SGA shared mailbox (not a student's personal login), credentials in the team vault. Confirm once that Resend's terms permit a distinct account for a distinct sender and record the answer here.
+- Dedicated sending subdomain \`mail.northeasternsga.com\` verified only in that account, with SPF, DKIM, and DMARC (p=quarantine) records; \`from\` = \`SGA Auth <no-reply@mail.northeasternsga.com>\`.
 - \`src/lib/email/mailer.ts\` provider-agnostic interface (\`sendEmail({ to, template, data })\`) with a Resend implementation and a console/preview transport for local/test.
 - Templates (React Email or plain HTML+text): verify, reset, invite/set-password, account locked, unlock, security notice (password changed / new admin grant), PA transfer initiated / accepted / cancelled / completed, inactivity notice.
 - Caps: per-recipient 10 emails per hour and 30 per day; global daily cap (env, default 500) with an alert at 80%. Log every send with template and recipient hash to the log stream.`,
     acceptance: [
+      "SGAuth sends from its own Resend account, owned by an SGA shared mailbox; its usage does not appear in the Chambers/Aplio account.",
       "DKIM/SPF/DMARC verified in the Resend dashboard; a test email to Gmail and Outlook lands in the inbox with aligned DMARC.",
       "Exceeding the per-recipient cap is refused with a logged warning, not an exception to the user.",
       "All templates render in both HTML and text and are snapshot-tested.",
@@ -311,11 +313,17 @@ No breached-password (HIBP) check, per decision.`,
   },
   {
     id: "AUTH-T22", epic: "authcore", phase: 2, priority: "Medium", estimate: 2, labels: ["backend", "email", "admin"], deps: ["AUTH-T20", "AUTH-T17", "AUTH-T103"],
-    title: "Invite flow: admin-created users receive a set-password link",
-    description: `When an admin creates a user (or the bulk import runs), create the User with \`emailVerified = true\` (admin vouches for the address), no password, and send an invite email with a set-password token valid 7 days (consumed on form submit, AUTH-T103). Setting the password marks the account ready and logs the user in. Admins can resend an invite (rate-limited 3/day per user). Users who never accept are listed in the admin UI as 'Invited'. If an invited (password-less) user tries to self-sign-up with the same email, the login page copy points them to 'Forgot password / set password' rather than creating a second account.`,
+    title: "Password-less accounts: lazy set-password on first sign-in, plus admin invites",
+    description: `Imported accounts (Aplio OTP users, SenatePath, SenatePortal) and admin-created accounts exist with \`emailVerified = true\` (the source product or admin vouches for the address) and **no password**. Decision: no invite blast at import, so email volume spreads out and users who never return cost nothing.
+- **Lazy set-password:** the login page asks for email first. If the account exists and has no password, SGAuth sends a one-time set-password link (valid 1 hour, consumed on form submit per AUTH-T103, rate-limited 3/hour per account) and shows the same 'Check your email' message it would show for an unknown address, so the flow reveals nothing about account existence. Setting the password logs the user in; the account keeps its UUID, so all product data stays attached.
+- **Admin invite (optional):** admins can still push a set-password email to a specific user (for example a newly appointed officer who needs access before an event). Rate-limited 3/day per user; token valid 7 days.
+- Self-sign-up with the email of a password-less account does not create a second account; it triggers the same set-password email.
+- Admin UI shows these accounts as 'Password not set'.`,
     acceptance: [
-      "An invited user cannot log in with any password until they set one via the link.",
-      "Expired invite shows a message and the admin sees a 'Resend invite' action.",
+      "A password-less account cannot log in with any password until one is set via the emailed link.",
+      "Entering a password-less account's email on the login page sends exactly one set-password email and shows the same message as for an unknown email (enumeration test).",
+      "Importing 500 password-less users sends zero emails.",
+      "An admin can send an invite to one user; an expired link shows a request-new-link option.",
     ],
   },
   {
@@ -546,7 +554,7 @@ Each route is idempotent, logs outcomes, and returns quickly (under the function
   {
     id: "AUTH-T41", epic: "admin", phase: 2, priority: "Medium", estimate: 3, labels: ["backend", "admin", "migration"], deps: ["AUTH-T36", "AUTH-T43"],
     title: "Bulk user import (CSV) with position assignment and batched invites",
-    description: `Admin endpoint + UI to upload a CSV (\`email,name,positions\` where positions is a \`|\`-separated list of keys). Validates rows (email format, known keys), previews the diff (new users, existing users, position changes), then applies: creates users as invited (AUTH-T22), assigns positions, and queues invite emails respecting mailer caps (AUTH-T20) in batches. Produces a downloadable report. Audit BULK_IMPORT with counts.`,
+    description: `Admin endpoint + UI to upload a CSV (\`email,name,positions\` where positions is a \`|\`-separated list of keys). Validates rows (email format, known keys), previews the diff (new users, existing users, position changes), then applies: creates users as password-less accounts (AUTH-T22), assigns positions, and sends no email by default; an optional 'send set-password emails now' checkbox queues invites in batches under the mailer caps (AUTH-T20). Produces a downloadable report. Audit BULK_IMPORT with counts.`,
     acceptance: [
       "A 200-row CSV with 5 invalid rows shows the 5 errors and imports nothing until fixed (all-or-nothing) or with an explicit 'skip invalid' toggle.",
       "Re-importing the same CSV is idempotent (no duplicate users or assignments).",
@@ -926,14 +934,14 @@ Key naming convention (document in the admin UI help and the integration guides)
   },
   {
     id: "AUTH-T88", epic: "rollout", phase: 4, priority: "High", estimate: 2, labels: ["migration", "aplio"], deps: ["AUTH-T87", "AUTH-T22"],
-    title: "Aplio user import (emails and names, no passwords) with invites and id mapping",
-    description: `Aplio users authenticated with email OTP and have no passwords. Extend the import script with \`--source aplio.json\` (id, email, name, isAdmin, deletedAt): upsert by email, mark as invited (set-password link) unless they already exist with a password, do not grant SGAuth admin from Aplio's \`isAdmin\` (product-level; APLIO-P04 maps it to a position), skip soft-deleted users, produce the id-mapping file for APLIO-P03. Accounts whose address is not northeastern.edu are imported as-is (the admin/import path bypasses the domain rule) with \`legacyEmail = true\`; they keep working, and an admin can later move them to the person's northeastern.edu address via AUTH-T24, preserving the SGAuth id and Aplio history. Invites are sent in batches under the mailer caps; stagger over days if needed.`,
-    acceptance: ["Report shows created/merged counts; a sample invited user sets a password and logs in; id-mapping file delivered to the Aplio team."],
+    title: "Aplio user import (emails and names, no passwords) with id mapping",
+    description: `Aplio users authenticated with email OTP and have no passwords. Extend the import script with \`--source aplio.json\` (id, email, name, isAdmin, deletedAt): upsert by email (duplicates of Chambers accounts merge into the existing account and keep its password), create the rest as password-less accounts that set a password lazily on first sign-in (AUTH-T22; **no emails are sent at import**), do not grant SGAuth admin from Aplio's \`isAdmin\` (product-level; APLIO-P04 maps it to a position), skip soft-deleted users, produce the id-mapping file for APLIO-P03. Accounts whose address is not northeastern.edu are imported as-is (the admin/import path bypasses the domain rule) with \`legacyEmail = true\`; they keep working, and an admin can later move them to the person's northeastern.edu address via AUTH-T24, preserving the SGAuth id and Aplio history. Eli plans to look up and correct these few addresses by hand; the import report lists them.`,
+    acceptance: ["Report shows created/merged counts and lists every non-northeastern.edu account; the import sends no email; a sample imported user sets a password on first sign-in and sees their Aplio data; id-mapping file delivered to the Aplio team."],
   },
   {
     id: "AUTH-T89", epic: "rollout", phase: 4, priority: "Medium", estimate: 2, labels: ["migration"], deps: ["AUTH-T88"],
-    title: "SenatePath and Attendance Manager user import",
-    description: `Same script with \`--source senatepath.json\` (admin users only) and \`--source attendance.json\` (email, first/last, role) — NUID is NOT imported. Positions mapping files approved per product. Invites batched.`,
+    title: "SenatePath and SenatePortal user import",
+    description: `Same script with \`--source senatepath.json\` (admin users only) and \`--source senateportal.json\` (email, first/last, role; SenatePortal is the new name for Attendance Manager) — NUID is NOT imported. Positions mapping files approved per product. Accounts are created password-less and set passwords lazily on first sign-in (AUTH-T22); no emails at import.`,
     acceptance: ["Both imports run on dev with reports; id-mapping files delivered to each team."],
   },
   {
@@ -1026,6 +1034,24 @@ Mitigations: (1) a scheduled job (AUTH-T38, daily) reads consumption via the Neo
     acceptance: [
       "A HEAD or GET request to any emailed link does not consume the token (integration test); the subsequent POST does, exactly once.",
       "Every email template's link points at a page implementing the pattern (test enumerates templates).",
+    ],
+  },
+  {
+    id: "AUTH-T105", epic: "authcore", phase: 4, priority: "Medium", estimate: 5, labels: ["backend", "frontend", "security", "better-auth"], deps: ["AUTH-T17", "AUTH-T32", "AUTH-T54", "AUTH-T67"],
+    title: "Passkeys as an optional sign-in method",
+    description: `Suggested by Benedikt and accepted: add the Better Auth \`passkey\` plugin (WebAuthn) as an optional, per-user sign-in method. Passkeys cost no email, resist phishing, and suit students who prefer not to manage passwords.
+- **Enrollment** from \`/account/security\` after fresh re-auth (AUTH-T32); users may register several passkeys and name/remove them. Relying-party ID is \`auth.northeasternsga.com\` (dev: \`auth-dev.northeasternsga.com\`), so passkeys are only usable on SGAuth's own login page; products never see WebAuthn.
+- **Sign-in:** the login page offers 'Sign in with a passkey' alongside email + password, including conditional UI (browser autofill) where supported. A successful passkey sign-in creates the same parent-domain session as a password sign-in.
+- **Password stays** as the account's fallback and for recovery; passkeys do not replace the password in v1.
+- **MFA:** a passkey does **not** satisfy the admin TOTP requirement in v1 (admins still enroll TOTP); revisit later.
+- Lockout counters (AUTH-T64) are unaffected by passkey attempts; failed WebAuthn ceremonies are rate-limited (AUTH-T63).
+- Schema: plugin's \`Passkey\` table via Prisma; audit PASSKEY_ADDED / PASSKEY_REMOVED / LOGIN_SUCCESS with method=passkey.
+- Tombstoning (AUTH-T78) and admin deactivation remove passkeys.`,
+    acceptance: [
+      "A user can enroll a passkey after re-auth, sign out, and sign back in with the passkey in Chrome, Safari, and Firefox (platform authenticator and a security key).",
+      "A passkey sign-in yields a session that products resolve exactly like a password sign-in (session endpoint contract test).",
+      "Removing a passkey or deactivating the user prevents its further use; audit events are emitted.",
+      "An admin who signs in with a passkey is still required to have TOTP enrolled for admin actions.",
     ],
   },
   {

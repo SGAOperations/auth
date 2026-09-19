@@ -33,7 +33,7 @@ VaultZ's `User` table records purchasers (first/last), not logins. Add `sgauthUs
 **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
 **Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy); AUTH-T44 (Seed the curated SGA position list)
 
-Create `lib/permissions.ts` mapping SGAuth position keys to VaultZ capabilities (e.g. `vp-finance`, `treasurer` → manage designations/budgets/transfers; `finance-committee` → create purchases; everyone else → read-only or no access). Gate server actions and pages with `hasAnyPosition`. Permissions are decided in VaultZ, not in SGAuth; SGAuth only supplies positions. Document the map in the README and agree the keys with the curated position list.
+Create `lib/permissions.ts` mapping SGAuth position keys to VaultZ capabilities, using keys from the curated seed (`prisma/seed/positions.json` in SGAOperations/auth). Starting proposal for the VaultZ owner to confirm: `vice-president-of-operational-affairs`, `comptroller`, `finance-manager` → manage designations/budgets/transfers; `student-body-president`, `executive-vice-president` → read everything; any other position holder → create their own purchases; no positions → no access. Add a product role (e.g. `vaultz-admin`) in the SGAuth admin UI only if the curated offices do not cover a need. Gate server actions and pages with `hasAnyPosition`. Permissions are decided in VaultZ, not in SGAuth; SGAuth only supplies positions. Document the map in the README and agree the keys with the curated position list.
 
 **Acceptance criteria**
 - [ ] Every mutating server action checks a capability; a user without positions cannot create or edit anything (tests).

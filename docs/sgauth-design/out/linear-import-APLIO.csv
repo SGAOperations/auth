@@ -2,7 +2,7 @@
 "Export Aplio users for the SGAuth import and receive the id mapping","**Ticket:** APLIO-P01  
 **Epic:** SGAuth integration — Aplio  
 **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
-**Depends on:** AUTH-T88 (Aplio user import (emails and names, no passwords) with invites and id mapping)
+**Depends on:** AUTH-T88 (Aplio user import (emails and names, no passwords) with id mapping)
 
 Export `User` rows (id, email, name, isAdmin, deletedAt) to JSON for the SGAuth import; receive the SGAuth id-mapping file; verify every active Aplio user maps to an SGAuth user.
 
@@ -60,7 +60,7 @@ Keep the dev-bypass user cookie for local only (never on any deployed host), and
 **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
 **Depends on:** APLIO-P03 (Key Aplio users by SGAuth user id); APLIO-P04 (Derive Aplio admin from an SGAuth position; managers stay product-level); APLIO-P05 (Applicant flow on SGAuth accounts (northeastern.edu required)); AUTH-T91 (Production launch checklist and Primary Admin bootstrap)
 
-Schedule the cutover when no application cycle is open; users were pre-imported and invited; announce; rollback = redeploy previous release (local Better Auth tables retained for 14 days); 3-day support window.
+Schedule the cutover when no application cycle is open; users were pre-imported as password-less accounts (no invite blast); announce the change, explaining that the first sign-in asks for a new password by email; rollback = redeploy previous release (local Better Auth tables retained for 14 days); 3-day support window.
 
 **Acceptance criteria**
 - [ ] Cutover completed; no applicant lost draft access (verified with a sample of drafts).","High","2","Backlog","epic:sgauth-integration, phase:4, sgauth, rollout"

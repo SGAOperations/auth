@@ -13,14 +13,14 @@ Create a Neon project/branches, dump and restore the Postgres schema and data (p
 **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
 **Depends on:** SENATEPATH-S01 (Migrate SenatePath's database from Supabase to Neon); AUTH-T59 (SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs)); AUTH-T80 (Integration guide for Neon-based products (Next.js))
 
-Install the SDK; protect `/admin/**` with the proxy; replace the Supabase login page with a redirect to SGAuth; gate admin capabilities on a position (e.g. `elections-chair` / `senate-admin`). Public application/nomination forms remain unauthenticated as today.
+Install the SDK; protect `/admin/**` with the proxy; replace the Supabase login page with a redirect to SGAuth; gate admin capabilities on curated positions (proposal for the SenatePath owner to confirm: `director-of-elections`, `vice-chair-of-elections`, `elections-board-member`, `speaker-of-the-senate`). Public application/nomination forms remain unauthenticated as today.
 
 **Acceptance criteria**
 - [ ] Admin pages require an SGAuth session with the configured position; public forms unaffected.","High","3","Backlog","epic:sgauth-integration, phase:4, sgauth, backend"
 "Import SenatePath admins into SGAuth and cut over","**Ticket:** SENATEPATH-S03  
 **Epic:** SGAuth integration — SenatePath  
 **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
-**Depends on:** SENATEPATH-S02 (Gate the SenatePath admin area with SGAuth positions); AUTH-T89 (SenatePath and Attendance Manager user import)
+**Depends on:** SENATEPATH-S02 (Gate the SenatePath admin area with SGAuth positions); AUTH-T89 (SenatePath and SenatePortal user import)
 
 Export admin emails for the SGAuth import; confirm they hold the gating position; run the per-product cutover checklist; delete Supabase project after a 14-day retention window.
 

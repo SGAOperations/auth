@@ -1,6 +1,6 @@
 # SGAuth ticket set
 
-Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 138 tickets across 6 teams (5 with Linear CSVs; Chambers has no Linear team and is a checklist only). CSVs in `out/` use Linear's importer columns (Title, Description, Priority, Estimate, Status, Labels); each ticket's description carries its epic, phase, and dependencies because the importer does not create projects or parent links. Red-team revisions are folded in; see `SGAuth-red-team.md`.
+Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 139 tickets across 6 teams (5 with Linear CSVs; Chambers has no Linear team and is a checklist only). CSVs in `out/` use Linear's importer columns (Title, Description, Priority, Estimate, Status, Labels); each ticket's description carries its epic, phase, and dependencies because the importer does not create projects or parent links. Red-team revisions are folded in; see `SGAuth-red-team.md`.
 
 **Manual action item (not a ticket):** Eli exports the Chambers Supabase `auth.users` table (with `encrypted_password`) joined to `public.users` before that Supabase project is deleted, and stores the file in the team secrets vault. AUTH-T86 validates the file; AUTH-T87 imports it.
 
@@ -26,7 +26,7 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 138 tickets across
 
 - **E1 Foundation & Neon Migration** (label `epic:foundation`, 10 tickets, 23 points): Replace the Supabase foundation with Neon serverless Postgres, Better Auth, Vercel hosting, CI, and environment tooling. SGAuth MUST run on Neon and MUST NOT use Supabase for auth or data.
 - **E2 Data Model & Migrations** (label `epic:data-model`, 7 tickets, 16 points): Prisma 7 schema on Neon: users, Better Auth tables, positions, admin/Primary Admin invariants, audit log, product registry, security tables, and the migration workflow.
-- **E3 Authentication Core** (label `epic:auth-core`, 12 tickets, 29 points): Email + password authentication with Better Auth: sign-up restricted to northeastern.edu, verification, reset, invites, imported bcrypt hashes, and the login UI.
+- **E3 Authentication Core** (label `epic:auth-core`, 13 tickets, 34 points): Email + password authentication with Better Auth: sign-up restricted to northeastern.edu, verification, reset, invites, imported bcrypt hashes, and the login UI.
 - **E4 Sessions & SSO** (label `epic:sessions`, 10 tickets, 24 points): One session across *.northeasternsga.com via a parent-domain cookie, the session endpoint products call, ES256 JWTs + JWKS for Supabase products, logout propagation, redirects, re-authentication, and the non-production topology.
 - **E5 Admin & Primary Admin** (label `epic:admin`, 7 tickets, 23 points): Server-enforced admin rules, the single transferable Primary Admin with a guarded transfer flow, break-glass recovery, and bulk user administration.
 - **E6 Positions** (label `epic:positions`, 5 tickets, 11 points): Flat, admin-managed positions (stable key + display name) carried in every session; assignment, soft delete, retirement, propagation, and history.
@@ -42,7 +42,7 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 138 tickets across
 
 - **SGAuth integration — VaultZ** (team VaultZ, 8 tickets, 17 points, Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ): Replace the shared-passphrase gate with SGAuth sessions via the SDK. First product integrated; proves the SDK and the Neon-product guide.
 - **SGAuth integration — Chambers** (team Chambers, 9 tickets, 26 points, Phase 3 — Hardening, observability, Chambers): Chambers has no Linear team; these items are a Markdown checklist only (no CSV). Chambers is a Neon product (migration completes before integration). Replace Supabase Auth, live-role checks, and session revocation with SGAuth sessions and positions; users and password hashes are imported into SGAuth. The auth.users export is Eli's manual action item, not a ticket.
-- **SGAuth integration — Aplio** (team Aplio, 8 tickets, 23 points, Phase 4 — Aplio, SenatePath, Attendance Manager, retention): Hard cutover from Aplio's local Better Auth (email OTP) to SGAuth via the SDK; users pre-imported and invited to set passwords.
+- **SGAuth integration — Aplio** (team Aplio, 8 tickets, 23 points, Phase 4 — Aplio, SenatePath, Attendance Manager, retention): Hard cutover from Aplio's local Better Auth (email OTP) to SGAuth via the SDK; users pre-imported as password-less accounts that set a password on first sign-in.
 - **SGAuth integration — SenatePath** (team SenatePath, 4 tickets, 12 points, Phase 4 — Aplio, SenatePath, Attendance Manager, retention): Migrate SenatePath's database from Supabase to Neon and gate the admin area with SGAuth positions.
 - **SGAuth integration — Attendance Manager** (team Attendance Manager, 6 tickets, 17 points, Phase 4 — Aplio, SenatePath, Attendance Manager, retention): Decision pending from the team: either stay on Supabase and consume SGAuth via third-party auth (JWT trust), or move to Neon and use the SDK. Both paths are ticketed; only one will be executed.
 
@@ -71,7 +71,7 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 138 tickets across
 | AUTH-T19 | Password reset flow | AUTH | 1 | High | 3 | AUTH-T17, AUTH-T20, AUTH-T103 |
 | AUTH-T20 | Email infrastructure: Resend on a dedicated SGAuth sending domain with volume caps | AUTH | 1 | High | 3 | AUTH-T07 |
 | AUTH-T21 | Accept imported Chambers bcrypt hashes with lazy re-hash to scrypt | AUTH | 3 | High | 2 | AUTH-T17 |
-| AUTH-T22 | Invite flow: admin-created users receive a set-password link | AUTH | 2 | Medium | 2 | AUTH-T20, AUTH-T17, AUTH-T103 |
+| AUTH-T22 | Password-less accounts: lazy set-password on first sign-in, plus admin invites | AUTH | 2 | Medium | 2 | AUTH-T20, AUTH-T17, AUTH-T103 |
 | AUTH-T23 | Change password (current password + re-auth), revoke other sessions | AUTH | 2 | Medium | 2 | AUTH-T17, AUTH-T32 |
 | AUTH-T24 | Admin-initiated email change with re-verification and privilege rules | AUTH | 3 | Low | 2 | AUTH-T36, AUTH-T20 |
 | AUTH-T25 | Login, sign-up, forgot/reset, and verify pages | AUTH | 1 | High | 3 | AUTH-T17, AUTH-T18, AUTH-T19, AUTH-T31 |
@@ -137,8 +137,8 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 138 tickets across
 | AUTH-T85 | CLAUDE.md and CONTRIBUTING.md for agents and humans | AUTH | 1 | Low | 1 | AUTH-T02, AUTH-T06 |
 | AUTH-T86 | Receive the Chambers auth.users export and define the import file format | AUTH | 3 | High | 2 | — |
 | AUTH-T87 | Import script: Chambers users with bcrypt hashes and position mapping | AUTH | 3 | High | 3 | AUTH-T86, AUTH-T21, AUTH-T44, AUTH-T13 |
-| AUTH-T88 | Aplio user import (emails and names, no passwords) with invites and id mapping | AUTH | 4 | High | 2 | AUTH-T87, AUTH-T22 |
-| AUTH-T89 | SenatePath and Attendance Manager user import | AUTH | 4 | Medium | 2 | AUTH-T88 |
+| AUTH-T88 | Aplio user import (emails and names, no passwords) with id mapping | AUTH | 4 | High | 2 | AUTH-T87, AUTH-T22 |
+| AUTH-T89 | SenatePath and SenatePortal user import | AUTH | 4 | Medium | 2 | AUTH-T88 |
 | AUTH-T90 | Rollout plan and user communications | AUTH | 3 | Medium | 2 | AUTH-T80, AUTH-T87 |
 | AUTH-T91 | Production launch checklist and Primary Admin bootstrap | AUTH | 2 | High | 2 | AUTH-T72, AUTH-T66, AUTH-T76, AUTH-T39, AUTH-T64 |
 | AUTH-T92 | Post-launch review and legacy cleanup tracking | AUTH | 4 | Low | 1 | AUTH-T90 |
@@ -152,6 +152,7 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 138 tickets across
 | AUTH-T100 | Backlog: optional email OTP login (deferred due to email volume) | AUTH | 5 | Low | 2 | AUTH-T91 |
 | AUTH-T101 | Neon Free-plan quota monitoring, alerts, and upgrade runbook | AUTH | 0 | High | 2 | AUTH-T01 |
 | AUTH-T103 | Scanner-safe email links: land on a page, consume the token on POST | AUTH | 1 | Urgent | 2 | AUTH-T20 |
+| AUTH-T105 | Passkeys as an optional sign-in method | AUTH | 4 | Medium | 5 | AUTH-T17, AUTH-T32, AUTH-T54, AUTH-T67 |
 | AUTH-T104 | Spike: validate cross-subdomain cookies, prefixes, and local hostnames on the real domain before building on them | AUTH | 1 | Urgent | 2 | AUTH-T05, AUTH-T26 |
 | VAULTZ-V01 | Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy | VAULTZ | 2 | High | 3 | AUTH-T59, AUTH-T80, AUTH-T34 |
 | VAULTZ-V02 | Remove the shared passphrase gate | VAULTZ | 2 | High | 2 | VAULTZ-V01 |
@@ -516,13 +517,15 @@ Forgot-password request (email only; uniform response regardless of existence), 
 **Priority:** High · **Estimate:** 3 · **Phase:** Phase 1 — Core auth, sessions, SSO (MVP) · **Labels:** epic:auth-core, phase:1, backend, email, infra  
 **Depends on:** AUTH-T07 (Validate environment variables at startup with zod)
 
-Password login keeps email volume low (verification, reset, invite, lock/unlock, security notices, PA transfer steps). To avoid sharing Aplio's and Chambers' Resend quota:
-- Separate Resend API key and a dedicated sending domain `mail.northeasternsga.com` with SPF, DKIM, and DMARC (p=quarantine) records; `from` = `SGA Auth <no-reply@mail.northeasternsga.com>`.
+Password login keeps email volume low (verification, reset, set-password, lock/unlock, security notices, PA transfer steps). Chambers sends almost all of SGA's current email, and Resend's free quota is **per account**, so a separate API key inside the shared account would not isolate anything. Therefore:
+- **Separate Resend account** owned by an SGA shared mailbox (not a student's personal login), credentials in the team vault. Confirm once that Resend's terms permit a distinct account for a distinct sender and record the answer here.
+- Dedicated sending subdomain `mail.northeasternsga.com` verified only in that account, with SPF, DKIM, and DMARC (p=quarantine) records; `from` = `SGA Auth <no-reply@mail.northeasternsga.com>`.
 - `src/lib/email/mailer.ts` provider-agnostic interface (`sendEmail({ to, template, data })`) with a Resend implementation and a console/preview transport for local/test.
 - Templates (React Email or plain HTML+text): verify, reset, invite/set-password, account locked, unlock, security notice (password changed / new admin grant), PA transfer initiated / accepted / cancelled / completed, inactivity notice.
 - Caps: per-recipient 10 emails per hour and 30 per day; global daily cap (env, default 500) with an alert at 80%. Log every send with template and recipient hash to the log stream.
 
 **Acceptance criteria**
+- [ ] SGAuth sends from its own Resend account, owned by an SGA shared mailbox; its usage does not appear in the Chambers/Aplio account.
 - [ ] DKIM/SPF/DMARC verified in the Resend dashboard; a test email to Gmail and Outlook lands in the inbox with aligned DMARC.
 - [ ] Exceeding the per-recipient cap is refused with a logged warning, not an exception to the user.
 - [ ] All templates render in both HTML and text and are snapshot-tested.
@@ -539,16 +542,22 @@ Supabase Auth (GoTrue) stores bcrypt hashes (`$2a$`/`$2b$`). Configure Better Au
 - [ ] Wrong password against a bcrypt hash fails without re-hashing.
 - [ ] A metric/query reports how many `bcrypt$` hashes remain.
 
-### AUTH-T22 — Invite flow: admin-created users receive a set-password link
+### AUTH-T22 — Password-less accounts: lazy set-password on first sign-in, plus admin invites
 
 **Priority:** Medium · **Estimate:** 2 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:auth-core, phase:2, backend, email, admin  
 **Depends on:** AUTH-T20 (Email infrastructure: Resend on a dedicated SGAuth sending domain with volume caps); AUTH-T17 (Email + password sign-in and self-sign-up restricted to northeastern.edu); AUTH-T103 (Scanner-safe email links: land on a page, consume the token on POST)
 
-When an admin creates a user (or the bulk import runs), create the User with `emailVerified = true` (admin vouches for the address), no password, and send an invite email with a set-password token valid 7 days (consumed on form submit, AUTH-T103). Setting the password marks the account ready and logs the user in. Admins can resend an invite (rate-limited 3/day per user). Users who never accept are listed in the admin UI as 'Invited'. If an invited (password-less) user tries to self-sign-up with the same email, the login page copy points them to 'Forgot password / set password' rather than creating a second account.
+Imported accounts (Aplio OTP users, SenatePath, SenatePortal) and admin-created accounts exist with `emailVerified = true` (the source product or admin vouches for the address) and **no password**. Decision: no invite blast at import, so email volume spreads out and users who never return cost nothing.
+- **Lazy set-password:** the login page asks for email first. If the account exists and has no password, SGAuth sends a one-time set-password link (valid 1 hour, consumed on form submit per AUTH-T103, rate-limited 3/hour per account) and shows the same 'Check your email' message it would show for an unknown address, so the flow reveals nothing about account existence. Setting the password logs the user in; the account keeps its UUID, so all product data stays attached.
+- **Admin invite (optional):** admins can still push a set-password email to a specific user (for example a newly appointed officer who needs access before an event). Rate-limited 3/day per user; token valid 7 days.
+- Self-sign-up with the email of a password-less account does not create a second account; it triggers the same set-password email.
+- Admin UI shows these accounts as 'Password not set'.
 
 **Acceptance criteria**
-- [ ] An invited user cannot log in with any password until they set one via the link.
-- [ ] Expired invite shows a message and the admin sees a 'Resend invite' action.
+- [ ] A password-less account cannot log in with any password until one is set via the emailed link.
+- [ ] Entering a password-less account's email on the login page sends exactly one set-password email and shows the same message as for an unknown email (enumeration test).
+- [ ] Importing 500 password-less users sends zero emails.
+- [ ] An admin can send an invite to one user; an expired link shows a request-new-link option.
 
 ### AUTH-T23 — Change password (current password + re-auth), revoke other sessions
 
@@ -615,6 +624,26 @@ Northeastern mail is Microsoft 365, and Defender Safe Links pre-fetches every li
 **Acceptance criteria**
 - [ ] A HEAD or GET request to any emailed link does not consume the token (integration test); the subsequent POST does, exactly once.
 - [ ] Every email template's link points at a page implementing the pattern (test enumerates templates).
+
+### AUTH-T105 — Passkeys as an optional sign-in method
+
+**Priority:** Medium · **Estimate:** 5 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:auth-core, phase:4, backend, frontend, security, better-auth  
+**Depends on:** AUTH-T17 (Email + password sign-in and self-sign-up restricted to northeastern.edu); AUTH-T32 (Re-authentication (sudo mode) for sensitive actions); AUTH-T54 (Account security page: change password, MFA enrollment, backup codes); AUTH-T67 (TOTP multi-factor authentication (optional for users, required for admins and the Primary Admin))
+
+Suggested by Benedikt and accepted: add the Better Auth `passkey` plugin (WebAuthn) as an optional, per-user sign-in method. Passkeys cost no email, resist phishing, and suit students who prefer not to manage passwords.
+- **Enrollment** from `/account/security` after fresh re-auth (AUTH-T32); users may register several passkeys and name/remove them. Relying-party ID is `auth.northeasternsga.com` (dev: `auth-dev.northeasternsga.com`), so passkeys are only usable on SGAuth's own login page; products never see WebAuthn.
+- **Sign-in:** the login page offers 'Sign in with a passkey' alongside email + password, including conditional UI (browser autofill) where supported. A successful passkey sign-in creates the same parent-domain session as a password sign-in.
+- **Password stays** as the account's fallback and for recovery; passkeys do not replace the password in v1.
+- **MFA:** a passkey does **not** satisfy the admin TOTP requirement in v1 (admins still enroll TOTP); revisit later.
+- Lockout counters (AUTH-T64) are unaffected by passkey attempts; failed WebAuthn ceremonies are rate-limited (AUTH-T63).
+- Schema: plugin's `Passkey` table via Prisma; audit PASSKEY_ADDED / PASSKEY_REMOVED / LOGIN_SUCCESS with method=passkey.
+- Tombstoning (AUTH-T78) and admin deactivation remove passkeys.
+
+**Acceptance criteria**
+- [ ] A user can enroll a passkey after re-auth, sign out, and sign back in with the passkey in Chrome, Safari, and Firefox (platform authenticator and a security key).
+- [ ] A passkey sign-in yields a session that products resolve exactly like a password sign-in (session endpoint contract test).
+- [ ] Removing a passkey or deactivating the user prevents its further use; audit events are emitted.
+- [ ] An admin who signs in with a passkey is still required to have TOTP enrolled for admin actions.
 
 ## E4 Sessions & SSO
 
@@ -786,7 +815,7 @@ Return structured denials (`{ allowed: false, reason: 'SELF_MODIFICATION' | 'PRI
 ### AUTH-T36 — Admin user-management endpoints
 
 **Priority:** High · **Estimate:** 5 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:admin, phase:2, backend, admin, api  
-**Depends on:** AUTH-T35 (Authorization module with the admin/Primary Admin rule matrix); AUTH-T13 (Append-only AuditEvent table); AUTH-T32 (Re-authentication (sudo mode) for sensitive actions); AUTH-T22 (Invite flow: admin-created users receive a set-password link)
+**Depends on:** AUTH-T35 (Authorization module with the admin/Primary Admin rule matrix); AUTH-T13 (Append-only AuditEvent table); AUTH-T32 (Re-authentication (sudo mode) for sensitive actions); AUTH-T22 (Password-less accounts: lazy set-password on first sign-in, plus admin invites)
 
 Server actions or route handlers under `/api/sgauth/admin/users`: list/search (by email, name, position, status, admin flag; paginated), get, create (invite), update name/preferredName, deactivate (revokes all sessions immediately), reactivate, delete (= tombstone: status DELETED, PII scrubbed, sessions/accounts/MFA/positions removed, id retained), grant admin, revoke admin, revoke all sessions, unlock account, reset MFA (per the authz rules; emails the user), resend invite, force re-login. Every call passes `can()`, requires fresh re-auth for grant/revoke admin, deactivate, delete, and MFA reset, and emits an audit event with actor, target, and diff. Deactivation/deletion of the PA and self-modification are refused with the authz reason.
 
@@ -858,7 +887,7 @@ Integration tests proving the PA cannot be deleted, deactivated, banned, strippe
 **Priority:** Medium · **Estimate:** 3 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:admin, phase:2, backend, admin, migration  
 **Depends on:** AUTH-T36 (Admin user-management endpoints); AUTH-T43 (Position assignment endpoints (assign, unassign, bulk))
 
-Admin endpoint + UI to upload a CSV (`email,name,positions` where positions is a `|`-separated list of keys). Validates rows (email format, known keys), previews the diff (new users, existing users, position changes), then applies: creates users as invited (AUTH-T22), assigns positions, and queues invite emails respecting mailer caps (AUTH-T20) in batches. Produces a downloadable report. Audit BULK_IMPORT with counts.
+Admin endpoint + UI to upload a CSV (`email,name,positions` where positions is a `|`-separated list of keys). Validates rows (email format, known keys), previews the diff (new users, existing users, position changes), then applies: creates users as password-less accounts (AUTH-T22), assigns positions, and sends no email by default; an optional 'send set-password emails now' checkbox queues invites in batches under the mailer caps (AUTH-T20). Produces a downloadable report. Audit BULK_IMPORT with counts.
 
 **Acceptance criteria**
 - [ ] A 200-row CSV with 5 invalid rows shows the 5 errors and imports nothing until fixed (all-or-nothing) or with an explicit 'skip invalid' toggle.
@@ -1377,22 +1406,22 @@ Document conventions for coding agents and contributors: Neon-only (no Supabase)
 - [ ] Sample imported user logs in with their Chambers password on dev (AUTH-T21) and holds the mapped positions.
 - [ ] Mapping file approved by the Primary Admin before the production run.
 
-### AUTH-T88 — Aplio user import (emails and names, no passwords) with invites and id mapping
+### AUTH-T88 — Aplio user import (emails and names, no passwords) with id mapping
 
 **Priority:** High · **Estimate:** 2 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:rollout, phase:4, migration, aplio  
-**Depends on:** AUTH-T87 (Import script: Chambers users with bcrypt hashes and position mapping); AUTH-T22 (Invite flow: admin-created users receive a set-password link)
+**Depends on:** AUTH-T87 (Import script: Chambers users with bcrypt hashes and position mapping); AUTH-T22 (Password-less accounts: lazy set-password on first sign-in, plus admin invites)
 
-Aplio users authenticated with email OTP and have no passwords. Extend the import script with `--source aplio.json` (id, email, name, isAdmin, deletedAt): upsert by email, mark as invited (set-password link) unless they already exist with a password, do not grant SGAuth admin from Aplio's `isAdmin` (product-level; APLIO-P04 maps it to a position), skip soft-deleted users, produce the id-mapping file for APLIO-P03. Accounts whose address is not northeastern.edu are imported as-is (the admin/import path bypasses the domain rule) with `legacyEmail = true`; they keep working, and an admin can later move them to the person's northeastern.edu address via AUTH-T24, preserving the SGAuth id and Aplio history. Invites are sent in batches under the mailer caps; stagger over days if needed.
+Aplio users authenticated with email OTP and have no passwords. Extend the import script with `--source aplio.json` (id, email, name, isAdmin, deletedAt): upsert by email (duplicates of Chambers accounts merge into the existing account and keep its password), create the rest as password-less accounts that set a password lazily on first sign-in (AUTH-T22; **no emails are sent at import**), do not grant SGAuth admin from Aplio's `isAdmin` (product-level; APLIO-P04 maps it to a position), skip soft-deleted users, produce the id-mapping file for APLIO-P03. Accounts whose address is not northeastern.edu are imported as-is (the admin/import path bypasses the domain rule) with `legacyEmail = true`; they keep working, and an admin can later move them to the person's northeastern.edu address via AUTH-T24, preserving the SGAuth id and Aplio history. Eli plans to look up and correct these few addresses by hand; the import report lists them.
 
 **Acceptance criteria**
-- [ ] Report shows created/merged counts; a sample invited user sets a password and logs in; id-mapping file delivered to the Aplio team.
+- [ ] Report shows created/merged counts and lists every non-northeastern.edu account; the import sends no email; a sample imported user sets a password on first sign-in and sees their Aplio data; id-mapping file delivered to the Aplio team.
 
-### AUTH-T89 — SenatePath and Attendance Manager user import
+### AUTH-T89 — SenatePath and SenatePortal user import
 
 **Priority:** Medium · **Estimate:** 2 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:rollout, phase:4, migration  
-**Depends on:** AUTH-T88 (Aplio user import (emails and names, no passwords) with invites and id mapping)
+**Depends on:** AUTH-T88 (Aplio user import (emails and names, no passwords) with id mapping)
 
-Same script with `--source senatepath.json` (admin users only) and `--source attendance.json` (email, first/last, role) — NUID is NOT imported. Positions mapping files approved per product. Invites batched.
+Same script with `--source senatepath.json` (admin users only) and `--source senateportal.json` (email, first/last, role; SenatePortal is the new name for Attendance Manager) — NUID is NOT imported. Positions mapping files approved per product. Accounts are created password-less and set passwords lazily on first sign-in (AUTH-T22); no emails at import.
 
 **Acceptance criteria**
 - [ ] Both imports run on dev with reports; id-mapping files delivered to each team.
@@ -1533,7 +1562,7 @@ VaultZ's `User` table records purchasers (first/last), not logins. Add `sgauthUs
 **Priority:** High · **Estimate:** 3 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sgauth-integration, phase:2, sgauth, permissions  
 **Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy); AUTH-T44 (Seed the curated SGA position list)
 
-Create `lib/permissions.ts` mapping SGAuth position keys to VaultZ capabilities (e.g. `vp-finance`, `treasurer` → manage designations/budgets/transfers; `finance-committee` → create purchases; everyone else → read-only or no access). Gate server actions and pages with `hasAnyPosition`. Permissions are decided in VaultZ, not in SGAuth; SGAuth only supplies positions. Document the map in the README and agree the keys with the curated position list.
+Create `lib/permissions.ts` mapping SGAuth position keys to VaultZ capabilities, using keys from the curated seed (`prisma/seed/positions.json` in SGAOperations/auth). Starting proposal for the VaultZ owner to confirm: `vice-president-of-operational-affairs`, `comptroller`, `finance-manager` → manage designations/budgets/transfers; `student-body-president`, `executive-vice-president` → read everything; any other position holder → create their own purchases; no positions → no access. Add a product role (e.g. `vaultz-admin`) in the SGAuth admin UI only if the curated offices do not cover a need. Gate server actions and pages with `hasAnyPosition`. Permissions are decided in VaultZ, not in SGAuth; SGAuth only supplies positions. Document the map in the README and agree the keys with the curated position list.
 
 **Acceptance criteria**
 - [ ] Every mutating server action checks a capability; a user without positions cannot create or edit anything (tests).
@@ -1621,7 +1650,7 @@ Using the id-mapping file from the SGAuth import, migrate `users.id` (or add `sg
 **Priority:** High · **Estimate:** 5 · **Phase:** Phase 3 — Hardening, observability, Chambers · **Labels:** epic:sgauth-integration, phase:3, sgauth, permissions  
 **Depends on:** CHAMBERS-C02 (Replace Supabase Auth with the SGAuth SDK (proxy, session helpers, login removal)); AUTH-T44 (Seed the curated SGA position list)
 
-Define `lib/permissions.ts`: Chambers admin capabilities derive from position keys (e.g. `chambers-admin`, `iems`, and the relevant exec positions from the curated list); board/body memberships stay in Chambers tables keyed by SGAuth user id and continue to drive booking scopes. Replace `hasLiveAdmin`/`is_admin()` checks in app code with position checks; since Chambers is on Neon, RLS helpers are replaced by app-level checks in the data layer.
+Define `lib/permissions.ts`: Chambers admin capabilities derive from position keys: curated offices (proposal: `vice-president-of-operational-affairs`, `speaker-of-the-senate`, `senate-operations-coordinator`) plus product roles created in the SGAuth admin UI for roles that are not SGA offices (`chambers-admin`, `chambers-iems`); board/body memberships stay in Chambers tables keyed by SGAuth user id and continue to drive booking scopes. Replace `hasLiveAdmin`/`is_admin()` checks in app code with position checks; since Chambers is on Neon, RLS helpers are replaced by app-level checks in the data layer.
 
 **Acceptance criteria**
 - [ ] Every admin-only route and action checks positions; a user whose position is removed in SGAuth loses admin ability within 60 s (SDK cache) without any Chambers-side change.
@@ -1686,7 +1715,7 @@ Replace tests that mocked Supabase JWT claims with tests that mock the SDK sessi
 ### APLIO-P01 — Export Aplio users for the SGAuth import and receive the id mapping
 
 **Priority:** High · **Estimate:** 2 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:sgauth-integration, phase:4, sgauth, migration  
-**Depends on:** AUTH-T88 (Aplio user import (emails and names, no passwords) with invites and id mapping)
+**Depends on:** AUTH-T88 (Aplio user import (emails and names, no passwords) with id mapping)
 
 Export `User` rows (id, email, name, isAdmin, deletedAt) to JSON for the SGAuth import; receive the SGAuth id-mapping file; verify every active Aplio user maps to an SGAuth user.
 
@@ -1750,7 +1779,7 @@ Keep the dev-bypass user cookie for local only (never on any deployed host), and
 **Priority:** High · **Estimate:** 2 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:sgauth-integration, phase:4, sgauth, rollout  
 **Depends on:** APLIO-P03 (Key Aplio users by SGAuth user id); APLIO-P04 (Derive Aplio admin from an SGAuth position; managers stay product-level); APLIO-P05 (Applicant flow on SGAuth accounts (northeastern.edu required)); AUTH-T91 (Production launch checklist and Primary Admin bootstrap)
 
-Schedule the cutover when no application cycle is open; users were pre-imported and invited; announce; rollback = redeploy previous release (local Better Auth tables retained for 14 days); 3-day support window.
+Schedule the cutover when no application cycle is open; users were pre-imported as password-less accounts (no invite blast); announce the change, explaining that the first sign-in asks for a new password by email; rollback = redeploy previous release (local Better Auth tables retained for 14 days); 3-day support window.
 
 **Acceptance criteria**
 - [ ] Cutover completed; no applicant lost draft access (verified with a sample of drafts).
@@ -1786,7 +1815,7 @@ Create a Neon project/branches, dump and restore the Postgres schema and data (p
 **Priority:** High · **Estimate:** 3 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:sgauth-integration, phase:4, sgauth, backend  
 **Depends on:** SENATEPATH-S01 (Migrate SenatePath's database from Supabase to Neon); AUTH-T59 (SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs)); AUTH-T80 (Integration guide for Neon-based products (Next.js))
 
-Install the SDK; protect `/admin/**` with the proxy; replace the Supabase login page with a redirect to SGAuth; gate admin capabilities on a position (e.g. `elections-chair` / `senate-admin`). Public application/nomination forms remain unauthenticated as today.
+Install the SDK; protect `/admin/**` with the proxy; replace the Supabase login page with a redirect to SGAuth; gate admin capabilities on curated positions (proposal for the SenatePath owner to confirm: `director-of-elections`, `vice-chair-of-elections`, `elections-board-member`, `speaker-of-the-senate`). Public application/nomination forms remain unauthenticated as today.
 
 **Acceptance criteria**
 - [ ] Admin pages require an SGAuth session with the configured position; public forms unaffected.
@@ -1794,7 +1823,7 @@ Install the SDK; protect `/admin/**` with the proxy; replace the Supabase login 
 ### SENATEPATH-S03 — Import SenatePath admins into SGAuth and cut over
 
 **Priority:** Medium · **Estimate:** 2 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:sgauth-integration, phase:4, sgauth, rollout  
-**Depends on:** SENATEPATH-S02 (Gate the SenatePath admin area with SGAuth positions); AUTH-T89 (SenatePath and Attendance Manager user import)
+**Depends on:** SENATEPATH-S02 (Gate the SenatePath admin area with SGAuth positions); AUTH-T89 (SenatePath and SenatePortal user import)
 
 Export admin emails for the SGAuth import; confirm they hold the gating position; run the per-product cutover checklist; delete Supabase project after a 14-day retention window.
 
@@ -1861,7 +1890,7 @@ Define the permissions map from position keys to Attendance roles (MEMBER/OFFICE
 ### ATTENDANCE-M05 — User import and cutover
 
 **Priority:** Medium · **Estimate:** 2 · **Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention · **Labels:** epic:sgauth-integration, phase:4, sgauth, rollout  
-**Depends on:** ATTENDANCE-M04 (Map roles to SGAuth positions; keep NUID product-side); AUTH-T89 (SenatePath and Attendance Manager user import)
+**Depends on:** ATTENDANCE-M04 (Map roles to SGAuth positions; keep NUID product-side); AUTH-T89 (SenatePath and SenatePortal user import)
 
 Export users (email, names, role) for the SGAuth import, receive the id mapping, backfill `sgauthUserId`, run the per-product cutover checklist.
 
