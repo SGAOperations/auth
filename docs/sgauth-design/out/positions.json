@@ -1,0 +1,415 @@
+{
+  "$comment": "Curated SGA position list supplied by SGA on 2026-09-18. key = immutable slug used by products; name = editable display name; category = admin-UI grouping. Upserted by key by the seed; never deletes.",
+  "positions": [
+    {
+      "key": "student-body-president",
+      "name": "Student Body President",
+      "category": "Office of the President"
+    },
+    {
+      "key": "executive-vice-president",
+      "name": "Executive Vice President",
+      "category": "Office of the President"
+    },
+    {
+      "key": "parliamentarian",
+      "name": "Parliamentarian",
+      "category": "Office of the President"
+    },
+    {
+      "key": "appeals-board-justice",
+      "name": "Appeals Board Justice",
+      "category": "Office of the President"
+    },
+    {
+      "key": "director-of-elections",
+      "name": "Director of Elections",
+      "category": "Office of the President"
+    },
+    {
+      "key": "vice-chair-of-elections",
+      "name": "Vice-Chair of Elections",
+      "category": "Office of the President"
+    },
+    {
+      "key": "elections-board-member",
+      "name": "Elections Board Member",
+      "category": "Office of the President"
+    },
+    {
+      "key": "t-shirt-team-chair",
+      "name": "T-Shirt Team Chair",
+      "category": "Office of the President"
+    },
+    {
+      "key": "t-shirt-team-member",
+      "name": "T-Shirt Team Member",
+      "category": "Office of the President"
+    },
+    {
+      "key": "governmental-relations-team-chair",
+      "name": "Governmental Relations Team Chair",
+      "category": "Office of the President"
+    },
+    {
+      "key": "governmental-relations-team-vice-chair",
+      "name": "Governmental Relations Team Vice-Chair",
+      "category": "Office of the President"
+    },
+    {
+      "key": "governmental-relations-team-member",
+      "name": "Governmental Relations Team Member",
+      "category": "Office of the President"
+    },
+    {
+      "key": "vice-president-of-academic-affairs",
+      "name": "Vice President of Academic Affairs",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "director-of-academic-services",
+      "name": "Director of Academic Services",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "director-of-co-op",
+      "name": "Director of Co-op",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "chair-of-ai-advisory-board",
+      "name": "Chair of AI Advisory Board",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "faculty-senate-student-representative",
+      "name": "Faculty Senate Student Representative",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "university-undergraduate-curriculum-committee-representative",
+      "name": "University Undergraduate Curriculum Committee Representative",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "college-liaison",
+      "name": "College Liaison",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "academic-services-committee-member",
+      "name": "Academic Services Committee Member",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "ai-advisory-board-member",
+      "name": "AI Advisory Board Member",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "co-op-working-group-member",
+      "name": "Co-op Working Group Member",
+      "category": "Academic Affairs"
+    },
+    {
+      "key": "vice-president-of-campus-affairs",
+      "name": "Vice President of Campus Affairs",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "director-of-campus-services",
+      "name": "Director of Campus Services",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "director-of-sustainability",
+      "name": "Director of Sustainability",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "director-of-green-initiatives",
+      "name": "Director of Green Initiatives",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "chair-of-campus-planning-advisory-board",
+      "name": "Chair of Campus Planning Advisory Board",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "chair-of-dining-advisory-board",
+      "name": "Chair of Dining Advisory Board",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "campus-services-committee-member",
+      "name": "Campus Services Committee Member",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "sustainability-committee-member",
+      "name": "Sustainability Committee Member",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "campus-planning-advisory-board-member",
+      "name": "Campus Planning Advisory Board Member",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "dining-advisory-board-member",
+      "name": "Dining Advisory Board Member",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "green-initiatives-board-member",
+      "name": "Green Initiatives Board Member",
+      "category": "Campus Affairs"
+    },
+    {
+      "key": "vice-president-of-diversity-equity-and-inclusion",
+      "name": "Vice President of Diversity, Equity, and Inclusion",
+      "category": "Diversity, Equity, and Inclusion"
+    },
+    {
+      "key": "director-of-diversity-equity-and-inclusion",
+      "name": "Director of Diversity, Equity, and Inclusion",
+      "category": "Diversity, Equity, and Inclusion"
+    },
+    {
+      "key": "director-of-internal-advancement",
+      "name": "Director of Internal Advancement",
+      "category": "Diversity, Equity, and Inclusion"
+    },
+    {
+      "key": "diversity-equity-and-inclusion-committee-member",
+      "name": "Diversity, Equity, and Inclusion Committee Member",
+      "category": "Diversity, Equity, and Inclusion"
+    },
+    {
+      "key": "internal-advancement-board-member",
+      "name": "Internal Advancement Board Member",
+      "category": "Diversity, Equity, and Inclusion"
+    },
+    {
+      "key": "vice-president-of-external-affairs",
+      "name": "Vice President of External Affairs",
+      "category": "External Affairs"
+    },
+    {
+      "key": "assistant-vice-president-of-external-affairs",
+      "name": "Assistant Vice President of External Affairs",
+      "category": "External Affairs"
+    },
+    {
+      "key": "director-of-communications",
+      "name": "Director of Communications",
+      "category": "External Affairs"
+    },
+    {
+      "key": "director-of-events",
+      "name": "Director of Events",
+      "category": "External Affairs"
+    },
+    {
+      "key": "assistant-director-of-events",
+      "name": "Assistant Director of Events",
+      "category": "External Affairs"
+    },
+    {
+      "key": "graphic-design-manager",
+      "name": "Graphic Design Manager",
+      "category": "External Affairs"
+    },
+    {
+      "key": "finance-manager",
+      "name": "Finance Manager",
+      "category": "External Affairs"
+    },
+    {
+      "key": "boston-intercollegiate-government-representative",
+      "name": "Boston Intercollegiate Government Representative",
+      "category": "External Affairs"
+    },
+    {
+      "key": "communications-and-events-committee-member",
+      "name": "Communications and Events Committee Member",
+      "category": "External Affairs"
+    },
+    {
+      "key": "vice-president-of-student-involvement",
+      "name": "Vice President of Student Involvement",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "director-of-student-organization-approvals",
+      "name": "Director of Student Organization Approvals",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "director-of-student-organization-compliance",
+      "name": "Director of Student Organization Compliance",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "director-of-student-organization-governance",
+      "name": "Director of Student Organization Governance",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "director-of-student-organization-finance",
+      "name": "Director of Student Organization Finance",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "director-of-student-organization-operations",
+      "name": "Director of Student Organization Operations",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "student-organization-approvals-board-member",
+      "name": "Student Organization Approvals Board Member",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "student-organization-compliance-board-member",
+      "name": "Student Organization Compliance Board Member",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "student-organization-governance-board-member",
+      "name": "Student Organization Governance Board Member",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "student-organization-finance-board-member",
+      "name": "Student Organization Finance Board Member",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "student-organization-operations-committee-member",
+      "name": "Student Organization Operations Committee Member",
+      "category": "Student Involvement"
+    },
+    {
+      "key": "vice-president-of-student-success",
+      "name": "Vice President of Student Success",
+      "category": "Student Success"
+    },
+    {
+      "key": "director-of-student-engagement",
+      "name": "Director of Student Engagement",
+      "category": "Student Success"
+    },
+    {
+      "key": "director-of-global-experience",
+      "name": "Director of Global Experience",
+      "category": "Student Success"
+    },
+    {
+      "key": "director-of-wellness",
+      "name": "Director of Wellness",
+      "category": "Student Success"
+    },
+    {
+      "key": "student-engagement-committee-member",
+      "name": "Student Engagement Committee Member",
+      "category": "Student Success"
+    },
+    {
+      "key": "global-experience-committee-member",
+      "name": "Global Experience Committee Member",
+      "category": "Student Success"
+    },
+    {
+      "key": "wellness-committee-member",
+      "name": "Wellness Committee Member",
+      "category": "Student Success"
+    },
+    {
+      "key": "global-experience-office-working-group-member",
+      "name": "Global Experience Office Working Group Member",
+      "category": "Student Success"
+    },
+    {
+      "key": "holistic-wellness-working-group-member",
+      "name": "Holistic Wellness Working Group Member",
+      "category": "Student Success"
+    },
+    {
+      "key": "vice-president-of-operational-affairs",
+      "name": "Vice President of Operational Affairs",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "comptroller",
+      "name": "Comptroller",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "digital-innovation-manager",
+      "name": "Digital Innovation Manager",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "information-manager",
+      "name": "Information Manager",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "webmaster",
+      "name": "Webmaster",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "digital-innovation-team-lead",
+      "name": "Digital Innovation Team Lead",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "vice-chair-of-website-management-team",
+      "name": "Vice-Chair of Website Management Team",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "digital-innovation-senateportal-team-member",
+      "name": "Digital Innovation SenatePortal Team Member",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "digital-innovation-website-creation-team-member",
+      "name": "Digital Innovation Website Creation Team Member",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "website-management-team-member",
+      "name": "Website Management Team Member",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "speaker-of-the-senate",
+      "name": "Speaker of the Senate",
+      "category": "Senate"
+    },
+    {
+      "key": "senate-operations-coordinator",
+      "name": "Senate Operations Coordinator",
+      "category": "Senate"
+    },
+    {
+      "key": "legislative-affairs-coordinator",
+      "name": "Legislative Affairs Coordinator",
+      "category": "Senate"
+    },
+    {
+      "key": "senate-communications-coordinator",
+      "name": "Senate Communications Coordinator",
+      "category": "Senate"
+    },
+    {
+      "key": "senator",
+      "name": "Senator",
+      "category": "Senate"
+    }
+  ]
+}

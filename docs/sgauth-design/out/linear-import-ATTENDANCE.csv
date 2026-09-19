@@ -1,0 +1,56 @@
+﻿"Title","Description","Priority","Estimate","Status","Labels"
+"Decision: stay on Supabase (third-party auth) or move to Neon (SDK)","**Ticket:** ATTENDANCE-M01  
+**Epic:** SGAuth integration — Attendance Manager  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** none
+
+Record the team's directive. Criteria: does Attendance Manager use Supabase-only features (Storage, Realtime, Edge Functions)? If not, moving to Neon is recommended (simpler, no JWT staleness, standard SDK). If yes, use the third-party auth path. Exactly one of M02 or M03 proceeds.
+
+**Acceptance criteria**
+- [ ] Decision documented in the repo README with rationale; the unused path's tickets are cancelled.","High","1","Backlog","epic:sgauth-integration, phase:4, sgauth, decision"
+"(Supabase path) Consume SGAuth via Supabase third-party auth","**Ticket:** ATTENDANCE-M02  
+**Epic:** SGAuth integration — Attendance Manager  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** ATTENDANCE-M01 (Decision: stay on Supabase (third-party auth) or move to Neon (SDK)); AUTH-T81 (Integration guide for Supabase-backed products (third-party auth) plus the move-to-Neon alternative); AUTH-T60 (SDK: getAccessToken() for Supabase clients)
+
+Follow the Supabase integration guide: register SGAuth as a third-party auth provider on the Attendance Supabase project via the Management API script; configure supabase-js with the SDK's access-token provider (server) and the proxy route (browser); replace `supabaseAuthId` with `sgauthUserId` on `User` and remove any `auth.users` FKs/triggers; rewrite RLS to `auth.uid()` and position claims (`has_position('...')`); remove Supabase login/signup pages and the custom middleware in favor of the SGAuth proxy; remove the unused `password` column. Note the ≤10-minute JWT staleness and the MAU billing line.
+
+**Acceptance criteria**
+- [ ] A user with the required position can read/write per RLS using an SGAuth token; a user without it is denied at the database.
+- [ ] No `auth.users` dependency remains; Supabase login pages removed.","High","5","Backlog","epic:sgauth-integration, phase:4, sgauth, supabase"
+"(Neon path) Migrate to Neon and integrate with the SDK","**Ticket:** ATTENDANCE-M03  
+**Epic:** SGAuth integration — Attendance Manager  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** ATTENDANCE-M01 (Decision: stay on Supabase (third-party auth) or move to Neon (SDK)); AUTH-T59 (SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs)); AUTH-T80 (Integration guide for Neon-based products (Next.js))
+
+Dump/restore Postgres to Neon, switch Prisma URLs, remove `@supabase/*`, install the SDK, protect routes with the proxy, key `User` by `sgauthUserId`, and move authorization from RLS to app-level checks using positions.
+
+**Acceptance criteria**
+- [ ] App runs on Neon with SGAuth sessions; row counts match; no Supabase code remains.","High","5","Backlog","epic:sgauth-integration, phase:4, sgauth, neon"
+"Map roles to SGAuth positions; keep NUID product-side","**Ticket:** ATTENDANCE-M04  
+**Epic:** SGAuth integration — Attendance Manager  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** ATTENDANCE-M01 (Decision: stay on Supabase (third-party auth) or move to Neon (SDK)); AUTH-T44 (Seed the curated SGA position list)
+
+Define the permissions map from position keys to Attendance roles (MEMBER/OFFICER/etc.); NUID stays in Attendance's `User` table keyed by SGAuth user id and is never sent to SGAuth.
+
+**Acceptance criteria**
+- [ ] Role checks derive from positions; NUID handling unchanged and documented.","Medium","2","Backlog","epic:sgauth-integration, phase:4, sgauth, permissions"
+"User import and cutover","**Ticket:** ATTENDANCE-M05  
+**Epic:** SGAuth integration — Attendance Manager  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** ATTENDANCE-M04 (Map roles to SGAuth positions; keep NUID product-side); AUTH-T89 (SenatePath and SenatePortal user import)
+
+Export users (email, names, role) for the SGAuth import, receive the id mapping, backfill `sgauthUserId`, run the per-product cutover checklist.
+
+**Acceptance criteria**
+- [ ] All active members map to SGAuth users; cutover completed with rollback rehearsed.","Medium","2","Backlog","epic:sgauth-integration, phase:4, sgauth, rollout"
+"Update auth and middleware tests","**Ticket:** ATTENDANCE-M06  
+**Epic:** SGAuth integration — Attendance Manager  
+**Phase:** Phase 4 — Aplio, SenatePath, Attendance Manager, retention  
+**Depends on:** ATTENDANCE-M04 (Map roles to SGAuth positions; keep NUID product-side)
+
+Replace Supabase session mocks with SDK (or token) mocks in the existing auth-flow, middleware, and api-auth tests.
+
+**Acceptance criteria**
+- [ ] CI green; old Supabase auth tests removed.","Low","2","Backlog","epic:sgauth-integration, phase:4, sgauth, testing"

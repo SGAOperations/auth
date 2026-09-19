@@ -1,0 +1,1879 @@
+// SGAuth ticket source — team AUTH (the SGAuth service itself).
+// Fields: id, title, epic, phase, priority (Urgent|High|Medium|Low), estimate (1|2|3|5|8),
+// labels (array), deps (array of ids), description (markdown), acceptance (array of strings).
+
+export const EPICS = {
+  foundation: {
+    name: "E1 Foundation & Neon Migration",
+    label: "epic:foundation",
+    description:
+      "Replace the Supabase foundation with Neon serverless Postgres, Better Auth, Vercel hosting, CI, and environment tooling. SGAuth MUST run on Neon and MUST NOT use Supabase for auth or data.",
+  },
+  datamodel: {
+    name: "E2 Data Model & Migrations",
+    label: "epic:data-model",
+    description:
+      "Prisma 7 schema on Neon: users, Better Auth tables, positions, admin/Primary Admin invariants, audit log, product registry, security tables, and the migration workflow.",
+  },
+  authcore: {
+    name: "E3 Authentication Core",
+    label: "epic:auth-core",
+    description:
+      "Email + password authentication with Better Auth: sign-up restricted to northeastern.edu, verification, reset, invites, imported bcrypt hashes, and the login UI.",
+  },
+  sessions: {
+    name: "E4 Sessions & SSO",
+    label: "epic:sessions",
+    description:
+      "One session across *.northeasternsga.com via a parent-domain cookie, the session endpoint products call, ES256 JWTs + JWKS for Supabase products, logout propagation, redirects, re-authentication, and the non-production topology.",
+  },
+  admin: {
+    name: "E5 Admin & Primary Admin",
+    label: "epic:admin",
+    description:
+      "Server-enforced admin rules, the single transferable Primary Admin with a guarded transfer flow, break-glass recovery, and bulk user administration.",
+  },
+  positions: {
+    name: "E6 Positions",
+    label: "epic:positions",
+    description:
+      "Flat, admin-managed positions (stable key + display name) carried in every session; assignment, soft delete, retirement, propagation, and history.",
+  },
+  ui: {
+    name: "E7 Admin UI & Account UI",
+    label: "epic:ui",
+    description:
+      "Light admin UI (users, positions, products, audit, PA transfer) and a minimal account page for every user (profile, positions, product links, sessions, password, MFA).",
+  },
+  sdk: {
+    name: "E8 Product Registry & SDK",
+    label: "epic:sdk",
+    description:
+      "Admin-managed product registry that drives trusted origins and redirects, and the published @sgaoperations/sgauth package products use to read sessions and tokens.",
+  },
+  security: {
+    name: "E9 Security Hardening",
+    label: "epic:security",
+    description:
+      "Upstash rate limiting, escalating account lockout, CSRF and origin enforcement, headers, TOTP MFA (required for admins), subdomain hygiene, secrets, enumeration resistance, scanning, and a threat model.",
+  },
+  observability: {
+    name: "E10 Observability & Audit",
+    label: "epic:observability",
+    description:
+      "Append-only audit log with full coverage, structured logs, PostHog analytics and error tracking, health and uptime, alerts, and retention/deletion jobs.",
+  },
+  docs: {
+    name: "E11 Integration Guides & Docs",
+    label: "epic:docs",
+    description:
+      "Architecture doc (Neon mandate), Neon-product and Supabase-product integration guides, admin runbooks, privacy notice, SDK reference, contributor guide.",
+  },
+  rollout: {
+    name: "E12 User Migration & Rollout",
+    label: "epic:rollout",
+    description:
+      "Export/import of existing product users (Chambers hashes, Aplio/SenatePath/Attendance emails), launch checklist, rollout comms, cutover and rollback plans.",
+  },
+  testing: {
+    name: "E13 Testing & QA",
+    label: "epic:testing",
+    description:
+      "Test harness on a Neon test branch, integration tests for every auth flow, authorization matrix, Playwright SSO end-to-end, JWT/JWKS conformance, and load sanity.",
+  },
+};
+
+export const TICKETS = [
+  // ───────────────────────── E1 Foundation & Neon Migration ─────────────────────────
+  {
+    id: "AUTH-T01",
+    epic: "foundation",
+    phase: 0,
+    priority: "Urgent",
+    estimate: 2,
+    labels: ["infra", "neon"],
+    deps: [],
+    title: "Provision the Neon project, branches, and roles for SGAuth",
+    description: `Create the production Neon project that SGAuth is built on. **SGAuth is built on Neon serverless Postgres and MUST NOT use Supabase in any form** (no Supabase Auth, no Supabase Postgres, no Supabase client libraries).
+
+Set up:
+- Project \`sgauth\` in the SGAOperations Neon org, region closest to Vercel's default (us-east-1 / iad1).
+- Branches: \`main\` (production), \`dev\` (shared non-production deployment), \`test\` (CI integration tests). Preview branches are created automatically later (AUTH-T05).
+- A least-privilege application role for runtime queries and a separate migration role for \`prisma migrate deploy\`.
+- Record the pooled connection string (host contains \`-pooler\`) as \`DATABASE_URL\` and the direct string as \`DIRECT_URL\` in a secrets store (Vercel env + the team password manager). Use \`sslmode=verify-full\`.
+- Enable point-in-time restore on \`main\` (Neon history retention) and note the restore procedure.
+
+**Plan decision (red-team, accepted risk):** SGAuth launches on the Neon **Free** plan with scale-to-zero. Free suspends the compute for the rest of the month once 100 CU-hours are used, which would take every SGA product's login down; history/restore window is only 6 hours. AUTH-T101 adds quota monitoring and the upgrade runbook (Launch plan, pay-as-you-go at $0.106/CU-hour). Keep the SDK's 60-second cache so idle periods let the compute suspend.
+
+Reference: Neon Prisma guide (pooled vs direct URLs), Neon free plan limits (10 branches/project, 100 CU-hours/project/month, 0.5 GB storage per project, 6-hour history).`,
+    acceptance: [
+      "Neon project exists with `main`, `dev`, and `test` branches; history retention set to the Free maximum on `main`.",
+      "Two roles exist: runtime (no DDL) and migration (DDL); credentials stored in the team secrets store, not in git.",
+      "`DATABASE_URL` (pooled) and `DIRECT_URL` (direct) connection strings are documented in `.env.example` with placeholder values and `sslmode=verify-full`.",
+      "A short section in README states the Neon mandate and that Supabase is not used anywhere in SGAuth.",
+    ],
+  },
+  {
+    id: "AUTH-T02",
+    epic: "foundation",
+    phase: 0,
+    priority: "Urgent",
+    estimate: 3,
+    labels: ["neon", "chore"],
+    deps: [],
+    title: "Remove Supabase from the auth repo (in-place migration to Neon)",
+    description: `The current repo scaffolds Supabase auth and DB. Strip it entirely so the codebase reflects the Neon mandate.
+
+Remove:
+- Dependencies: \`@supabase/ssr\`, \`@supabase/supabase-js\`, \`supabase\` (CLI).
+- \`supabase/\` directory (config.toml), \`src/app/auth/callback/route.ts\` (Supabase OTP callback), Supabase env vars from \`.env.example\`, and the Supabase steps in README.
+- The \`supabaseUserId\` column and any Supabase-shaped assumptions in \`prisma/schema.prisma\` and \`prisma/seed.ts\` (the schema is replaced in AUTH-T10; this ticket only removes Supabase references so the repo builds).
+
+Also triage open branches that build on Supabase (AUTH-7, AUTH-8, auth-9, auth-10, auth-11, AUTH-14): close them with a comment pointing at this design, or cherry-pick any UI-only work that is still useful. Do not merge Supabase code.`,
+    acceptance: [
+      "`grep -ri supabase` across the repo (excluding the design doc folder) returns nothing.",
+      "`npm ci && npm run build && npm run lint && npm run format:check` pass with Supabase removed.",
+      "README setup section no longer mentions Docker or `supabase start`; it points at Neon branches (final wording lands in AUTH-T08).",
+      "Each open Supabase-based branch has a closing comment or a note in the PR explaining what was salvaged.",
+    ],
+  },
+  {
+    id: "AUTH-T03",
+    epic: "foundation",
+    phase: 0,
+    priority: "Urgent",
+    estimate: 3,
+    labels: ["backend", "better-auth"],
+    deps: ["AUTH-T02", "AUTH-T04"],
+    title:
+      "Install Better Auth 1.7 with the Prisma adapter and mount the handler",
+    description: `Add self-managed Better Auth (latest 1.7.x) and \`@better-auth/prisma-adapter\` on Neon, mirroring the pattern Aplio already uses.
+
+- \`src/lib/auth/config.ts\`: \`betterAuth({ database: prismaAdapter(prisma, { provider: 'postgresql' }), baseURL, secret, trustedOrigins, advanced: { database: { generateId: false } }, plugins: [nextCookies()] })\`. Prisma generates \`uuid(7)\` ids.
+- \`src/app/api/auth/[...all]/route.ts\` mounting \`toNextJsHandler(auth)\`.
+- \`baseURL\` = \`https://auth.northeasternsga.com\` in production, \`https://auth-dev.northeasternsga.com\` on the dev deployment, and a local dev hostname (AUTH-T34) locally. Never derive it from \`VERCEL_URL\` for cookies (the cookie domain must be the parent domain).
+- \`trustedOrigins\` is temporarily a static list; AUTH-T56 replaces it with the product registry.
+- Add \`server-only\` guards and the \`auth.api\` typed server helper.
+
+Plugins (jwt, admin, twoFactor, customSession) are added in their own tickets.`,
+    acceptance: [
+      "`GET /api/auth/ok` (or equivalent Better Auth health route) returns 200 on the dev deployment.",
+      "Better Auth's initialization-time schema validation passes against the Prisma client (1.7 rejects requests on mismatch).",
+      "`BETTER_AUTH_SECRET` is required (32+ chars) and the app refuses to start without it.",
+      "Unit test confirms `baseURL` resolution per environment and that `VERCEL_URL` is never used for the production cookie domain.",
+    ],
+  },
+  {
+    id: "AUTH-T04",
+    epic: "foundation",
+    phase: 0,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "neon", "prisma"],
+    deps: ["AUTH-T01"],
+    title: "Configure Prisma 7 for Neon (pooled runtime, direct migrations)",
+    description: `Wire Prisma 7 to Neon following Neon's Prisma guide.
+
+- \`prisma.config.ts\`: \`datasource.url = env('DIRECT_URL')\` (used by the CLI for migrations). No \`url\` in the schema datasource block (Prisma 7 rule).
+- Runtime client (\`src/lib/prisma.ts\`): driver adapter with the **pooled** \`DATABASE_URL\`. Use \`@prisma/adapter-pg\` with a \`pg.Pool\` sized for Vercel functions (\`max: 5\`, \`idleTimeoutMillis: 10_000\`), or \`@prisma/adapter-neon\` if WebSocket transport is preferred; document the choice.
+- Global singleton in dev to avoid pool exhaustion on HMR.
+- Add \`?sslmode=verify-full\`. Verify whether \`pgbouncer=true\` is needed with Neon's pooler when using a driver adapter and document the result.`,
+    acceptance: [
+      "`npx prisma migrate deploy` runs against `DIRECT_URL`; runtime queries use the `-pooler` host (verified via Neon monitoring or `pg_stat_activity`).",
+      "Cold start on Vercel executes a `SELECT 1` through the pooled connection in under 300 ms p50 (measured on the dev deployment).",
+      "README documents why two URLs exist and which commands use which.",
+    ],
+  },
+  {
+    id: "AUTH-T05",
+    epic: "foundation",
+    phase: 0,
+    priority: "High",
+    estimate: 3,
+    labels: ["infra", "vercel", "neon"],
+    deps: ["AUTH-T01", "AUTH-T03"],
+    title:
+      "Create the Vercel project, custom domains, environments, and Neon preview branching",
+    description: `Host SGAuth on Vercel (Node runtime, not Edge, because of Prisma).
+
+- Vercel project \`sgauth\` linked to the repo; production branch \`main\` → \`auth.northeasternsga.com\`; a protected \`dev\` branch → \`auth-dev.northeasternsga.com\` (see AUTH-T34 for why a dev SGAuth deployment on the real parent domain is required for product previews).
+- Install the Neon–Vercel integration so each preview deployment gets its own Neon branch (from \`dev\`) and \`DATABASE_URL\`/\`DIRECT_URL\` injected; enable automatic deletion of preview branches when the deployment is deleted (free plan allows 10 branches).
+- Environment variables scoped per environment (production / preview / development). Secrets never shared across environments; \`BETTER_AUTH_SECRET\` differs per environment.
+- Build command runs \`prisma generate\` and \`prisma migrate deploy\` (AUTH-T16) before \`next build\`.
+- Deployment protection: previews password- or SSO-protected via Vercel; production public.
+- **No Vercel cron jobs.** Vercel Hobby allows two jobs at once-per-day granularity and rejects more frequent schedules at deploy time; all scheduled work runs from GitHub Actions (AUTH-T38). Do not add a \`crons\` section to \`vercel.json\`.
+- SGAuth's own \`*.vercel.app\` preview deployments cannot set a \`northeasternsga.com\` cookie; they run with \`SGAUTH_ENV=preview\` (host-only cookie, AUTH-T26) so previews are testable in isolation.`,
+    acceptance: [
+      "`https://auth.northeasternsga.com` and `https://auth-dev.northeasternsga.com` serve the app over TLS with valid certificates.",
+      "Opening a PR creates a Neon preview branch and a preview deployment that runs migrations against it; closing the PR deletes the branch.",
+      "Vercel env vars are documented in `docs/ENVIRONMENTS.md` with which environment each applies to.",
+    ],
+  },
+  {
+    id: "AUTH-T06",
+    epic: "foundation",
+    phase: 0,
+    priority: "High",
+    estimate: 3,
+    labels: ["ci", "chore"],
+    deps: ["AUTH-T03", "AUTH-T93"],
+    title:
+      "Update CI: typecheck, lint, format, migrations check, and tests on a Neon test branch",
+    description: `Extend \`.github/workflows/ci.yml\` for the new stack.
+
+Jobs: typecheck, lint, format:check (existing), plus:
+- \`migrations\`: \`prisma migrate diff\` to ensure schema and migrations are in sync and no drift; fails if a migration is missing.
+- \`test\`: vitest unit + integration tests against the Neon \`test\` branch (AUTH-T93). Use a Neon API key stored as a GitHub secret to reset the branch (\`neonctl branches reset\`) before the run so tests start clean. Serialize runs with a GitHub Actions \`concurrency\` group (\`neon-test-branch\`) so parallel PRs do not share the branch mid-run; per-run branches are avoided because of the 10-branch cap.
+- Cache npm and Prisma engines.
+- Required checks + branch protection on \`main\` and \`dev\` (PR required, at least one review, CI green).`,
+    acceptance: [
+      "CI runs on every PR and push to `main`/`dev`, all jobs green on a clean checkout.",
+      "A PR that changes `schema.prisma` without a migration fails the `migrations` job with a clear message.",
+      "Branch protection rules are enabled and documented in CONTRIBUTING.md.",
+    ],
+  },
+  {
+    id: "AUTH-T07",
+    epic: "foundation",
+    phase: 0,
+    priority: "Medium",
+    estimate: 1,
+    labels: ["backend", "chore"],
+    deps: ["AUTH-T02"],
+    title: "Validate environment variables at startup with zod",
+    description: `Add \`src/lib/env.ts\` that parses \`process.env\` with zod (server and public schemas separated) and fails fast with a readable error listing missing/invalid vars. Rewrite \`.env.example\` to the final variable list: \`DATABASE_URL\`, \`DIRECT_URL\`, \`BETTER_AUTH_SECRET\`, \`BETTER_AUTH_URL\`, \`SGAUTH_COOKIE_DOMAIN\`, \`SGAUTH_COOKIE_PREFIX\`, \`SGAUTH_ENV\` (production|dev|preview|local), \`RESEND_API_KEY\`, \`RESEND_FROM_EMAIL\`, \`UPSTASH_REDIS_REST_URL\`, \`UPSTASH_REDIS_REST_TOKEN\`, \`POSTHOG_KEY\`, \`POSTHOG_HOST\`, \`CRON_SECRET\`, \`NEON_API_KEY\` (CI only).`,
+    acceptance: [
+      "Starting the app with a missing required var prints the variable name and exits non-zero.",
+      "`.env.example` lists every variable with a one-line purpose comment and no real values.",
+      "No code reads `process.env` directly outside `src/lib/env.ts` (enforced by an ESLint `no-restricted-syntax` rule).",
+    ],
+  },
+  {
+    id: "AUTH-T08",
+    epic: "foundation",
+    phase: 0,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["docs", "chore"],
+    deps: ["AUTH-T10", "AUTH-T44"],
+    title: "Rewrite README and developer bootstrap for Neon branches",
+    description: `Replace the Docker/Supabase setup with: create a personal Neon branch from \`dev\` (\`neonctl branches create --parent dev --name <github-handle>\`), copy its URLs into \`.env\`, run \`npx prisma migrate dev\`, run \`npm run seed\` (curated positions + a local Primary Admin from \`SEED_PRIMARY_ADMIN_EMAIL\`), then \`npm run dev\`. Include the local SSO hostname setup from AUTH-T34 and the scripts table.`,
+    acceptance: [
+      "A new contributor can go from clone to logged-in local Primary Admin in under 15 minutes following only the README.",
+      "The seed is idempotent (re-running changes nothing) and refuses to run when `SGAUTH_ENV=production`.",
+    ],
+  },
+  {
+    id: "AUTH-T09",
+    epic: "foundation",
+    phase: 0,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["infra", "neon"],
+    deps: ["AUTH-T05"],
+    title: "Automate Neon branch hygiene to stay under plan limits",
+    description: `The free plan allows 10 branches per project. Add a scheduled GitHub Action (daily) that lists branches via the Neon API and deletes preview branches whose PR is closed/merged or that are older than 7 days, excluding \`main\`, \`dev\`, \`test\`, and branches matching \`dev-*\` (personal). Post a summary to the workflow log.`,
+    acceptance: [
+      "The action runs daily, is idempotent, and never deletes protected branches (unit test on the filter).",
+      "Branch count stays below 8 in steady state; a warning is logged at 8 or more.",
+    ],
+  },
+
+  // ───────────────────────── E2 Data Model & Migrations ─────────────────────────
+  {
+    id: "AUTH-T10",
+    epic: "datamodel",
+    phase: 0,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "prisma"],
+    deps: ["AUTH-T03", "AUTH-T04"],
+    title:
+      "Core schema: User plus Better Auth Session, Account, and Verification tables",
+    description: `Define the identity model in \`prisma/schema.prisma\` (Neon). Better Auth core tables plus SGAuth fields:
+
+**User**: \`id\` (uuid v7, PK), \`email\` (unique, stored lower-cased; use \`citext\` or a lower-case check), \`emailVerified\`, \`name\` (required display name), \`preferredName\` (optional), \`isAdmin\` (bool), \`isPrimaryAdmin\` (bool), \`status\` (enum ACTIVE | DEACTIVATED | DELETED — DELETED is a tombstone: the row and id survive with PII scrubbed so product foreign keys stay valid), \`deactivatedAt\`, \`deletedAt\`, \`legacyEmail\` (bool; true for imported accounts whose address is not northeastern.edu), \`lastLoginAt\`, \`passwordChangedAt\`, \`twoFactorEnabled\` (plugin), \`createdAt\`, \`updatedAt\`.
+**Session**: Better Auth fields (\`id\`, \`token\` unique, \`userId\`, \`expiresAt\`, \`ipAddress\`, \`userAgent\`, \`createdAt\`, \`updatedAt\`) plus \`absoluteExpiresAt\` (createdAt + 90 days) and \`lastReauthAt\`. The Better Auth admin plugin is **not** used (custom authz instead), so no \`impersonatedBy\`/ban columns.
+**KnownDevice**: \`id\`, \`userId\`, \`tokenHash\`, \`createdAt\`, \`lastSeenAt\`, \`userAgent\` — backs the lockout exemption (AUTH-T64).
+**Account**: Better Auth fields; \`password\` holds either a scrypt hash or an imported \`bcrypt$...\` hash (AUTH-T21). **Verification**: Better Auth fields.
+
+No NUID, phone, pronouns, or photo. Products keep extra fields keyed by SGAuth user id. Write the initial migration and a Prisma-level test that the Better Auth adapter validates against this schema.`,
+    acceptance: [
+      "Migration applies cleanly on an empty Neon branch and Better Auth schema validation passes at startup.",
+      "Email uniqueness is case-insensitive (`Alice@Northeastern.edu` and `alice@northeastern.edu` collide) with a test.",
+      "`isPrimaryAdmin = true` implies `isAdmin = true` via a CHECK constraint.",
+      "Indexes exist on `Session.userId`, `Session.expiresAt`, `Account.userId`, `Verification.identifier`.",
+    ],
+  },
+  {
+    id: "AUTH-T11",
+    epic: "datamodel",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "prisma", "positions"],
+    deps: ["AUTH-T10"],
+    title: "Positions schema: Position, UserPosition, and retired keys",
+    description: `**Position**: \`id\` (uuid v7), \`key\` (unique, immutable, regex \`^[a-z0-9]+(?:-[a-z0-9]+)*$\`, 2–64 chars), \`name\` (display, 2–100 chars, editable), \`category\` (optional text for admin grouping), \`description\` (optional), \`deletedAt\` (soft delete), \`createdById\`, \`updatedById\`, timestamps.
+**UserPosition**: composite PK (\`userId\`, \`positionId\`), \`assignedById\`, \`assignedAt\`. Unassignment deletes the row; history lives in the audit log. Soft-deleting a position keeps rows for history but they are excluded from sessions.
+**RetiredPositionKey**: \`key\`, \`retiredAt\`, \`positionId\` — written on soft delete; the service layer refuses reuse of a key retired less than 365 days ago.
+DB-level: partial unique index on \`Position(key) WHERE deletedAt IS NULL\`; CHECK constraint on key format; trigger or service check enforcing a maximum of 50 active positions per user.`,
+    acceptance: [
+      "Creating a position with an invalid key or a key retired within 365 days fails at the service layer with a specific error code (and the DB rejects malformed keys).",
+      "A user cannot hold more than 50 active positions (test at the boundary).",
+      "Soft-deleted positions never appear in session or JWT output (covered by AUTH-T45).",
+    ],
+  },
+  {
+    id: "AUTH-T12",
+    epic: "datamodel",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "prisma", "admin", "security"],
+    deps: ["AUTH-T10"],
+    title:
+      "Primary Admin invariants at the database level and the PrimaryAdminTransfer table",
+    description: `Enforce in Postgres, independent of application code:
+- Partial unique index: exactly one row may have \`isPrimaryAdmin = true\` (\`CREATE UNIQUE INDEX one_primary_admin ON "User" ((true)) WHERE "isPrimaryAdmin"\`).
+- Trigger \`protect_primary_admin\` BEFORE UPDATE/DELETE on User: reject setting \`isAdmin = false\`, \`status = DEACTIVATED\`, or deleting the row while \`isPrimaryAdmin = true\`; reject clearing \`isPrimaryAdmin\` unless the transaction has set the session variable \`sgauth.pa_transfer = 'on'\` (set only by the transfer service and the break-glass script).
+**PrimaryAdminTransfer**: \`id\`, \`fromUserId\`, \`toUserId\`, \`status\` (PENDING_ACCEPTANCE | COOLING | COMPLETED | CANCELLED | EXPIRED), \`createdAt\`, \`acceptanceExpiresAt\` (+7 days), \`acceptedAt\`, \`executesAt\` (acceptedAt + 24 h), \`cancelTokenHash\`, \`completedAt\`, \`cancelledAt\`, \`cancelledById\`, \`reason\`. Partial unique index allowing at most one transfer in PENDING_ACCEPTANCE or COOLING.`,
+    acceptance: [
+      "SQL tests: inserting a second Primary Admin fails; updating the PA to non-admin fails; deleting the PA fails; a transfer inside a transaction with the session variable set succeeds and leaves exactly one PA.",
+      "At most one in-flight transfer can exist (unique index test).",
+      "Migration is reversible and documented with the reasoning in a comment header.",
+    ],
+  },
+  {
+    id: "AUTH-T13",
+    epic: "datamodel",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "prisma", "audit"],
+    deps: ["AUTH-T10"],
+    title: "Append-only AuditEvent table",
+    description: `**AuditEvent**: \`id\` (uuid v7), \`type\` (string enum from the event catalog in AUTH-T73), \`actorUserId\` (nullable; null for system/break-glass), \`actorType\` (USER | SYSTEM | BREAK_GLASS), \`targetType\` (USER | POSITION | PRODUCT | SESSION | TRANSFER), \`targetId\`, \`metadata\` (jsonb, no secrets), \`ip\`, \`userAgent\`, \`createdAt\`. Index on (\`type\`, \`createdAt\`), (\`actorUserId\`, \`createdAt\`), (\`targetType\`, \`targetId\`, \`createdAt\`).
+Append-only: a trigger rejects UPDATE and DELETE except for the anonymization job (AUTH-T78), which may null \`ip\`/\`userAgent\` and replace user-identifying metadata when a user is tombstoned, gated by the same session-variable pattern as AUTH-T12. The session-variable gate protects against accidental writes from application code; it is not a security boundary against anyone holding the database role.
+\`type\` is validated in TypeScript against the catalog (AUTH-T73), not by a DB CHECK, so adding an event type does not require a migration.`,
+    acceptance: [
+      "UPDATE/DELETE on AuditEvent fails from the runtime role (test), while the anonymization path succeeds.",
+      "A unit test rejects emitting an event whose `type` is not in the catalog.",
+    ],
+  },
+  {
+    id: "AUTH-T14",
+    epic: "datamodel",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend", "prisma", "registry"],
+    deps: ["AUTH-T10"],
+    title: "Product registry schema",
+    description: `**Product**: \`id\`, \`slug\` (unique, kebab-case), \`name\`, \`description\`, \`baseUrl\` (must be \`https://\` and end with \`.northeasternsga.com\`; validated in service and by CHECK), \`iconUrl\` (optional, https only), \`isActive\`, \`sortOrder\`, \`visibleToPositionKeys\` (text[]; empty = visible to everyone), \`loginRedirectPath\` (optional path appended after login), \`createdById\`, timestamps. Seed the dev branch with SGAuth itself plus VaultZ, Chambers, Aplio placeholders.`,
+    acceptance: [
+      "Inserting a product with an http:// or non-northeasternsga.com base URL fails.",
+      "Slug uniqueness enforced; renames of `name` do not change `slug`.",
+    ],
+  },
+  {
+    id: "AUTH-T15",
+    epic: "datamodel",
+    phase: 1,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend", "prisma", "security"],
+    deps: ["AUTH-T10"],
+    title: "Security tables: AccountLock, UnlockToken, Jwks, TwoFactor",
+    description: `- **AccountLock**: \`userId\` (PK), \`failedCount\`, \`windowStartedAt\`, \`lockedUntil\`, \`lockLevel\` (0..N for escalation), \`lastFailedAt\`, \`lastFailedIp\`.
+- **UnlockToken**: \`id\`, \`userId\`, \`tokenHash\`, \`expiresAt\`, \`usedAt\`.
+- **Jwks** and **TwoFactor** tables as required by the Better Auth jwt and twoFactor plugins (generate via \`npx @better-auth/cli generate\` and reconcile with Prisma naming).
+- **KnownDevice** (see AUTH-T10) for the lockout exemption.
+- No rate-limit table: rate limiting uses Upstash (AUTH-T63); disable Better Auth's DB-backed limiter storage.`,
+    acceptance: [
+      "Plugin schema validation passes for jwt and twoFactor at startup.",
+      "Unlock tokens are stored hashed (SHA-256) and single-use (test).",
+    ],
+  },
+  {
+    id: "AUTH-T16",
+    epic: "datamodel",
+    phase: 0,
+    priority: "Medium",
+    estimate: 1,
+    labels: ["backend", "prisma", "docs"],
+    deps: ["AUTH-T04", "AUTH-T05"],
+    title:
+      "Migration workflow: deploy in build, never migrate dev against production",
+    description: `Document and enforce: developers run \`prisma migrate dev\` only against personal/preview Neon branches; production and dev deployments run \`prisma migrate deploy\` during the Vercel build using \`DIRECT_URL\`. Add a guard script that aborts \`migrate dev\`/\`db push\`/\`migrate reset\` when \`SGAUTH_ENV=production\` or when \`DIRECT_URL\` points at the \`main\` branch host. Write \`docs/MIGRATIONS.md\` including how to hand-edit generated SQL for triggers/indexes Prisma cannot express, and the **expand/contract rule**: migrations run during the build while the previous deployment is still serving traffic, so every migration must be backward-compatible with the currently deployed code (add columns nullable first, drop in a later release).`,
+    acceptance: [
+      "Running `npm run prisma:migrate-dev` with a production `DIRECT_URL` exits non-zero before touching the database (test with a fake host).",
+      "Vercel production build logs show `migrate deploy` applying pending migrations.",
+    ],
+  },
+
+  // ───────────────────────── E3 Authentication Core ─────────────────────────
+  {
+    id: "AUTH-T17",
+    epic: "authcore",
+    phase: 1,
+    priority: "Urgent",
+    estimate: 3,
+    labels: ["backend", "better-auth"],
+    deps: ["AUTH-T03", "AUTH-T10"],
+    title:
+      "Email + password sign-in and self-sign-up restricted to northeastern.edu",
+    description: `Enable \`emailAndPassword\` in Better Auth: \`minPasswordLength: 12\`, \`maxPasswordLength: 128\`, default scrypt hashing, \`requireEmailVerification: true\`, \`autoSignIn: false\` after sign-up.
+- Self-sign-up: a \`databaseHooks.user.create.before\` hook rejects emails whose domain is not \`northeastern.edu\` (exact match, lower-cased) unless the creation is admin/import initiated (flag passed via context). Admin-created users may have any domain.
+- Normalize email (trim, lower-case) before lookup and storage.
+- New self-signed-up users have no positions and no admin flags.
+- Deactivated users are refused at sign-in and at session creation (\`session.create.before\` hook) with a stable error code.
+- Record \`lastLoginAt\` and emit audit events for LOGIN_SUCCESS / LOGIN_FAILED (AUTH-T73).
+- **Account pre-hijack defense (red-team):** with \`requireEmailVerification\`, Better Auth answers a sign-up for an existing email with success (enumeration protection). If that existing account is still **unverified**, the new sign-up must overwrite its password and name (the address owner is whoever verifies), and verification must revoke every existing session. Verified accounts are never overwritten.
+- Note: Better Auth re-sends the verification email on every sign-in attempt by an unverified user; the mailer's per-recipient caps (AUTH-T20) and sign-in rate limits (AUTH-T63) bound the abuse.
+No breached-password (HIBP) check, per decision.`,
+    acceptance: [
+      "Sign-up with `x@gmail.com` is rejected with `EMAIL_DOMAIN_NOT_ALLOWED`; `x@northeastern.edu` succeeds and requires verification before login.",
+      "Passwords under 12 characters are rejected client- and server-side.",
+      "A deactivated user cannot sign in and any existing session returns 401 from the session endpoint.",
+      "Pre-hijack test: attacker signs up with victim's email + password A; victim signs up with password B and verifies; password A no longer works and B does.",
+      "Integration tests cover success, wrong password, unverified email, deactivated user, and domain rejection.",
+    ],
+  },
+  {
+    id: "AUTH-T18",
+    epic: "authcore",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "email"],
+    deps: ["AUTH-T17", "AUTH-T20", "AUTH-T103"],
+    title: "Email verification for self-sign-up with resend limits",
+    description: `Send a verification email on sign-up via the mailer (AUTH-T20) with a link valid for 24 hours; the link lands on a confirmation page and the token is consumed only on the button POST (AUTH-T103, Safe Links). Verifying revokes any pre-existing sessions, logs the user in, and redirects to the validated \`redirect\` target (AUTH-T31) or the account page. Resend is limited to 3 per address per hour (Upstash key \`verify:<email>\`). Unverified accounts older than 7 days are purged by the retention job (AUTH-T78). The UI shows the same message whether or not the address exists.`,
+    acceptance: [
+      "Clicking the link verifies the address once; a second click shows an already-verified message; expired links show a resend option.",
+      "Fourth resend within an hour returns 429 without sending.",
+    ],
+  },
+  {
+    id: "AUTH-T19",
+    epic: "authcore",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "email", "security"],
+    deps: ["AUTH-T17", "AUTH-T20", "AUTH-T103"],
+    title: "Password reset flow",
+    description: `Forgot-password request (email only; uniform response regardless of existence), reset token valid 1 hour, single use, delivered by email; the token is consumed only when the new-password form is submitted, never on link open (AUTH-T103). On successful reset: set \`passwordChangedAt\`, revoke all other sessions, clear any account lock, send a security notice email, emit PASSWORD_RESET audit event. Rate limit: 3 requests per email per 10 minutes and per IP (AUTH-T63). Imported bcrypt accounts (AUTH-T21) reset to scrypt.`,
+    acceptance: [
+      "Reset for a non-existent email returns the same response and timing profile (within 50 ms) as for an existing one.",
+      "Using a token twice fails; after reset, previously issued session cookies are rejected.",
+      "Audit and notice email are produced (asserted with the test mailer).",
+    ],
+  },
+  {
+    id: "AUTH-T20",
+    epic: "authcore",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "email", "infra"],
+    deps: ["AUTH-T07"],
+    title:
+      "Email infrastructure: Resend on a dedicated SGAuth sending domain with volume caps",
+    description: `Password login keeps email volume low (verification, reset, set-password, lock/unlock, security notices, PA transfer steps). Chambers sends almost all of SGA's current email, and Resend's free quota is **per account**, so a separate API key inside the shared account would not isolate anything. Therefore:
+- **Separate Resend account** owned by an SGA shared mailbox (not a student's personal login), credentials in the team vault. Confirm once that Resend's terms permit a distinct account for a distinct sender and record the answer here.
+- Dedicated sending subdomain \`mail.northeasternsga.com\` verified only in that account, with SPF, DKIM, and DMARC (p=quarantine) records; \`from\` = \`SGA Auth <no-reply@mail.northeasternsga.com>\`.
+- \`src/lib/email/mailer.ts\` provider-agnostic interface (\`sendEmail({ to, template, data })\`) with a Resend implementation and a console/preview transport for local/test.
+- Templates (React Email or plain HTML+text): verify, reset, invite/set-password, account locked, unlock, security notice (password changed / new admin grant), PA transfer initiated / accepted / cancelled / completed, inactivity notice.
+- Caps: per-recipient 10 emails per hour and 30 per day; global daily cap (env, default 500) with an alert at 80%. Log every send with template and recipient hash to the log stream.`,
+    acceptance: [
+      "SGAuth sends from its own Resend account, owned by an SGA shared mailbox; its usage does not appear in the Chambers/Aplio account.",
+      "DKIM/SPF/DMARC verified in the Resend dashboard; a test email to Gmail and Outlook lands in the inbox with aligned DMARC.",
+      "Exceeding the per-recipient cap is refused with a logged warning, not an exception to the user.",
+      "All templates render in both HTML and text and are snapshot-tested.",
+    ],
+  },
+  {
+    id: "AUTH-T21",
+    epic: "authcore",
+    phase: 3,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "migration", "security"],
+    deps: ["AUTH-T17"],
+    title: "Accept imported Chambers bcrypt hashes with lazy re-hash to scrypt",
+    description: `Supabase Auth (GoTrue) stores bcrypt hashes (\`$2a$\`/\`$2b$\`). Configure Better Auth \`emailAndPassword.password.verify\`: if the stored hash starts with \`bcrypt$\` (marker set by the import, AUTH-T87), verify with \`bcryptjs\`; on success, re-hash the plaintext with scrypt and update the Account row in the same request, then emit PASSWORD_REHASHED. Otherwise use the default scrypt verify. Never log plaintext. Remove the bcrypt path after all imported accounts have re-hashed or been reset (tracked by a metric).`,
+    acceptance: [
+      "A user imported with a bcrypt hash can log in with their Chambers password on the first try and their Account row is scrypt afterwards.",
+      "Wrong password against a bcrypt hash fails without re-hashing.",
+      "A metric/query reports how many `bcrypt$` hashes remain.",
+    ],
+  },
+  {
+    id: "AUTH-T22",
+    epic: "authcore",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend", "email", "admin"],
+    deps: ["AUTH-T20", "AUTH-T17", "AUTH-T103"],
+    title:
+      "Password-less accounts: lazy set-password on first sign-in, plus admin invites",
+    description: `Imported accounts (Aplio OTP users, SenatePath, SenatePortal) and admin-created accounts exist with \`emailVerified = true\` (the source product or admin vouches for the address) and **no password**. Decision: no invite blast at import, so email volume spreads out and users who never return cost nothing.
+- **Lazy set-password:** the login page asks for email first. If the account exists and has no password, SGAuth sends a one-time set-password link (valid 1 hour, consumed on form submit per AUTH-T103, rate-limited 3/hour per account) and shows the same 'Check your email' message it would show for an unknown address, so the flow reveals nothing about account existence. Setting the password logs the user in; the account keeps its UUID, so all product data stays attached.
+- **Admin invite (optional):** admins can still push a set-password email to a specific user (for example a newly appointed officer who needs access before an event). Rate-limited 3/day per user; token valid 7 days.
+- Self-sign-up with the email of a password-less account does not create a second account; it triggers the same set-password email.
+- Admin UI shows these accounts as 'Password not set'.`,
+    acceptance: [
+      "A password-less account cannot log in with any password until one is set via the emailed link.",
+      "Entering a password-less account's email on the login page sends exactly one set-password email and shows the same message as for an unknown email (enumeration test).",
+      "Importing 500 password-less users sends zero emails.",
+      "An admin can send an invite to one user; an expired link shows a request-new-link option.",
+    ],
+  },
+  {
+    id: "AUTH-T23",
+    epic: "authcore",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend", "security"],
+    deps: ["AUTH-T17", "AUTH-T32"],
+    title:
+      "Change password (current password + re-auth), revoke other sessions",
+    description: `Authenticated users change their password by providing the current password; requires a fresh re-authentication (AUTH-T32). On success: update hash, set \`passwordChangedAt\`, revoke every other session, send a security notice, emit PASSWORD_CHANGED.`,
+    acceptance: [
+      "Wrong current password fails and counts toward account lockout.",
+      "Other devices are logged out after change (integration test with two sessions).",
+    ],
+  },
+  {
+    id: "AUTH-T24",
+    epic: "authcore",
+    phase: 3,
+    priority: "Low",
+    estimate: 2,
+    labels: ["backend", "admin"],
+    deps: ["AUTH-T36", "AUTH-T20"],
+    title:
+      "Admin-initiated email change with re-verification and privilege rules",
+    description: `Users cannot change their own email in v1 (identity anchoring). Admins can set a new email on a **non-admin** user; only the Primary Admin can change an admin's email; the Primary Admin's own email can be changed only by the Primary Admin. Every email change requires fresh re-authentication (AUTH-T32) so a hijacked session cannot redirect reset or transfer-cancel emails. The account keeps working with the old address until the user verifies the new one via a link sent to the new address (POST-consumed, AUTH-T103); a notice goes to the old address. Changing a \`legacyEmail\` account to a northeastern.edu address clears the flag. Audit EMAIL_CHANGE_REQUESTED / EMAIL_CHANGED.`,
+    acceptance: [
+      "Old address remains valid until verification; after verification the old address cannot log in.",
+      "Attempting to change to an address already in use fails without revealing which account owns it.",
+      "An admin cannot change another admin's or the PA's email (authz test); re-auth is required in every case.",
+    ],
+  },
+  {
+    id: "AUTH-T25",
+    epic: "authcore",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["frontend", "ui"],
+    deps: ["AUTH-T17", "AUTH-T18", "AUTH-T19", "AUTH-T31"],
+    title: "Login, sign-up, forgot/reset, and verify pages",
+    description: `Build the public auth pages with shadcn/ui and react-hook-form + zod: \`/login\` (email, password, preserves redirect param, links to forgot and sign-up), \`/sign-up\` (northeastern.edu hint, name, password with live length feedback), \`/forgot-password\`, \`/reset-password/[token]\`, \`/verify-email/[token]\`, \`/set-password/[token]\` (invites), \`/locked\` (explains lock and unlock email). Map Better Auth error codes to friendly copy without leaking account existence. Show SGA branding and a one-line explanation that this login works across all SGA tools.`,
+    acceptance: [
+      "All pages are keyboard navigable, pass axe with no serious violations, and work at 360 px width.",
+      "Wrong password and unknown email share the same copy; unverified, locked, and deactivated states have distinct copy only when shown to the account's own verified session or email link.",
+      "After login the user lands on the validated redirect target or `/account`.",
+    ],
+  },
+
+  // ───────────────────────── E4 Sessions & SSO ─────────────────────────
+  {
+    id: "AUTH-T26",
+    epic: "sessions",
+    phase: 1,
+    priority: "Urgent",
+    estimate: 2,
+    labels: ["backend", "sso", "security"],
+    deps: ["AUTH-T03"],
+    title: "Parent-domain session cookie for *.northeasternsga.com",
+    description: `Configure Better Auth cookies so a single session spans every SGA subdomain:
+- \`advanced.crossSubDomainCookies = { enabled: true, domain: 'northeasternsga.com' }\` in production and dev; \`advanced.cookiePrefix\` = \`sgauth\` (production) and \`sgauth-dev\` (dev deployment) so the two environments never collide on the shared parent domain.
+- \`defaultCookieAttributes\`: \`httpOnly: true\`, \`secure: true\`, \`sameSite: 'lax'\`, \`path: '/'\`. Production cookie name becomes \`__Secure-sgauth.session_token\`. \`__Host-\` is impossible with a Domain attribute; document why.
+- \`session.cookieCache\` disabled (no \`session_data\` cookie) so revocation is immediate.
+- \`SGAUTH_ENV=preview\` (SGAuth's own \`*.vercel.app\` previews): cross-subdomain cookies **disabled**, host-only cookie, so previews can log in at all.
+- Local dev uses the topology from AUTH-T34. Validate the whole configuration early with the spike in AUTH-T104 (there are unresolved community reports of cross-subdomain cookies being set then dropped in some setups).
+Document the threat model: any compromised or dangling \`*.northeasternsga.com\` host can read the cookie **and can set a same-named cookie on the parent domain** (cookie tossing / login CSRF: the victim is silently logged into an attacker-controlled account). Cookie values are signed so they cannot be forged, but \`__Host-\` cannot be used with a Domain attribute, so subdomain hygiene (AUTH-T68) is the control.`,
+    acceptance: [
+      "After login at auth.northeasternsga.com the browser holds one cookie with Domain=northeasternsga.com, Secure, HttpOnly, SameSite=Lax, and the `__Secure-` prefix.",
+      "A request to a product stub on another subdomain carries the cookie and the session endpoint resolves it.",
+      "Dev and production cookies coexist in one browser without interfering (different names).",
+    ],
+  },
+  {
+    id: "AUTH-T27",
+    epic: "sessions",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "sso"],
+    deps: ["AUTH-T10", "AUTH-T26"],
+    title:
+      "Session lifetime: 30-day sliding, 90-day absolute cap, no cookie cache",
+    description: `\`session.expiresIn = 30 days\`, \`session.updateAge = 1 day\` (sliding). Leave Better Auth's \`freshAge\` at its default: it gates Better Auth's own fresh-session endpoints and is **not** the re-auth mechanism (AUTH-T32 uses \`lastReauthAt\`). Absolute cap: set \`absoluteExpiresAt = createdAt + 90 days\` in \`session.create.before\`, reject sessions past it in the session endpoint, **and** have the daily retention job (AUTH-T78) delete any session whose \`createdAt\` is older than 90 days, because Better Auth's own endpoints (e.g. \`/token\`) do not run the custom check. Capture IP (from \`x-forwarded-for\` first hop on Vercel) and user agent. Sessions and JWTs are DB-backed; no cookie cache.`,
+    acceptance: [
+      "A session used daily is still valid on day 29 and invalid on day 91 (time-travel test), including at `/api/auth/token`.",
+      "A session unused for 31 days is invalid.",
+      "Session rows store IP and user agent for the account page.",
+    ],
+  },
+  {
+    id: "AUTH-T28",
+    epic: "sessions",
+    phase: 1,
+    priority: "Urgent",
+    estimate: 3,
+    labels: ["backend", "sso", "api"],
+    deps: ["AUTH-T27", "AUTH-T11"],
+    title: "Session endpoint for products: user, email, positions, admin flags",
+    description: `Products resolve the shared cookie by calling SGAuth server-side. Implement \`GET /api/sgauth/session\` (a thin wrapper over Better Auth \`getSession\` plus the \`customSession\` plugin) returning:
+\`\`\`json
+{ "user": { "id": "uuid", "email": "...", "name": "...", "preferredName": null, "isAdmin": false, "isPrimaryAdmin": false },
+  "positions": [{ "key": "vp-finance", "name": "Vice President of Finance" }],
+  "session": { "id": "...", "expiresAt": "...", "absoluteExpiresAt": "...", "createdAt": "..." } }
+\`\`\`
+- 401 with \`{ "error": "unauthenticated" }\` when the cookie is missing, expired, revoked, past the absolute cap, or the user is deactivated.
+- Positions read live from the DB (active, non-deleted), sorted by key.
+- Headers: \`Cache-Control: no-store\`, \`Vary: Cookie\`. Accept the cookie via the \`Cookie\` header only (no query/body tokens).
+- Also expose \`GET /api/sgauth/session/minimal\` returning only user id + positions for hot paths. Publish the JSON schema in the SDK.`,
+    acceptance: [
+      "Contract tests cover the 200 shape, 401 cases, position ordering, and that deactivation/revocation is reflected on the very next call.",
+      "p95 latency under 120 ms from a Vercel function in the same region (measured against dev).",
+      "Response never includes password hashes, tokens, or MFA secrets (schema assertion).",
+    ],
+  },
+  {
+    id: "AUTH-T29",
+    epic: "sessions",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "sso", "supabase", "jwt"],
+    deps: ["AUTH-T28", "AUTH-T15"],
+    title:
+      "ES256 JWTs with JWKS and OIDC discovery for Supabase-backed products",
+    description: `Add the Better Auth \`jwt\` plugin configured for Supabase third-party auth:
+- \`jwks.keyPairConfig = { alg: 'ES256' }\`; **automatic rotation disabled** (no \`rotationInterval\`). Supabase learns about a new key only when it re-fetches the JWKS (up to ~30 minutes), so an automatic rotation would reject fresh tokens for that window. Rotation is manual (annually or on incident) per the runbook in AUTH-T69: generate the new key, push the combined JWKS to every Supabase project via \`custom_jwks\`, then switch signing; keep the old key published for 7 days.
+- \`jwt.issuer = 'https://auth.northeasternsga.com'\` (no trailing slash; discovery must resolve at \`{issuer}/.well-known/openid-configuration\`), \`jwt.audience = 'authenticated'\` (matches Supabase's own token convention so any audience check passes), \`jwt.expirationTime = '10m'\`, \`getSubject = user.id\` (UUID, required because Supabase \`auth.uid()\` casts \`sub\` to uuid). Private keys encrypted at rest (default).
+- \`definePayload\`: \`{ email, name, role: 'authenticated', positions: [keys], is_admin, is_primary_admin }\`. Include the \`kid\` header (plugin default). \`role: 'authenticated'\` is required so Supabase maps the request to the \`authenticated\` Postgres role.
+- Endpoints: \`/api/auth/jwks\` (plugin) and rewrites for \`/.well-known/jwks.json\` and \`/.well-known/openid-configuration\` (\`issuer\`, \`jwks_uri\`, \`id_token_signing_alg_values_supported: ['ES256']\`, minimal fields) so Supabase can be pointed at the issuer URL.
+- Token endpoint \`/api/auth/token\` requires a valid session cookie (rate-limited in AUTH-T63).`,
+    acceptance: [
+      "A token from `/api/auth/token` verifies with `jose` against the JWKS with issuer and audience checks and contains `sub` (uuid), `role: 'authenticated'`, and `positions`.",
+      "`/.well-known/openid-configuration` returns valid JSON with `jwks_uri` resolving to the live key set.",
+      "After a manual rotation on dev, tokens signed by the previous key verify for 7 days and new tokens carry the new `kid`; the JWKS lists both keys during the overlap.",
+      "Token size stays under 2 KB with 50 positions of 64 characters (test).",
+    ],
+  },
+  {
+    id: "AUTH-T30",
+    epic: "sessions",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "sso"],
+    deps: ["AUTH-T26", "AUTH-T56"],
+    title: "Global logout, sign out everywhere, and admin revocation",
+    description: `- \`POST /api/auth/sign-out\` deletes the current session row and clears the parent-domain cookie (same Domain/Path/prefix, \`Max-Age=0\`); every subdomain is logged out immediately because they share the cookie and the DB row is gone.
+- \`POST /api/sgauth/sessions/revoke-all\` (user) revokes all sessions including the current one.
+- Admin endpoint to revoke all sessions of a target user (AUTH-T36) with audit SESSIONS_REVOKED.
+- \`/logout?redirect=\` convenience route for products: rejects requests whose \`Sec-Fetch-Site\` is \`cross-site\` (so an external page cannot log users out via an image or link), signs out, then redirects to a registry-validated URL (AUTH-T56) or to \`/login\`. Sibling subdomains are same-site and keep working.
+Supabase-style JWTs already issued remain valid until their 10-minute expiry; document this in the Supabase guide.`,
+    acceptance: [
+      "After sign-out on one subdomain, the session endpoint returns 401 for a request from another subdomain using the same browser.",
+      "`/logout?redirect=https://evil.example` redirects to `/login`, not the attacker URL.",
+      "Admin revocation invalidates every session of the target within one request.",
+    ],
+  },
+  {
+    id: "AUTH-T31",
+    epic: "sessions",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "security", "sso"],
+    deps: ["AUTH-T56"],
+    title: "Safe post-login redirects validated against the product registry",
+    description: `\`/login?redirect=<url>\` is the entry point every product uses. Validate: absolute \`https://\` URL whose origin exactly matches an active product's base URL origin (or SGAuth itself), or a relative path starting with \`/\` (not \`//\`). Strip fragments; cap length at 2 KB. Persist the redirect through sign-up, verification, and reset via a short-lived signed cookie rather than hidden form fields. Unknown or malformed targets fall back to \`/account\`.`,
+    acceptance: [
+      "Open-redirect test suite (protocol-relative, backslashes, userinfo tricks, unicode homographs, unregistered subdomains) all land on `/account`.",
+      "A valid `https://vaultz.northeasternsga.com/purchases/42` survives login → verify → login and is honored.",
+    ],
+  },
+  {
+    id: "AUTH-T32",
+    epic: "sessions",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "security"],
+    deps: ["AUTH-T27", "AUTH-T67"],
+    title: "Re-authentication (sudo mode) for sensitive actions",
+    description: `Sensitive actions require proof of presence within the last 10 minutes: Primary Admin transfer steps, granting/revoking admin, changing password, changing any email, enrolling/disabling/resetting MFA, revoking all sessions, deleting/deactivating users. Implement \`POST /api/sgauth/reauth\` accepting password (and TOTP code if enrolled) that stamps \`Session.lastReauthAt\`; a \`requireFreshAuth()\` guard checks the stamp. This is independent of Better Auth's \`freshAge\` (left at default). The UI shows a modal to re-enter credentials when the guard fails (403 \`REAUTH_REQUIRED\`). Failed re-auth attempts count toward lockout.`,
+    acceptance: [
+      "Calling a sensitive endpoint 11 minutes after re-auth returns 403 `REAUTH_REQUIRED`; within 10 minutes it succeeds.",
+      "Re-auth for an MFA-enrolled user requires both password and a valid TOTP.",
+    ],
+  },
+  {
+    id: "AUTH-T33",
+    epic: "sessions",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend"],
+    deps: ["AUTH-T27"],
+    title: "List and revoke the user's own sessions",
+    description: `\`GET /api/sgauth/sessions\` returns the caller's active sessions (id, createdAt, lastActiveAt, ip, userAgent parsed to a friendly device string, isCurrent). \`DELETE /api/sgauth/sessions/:id\` revokes one of the caller's sessions. Audit SESSION_REVOKED.`,
+    acceptance: [
+      "A user cannot list or revoke another user's session (404, not 403, to avoid id probing).",
+      "Revoking the current session also clears the cookie.",
+    ],
+  },
+  {
+    id: "AUTH-T34",
+    epic: "sessions",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["infra", "sso", "docs"],
+    deps: ["AUTH-T05", "AUTH-T26"],
+    title:
+      "Non-production SSO topology: dev deployment, local hostnames, product preview domains",
+    description: `A parent-domain cookie cannot be read by \`*.vercel.app\` previews or plain \`localhost\`, so define the non-production topology once:
+- **Dev SGAuth**: \`auth-dev.northeasternsga.com\` (branch \`dev\`, Neon \`dev\` branch, cookie prefix \`sgauth-dev\`). Products point their preview and dev environments here. Because it is a production-looking login page on the trusted domain: persistent 'DEVELOPMENT ENVIRONMENT' banner on every page, \`noindex\`, synthetic users only (real user imports are never run against dev), and fully separate secrets (Better Auth secret, Resend key, Upstash namespace).
+- **Product previews**: each product gets a stable branch domain like \`<product>-dev.northeasternsga.com\` (Vercel branch domain) so the dev cookie is shared; ad-hoc \`*.vercel.app\` previews cannot use SSO (document the limitation).
+- **Local**: developers use \`*.localhost\` hostnames (Chrome resolves subdomains of localhost automatically; Firefox needs a preference) or hosts-file entries; SGAuth locally runs on \`http://auth.sga.localhost:3000\` with cookie domain \`sga.localhost\`, \`secure: false\`, no \`__Secure-\` prefix. Provide a \`SGAUTH_ENV=local\` switch that applies these settings. Browser handling of \`Domain=<x>.localhost\` cookies differs (Safari is the usual problem); the spike in AUTH-T104 confirms the local scheme or falls back to a hosts-file domain such as \`sga.test\`.
+- **SDK dev mode**: the SDK accepts \`SGAUTH_URL\` and \`SGAUTH_COOKIE_NAME\` overrides so products target dev or local SGAuth. Write \`docs/ENVIRONMENTS.md\` with a table of URLs, cookie names, and Neon branches per environment.`,
+    acceptance: [
+      "A product stub running on `vaultz.sga.localhost:3001` sees a session created at `auth.sga.localhost:3000` (documented manual test plus a Playwright job in AUTH-T96).",
+      "`docs/ENVIRONMENTS.md` exists and is linked from README and the integration guides.",
+      "Production configuration cannot be started with a non-secure cookie setting (startup assertion).",
+    ],
+  },
+
+  // ───────────────────────── E5 Admin & Primary Admin ─────────────────────────
+  {
+    id: "AUTH-T35",
+    epic: "admin",
+    phase: 2,
+    priority: "Urgent",
+    estimate: 3,
+    labels: ["backend", "admin", "security"],
+    deps: ["AUTH-T10", "AUTH-T12"],
+    title: "Authorization module with the admin/Primary Admin rule matrix",
+    description: `Create \`src/lib/authz.ts\`: pure functions \`can(actor, action, target)\` used by every mutating endpoint. Rules:
+- Only admins may perform admin actions; deactivated actors can do nothing.
+- Admins may grant or revoke admin for **other** users freely; they can never change their **own** admin status or deactivate/delete themselves.
+- Nobody except the transfer flow or break-glass may modify the Primary Admin's admin flag, status, PA flag, MFA, or email, or delete the account. The PA's positions and display name may be edited by any admin like any other user (accepted: an admin could strip the PA's product positions, which affects product access only, never SGAuth authority, and is audited).
+- Email changes: admins may change non-admin users' emails; only the PA may change an admin's email; the PA changes their own. MFA reset: admins may reset non-admin and (only the PA) admin MFA; PA MFA reset is break-glass only.
+- The Primary Admin may do everything an admin can, including changing other admins, and is the only one who can initiate a transfer.
+- Position and product CRUD: any admin.
+Return structured denials (\`{ allowed: false, reason: 'SELF_MODIFICATION' | 'PRIMARY_ADMIN_PROTECTED' | 'NOT_ADMIN' | ... }\`). UI hides controls using the same function, but enforcement is server-side only.`,
+    acceptance: [
+      "Table-driven unit tests enumerate actor ∈ {user, admin, primary admin, deactivated admin} × target ∈ {self, other user, other admin, primary admin} × action ∈ {grantAdmin, revokeAdmin, deactivate, delete, assignPosition, initiateTransfer} with expected results; 100% branch coverage of `authz.ts`.",
+      "Every mutating route imports `can()`; an ESLint rule or test asserts no admin route lacks the guard.",
+    ],
+  },
+  {
+    id: "AUTH-T36",
+    epic: "admin",
+    phase: 2,
+    priority: "High",
+    estimate: 5,
+    labels: ["backend", "admin", "api"],
+    deps: ["AUTH-T35", "AUTH-T13", "AUTH-T32", "AUTH-T22"],
+    title: "Admin user-management endpoints",
+    description: `Server actions or route handlers under \`/api/sgauth/admin/users\`: list/search (by email, name, position, status, admin flag; paginated), get, create (invite), update name/preferredName, deactivate (revokes all sessions immediately), reactivate, delete (= tombstone: status DELETED, PII scrubbed, sessions/accounts/MFA/positions removed, id retained), grant admin, revoke admin, revoke all sessions, unlock account, reset MFA (per the authz rules; emails the user), resend invite, force re-login. Every call passes \`can()\`, requires fresh re-auth for grant/revoke admin, deactivate, delete, and MFA reset, and emits an audit event with actor, target, and diff. Deactivation/deletion of the PA and self-modification are refused with the authz reason.`,
+    acceptance: [
+      "Integration tests for every endpoint including denials (self-modify, PA-protected, non-admin, deactivated actor).",
+      "Deactivating a user with three active sessions leaves zero sessions and their next product request returns 401.",
+      "Each mutation produces exactly one audit row with the expected type and metadata.",
+    ],
+  },
+  {
+    id: "AUTH-T37",
+    epic: "admin",
+    phase: 2,
+    priority: "High",
+    estimate: 5,
+    labels: ["backend", "admin", "security", "email"],
+    deps: [
+      "AUTH-T12",
+      "AUTH-T35",
+      "AUTH-T32",
+      "AUTH-T20",
+      "AUTH-T67",
+      "AUTH-T103",
+      "AUTH-T38",
+    ],
+    title:
+      "Primary Admin transfer flow (re-auth, recipient acceptance, 24-hour cancel window)",
+    description: `Implement the guarded transfer as a state machine over \`PrimaryAdminTransfer\`:
+1. **Initiate** (PA only, fresh re-auth, recipient must be an active admin with MFA enrolled, PA must type the recipient email exactly): creates PENDING_ACCEPTANCE (expires in 7 days), emails recipient (accept link) and PA (confirmation), audit PA_TRANSFER_INITIATED.
+2. **Accept** (recipient only, fresh re-auth): moves to COOLING, sets \`executesAt = now + 24h\`, generates a cancel token emailed to the outgoing PA (and shown in-app), emails both, audit PA_TRANSFER_ACCEPTED.
+3. **Cancel**: outgoing PA (in-app with re-auth, or via the emailed cancel link without login — the link opens a page with a Cancel button; the token is consumed on POST, AUTH-T103), or recipient declines; status CANCELLED, both emailed, audit PA_TRANSFER_CANCELLED. The accept link likewise lands on a page requiring login + re-auth before acting.
+4. **Execute** (scheduler, AUTH-T38): when \`executesAt\` has passed and status is COOLING, in one transaction with the DB session variable set: clear PA on the old user, set it on the recipient, keep both as admins, revoke all sessions of both users (forces re-login with correct claims), status COMPLETED, emails to both and to every admin, audit PA_TRANSFER_COMPLETED.
+5. **Expire**: PENDING_ACCEPTANCE older than 7 days → EXPIRED, emails PA.
+Exactly one in-flight transfer is allowed. If the recipient loses admin or is deactivated mid-flight, the transfer is cancelled automatically.`,
+    acceptance: [
+      "State-machine tests cover every transition and every illegal transition (e.g. accept by a third party, cancel after completion, initiate while one is in flight).",
+      "The emailed cancel link works without a session and is single-use.",
+      "After execution there is exactly one PA, both parties are admins, and both must log in again.",
+      "Recipient deactivation during COOLING cancels the transfer and notifies the PA.",
+    ],
+  },
+  {
+    id: "AUTH-T38",
+    epic: "admin",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "infra", "ci"],
+    deps: ["AUTH-T05", "AUTH-T07"],
+    title:
+      "Scheduled-job runner: GitHub Actions schedules calling secret-protected routes",
+    description: `Vercel Hobby limits cron to two jobs at once-per-day and rejects finer schedules at deploy time, so **no Vercel cron is used**. Instead, a GitHub Actions workflow in the auth repo (same pattern Chambers uses) runs on schedules and calls \`GET /api/jobs/<name>\` with \`Authorization: Bearer $CRON_SECRET\` (repo secret = Vercel env):
+- \`pa-transfer\` every 15 minutes: executes due COOLING transfers and expires stale PENDING_ACCEPTANCE ones, idempotently (row-level lock, status re-check inside the transaction).
+- \`alerts\` every 15 minutes (AUTH-T77).
+- \`retention\` daily (AUTH-T78).
+Each route is idempotent, logs outcomes, and returns quickly (under the function timeout); Actions schedules can be delayed several minutes under load, which is acceptable for these jobs. A missed run is caught by the next.`,
+    acceptance: [
+      "Running the transfer job twice concurrently executes the transfer once (test with a simulated race).",
+      "Requests without the correct bearer secret return 401 and do nothing.",
+      "Workflow file exists with the three schedules; `vercel.json` contains no `crons`.",
+    ],
+  },
+  {
+    id: "AUTH-T39",
+    epic: "admin",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "admin", "security", "docs"],
+    deps: ["AUTH-T12", "AUTH-T13"],
+    title: "Break-glass Primary Admin recovery script and runbook",
+    description: `\`scripts/recover-primary-admin.ts\` run by a human with production Neon credentials (\`npm run recover-primary-admin -- --email new-pa@northeastern.edu --reason "..."\`). It: verifies the target user exists and is active; prompts for the confirmation phrase \`TRANSFER PRIMARY ADMIN\`; inside one transaction with the DB session variable set, moves the PA flag, ensures the new PA is admin, revokes all sessions of the previous PA; writes an AuditEvent with \`actorType = BREAK_GLASS\` and the operator's name/reason; emails every admin and the old PA address. Supports \`--dry-run\`. A second mode, \`--reset-mfa --email <pa>\`, clears the current PA's TOTP and backup codes (for the lost-phone-and-lost-codes case, since admins cannot touch PA MFA) and forces re-enrollment on next login. No HTTP endpoint exists for either. Write \`docs/runbooks/break-glass.md\`: when to use it, who holds credentials (at least two people), and how to verify afterwards.`,
+    acceptance: [
+      "Dry run prints the plan and changes nothing; real run leaves exactly one PA and an audit row of type BREAK_GLASS_PA_RECOVERY.",
+      "Script refuses to run without `DIRECT_URL` and the confirmation phrase.",
+      "Runbook reviewed by the current Primary Admin.",
+    ],
+  },
+  {
+    id: "AUTH-T40",
+    epic: "admin",
+    phase: 2,
+    priority: "High",
+    estimate: 2,
+    labels: ["testing", "admin", "security"],
+    deps: ["AUTH-T12", "AUTH-T36"],
+    title: "Primary Admin protection tests across API and database layers",
+    description: `Integration tests proving the PA cannot be deleted, deactivated, banned, stripped of admin, or have the PA flag removed via any admin endpoint, Better Auth admin plugin endpoint (if mounted), or direct SQL from the runtime role; and that the PA is subject to account lockout but can self-unlock via the emailed link.`,
+    acceptance: [
+      "All listed attack paths fail with the expected error at the API layer and, when bypassed, at the DB trigger.",
+      "Lockout/unlock test for the PA passes.",
+    ],
+  },
+  {
+    id: "AUTH-T41",
+    epic: "admin",
+    phase: 2,
+    priority: "Medium",
+    estimate: 3,
+    labels: ["backend", "admin", "migration"],
+    deps: ["AUTH-T36", "AUTH-T43"],
+    title:
+      "Bulk user import (CSV) with position assignment and batched invites",
+    description: `Admin endpoint + UI to upload a CSV (\`email,name,positions\` where positions is a \`|\`-separated list of keys). Validates rows (email format, known keys), previews the diff (new users, existing users, position changes), then applies: creates users as password-less accounts (AUTH-T22), assigns positions, and sends no email by default; an optional 'send set-password emails now' checkbox queues invites in batches under the mailer caps (AUTH-T20). Produces a downloadable report. Audit BULK_IMPORT with counts.`,
+    acceptance: [
+      "A 200-row CSV with 5 invalid rows shows the 5 errors and imports nothing until fixed (all-or-nothing) or with an explicit 'skip invalid' toggle.",
+      "Re-importing the same CSV is idempotent (no duplicate users or assignments).",
+    ],
+  },
+
+  // ───────────────────────── E6 Positions ─────────────────────────
+  {
+    id: "AUTH-T42",
+    epic: "positions",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "positions", "api"],
+    deps: ["AUTH-T11", "AUTH-T35", "AUTH-T13"],
+    title:
+      "Positions CRUD: create, edit name/category, soft delete with retirement",
+    description: `Admin endpoints: create (key + name + optional category/description; key validated, uniqueness checked against active and retired-within-365-days keys), update (name/category/description only; key immutable), delete (soft; returns holder count first via a preflight, requires the admin to send \`confirmKey\` equal to the key; on delete: set \`deletedAt\`, write RetiredPositionKey, keep UserPosition rows, emit POSITION_DELETED with holder ids). Audit every change with before/after. List endpoint supports including deleted for history views.`,
+    acceptance: [
+      "Renaming changes `name` only; the key and all holders are untouched (test asserts session output before/after).",
+      "Delete without the matching `confirmKey` is refused; with it, holders lose the position on the next session call.",
+      "Creating a key retired 100 days ago fails with `KEY_RETIRED`; 400 days ago succeeds.",
+    ],
+  },
+  {
+    id: "AUTH-T43",
+    epic: "positions",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "positions", "api"],
+    deps: ["AUTH-T42"],
+    title: "Position assignment endpoints (assign, unassign, bulk)",
+    description: `Admin endpoints to assign/unassign one or many positions to a user and to assign one position to many users. Enforce the 50-position cap, refuse deleted positions, ignore duplicates, emit POSITION_ASSIGNED / POSITION_UNASSIGNED per pair. Assignments are visible in the session endpoint on the next call (no caching in SGAuth).`,
+    acceptance: [
+      "Assigning the 51st position fails with `POSITION_LIMIT`.",
+      "Bulk assign of 30 users is one transaction and one audit row per pair.",
+    ],
+  },
+  {
+    id: "AUTH-T44",
+    epic: "positions",
+    phase: 1,
+    priority: "Medium",
+    estimate: 1,
+    labels: ["backend", "positions"],
+    deps: ["AUTH-T11"],
+    title: "Seed the curated SGA position list",
+    description: `**Input received 2026-09-18:** \`prisma/seed/positions.json\` already exists in the repo with 82 positions (81 offices across 9 categories — Office of the President, Academic Affairs, Campus Affairs, Diversity Equity and Inclusion, External Affairs, Student Involvement, Student Success, Operational Affairs, Senate — plus \`senator\`). Keys were generated by slugifying the official names and validated against the key format and length rules. Upsert by key in the seed script (safe to run in every environment; never deletes; name/category updates are applied, keys never change). Include a validation test that every key matches the format and names are unique. Product-specific roles (e.g. \`aplio-admin\`) are **not** seeded; product owners create them in the admin UI when they integrate.
+Key naming convention (document in the admin UI help and the integration guides): organization roles use bare keys (\`vp-finance\`, \`senator\`); product-specific roles are prefixed with the product slug (\`aplio-admin\`, \`chambers-iems\`) so keys never collide and products can grep their own.`,
+    acceptance: [
+      "Seed creates all 82 curated positions with zero holders; re-running is a no-op.",
+      "A test loads `prisma/seed/positions.json` and asserts every key matches `^[a-z0-9]+(?:-[a-z0-9]+)*$`, is 2–64 chars, and that keys and names are unique.",
+    ],
+  },
+  {
+    id: "AUTH-T45",
+    epic: "positions",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["testing", "positions", "sso"],
+    deps: ["AUTH-T43", "AUTH-T28", "AUTH-T29"],
+    title: "Position propagation tests and forced re-login",
+    description: `Tests: after assign/unassign/delete, the very next \`/api/sgauth/session\` call reflects the change; a JWT minted before the change stays valid until expiry (≤10 min) and a new token reflects it. Add an admin action 'Force re-login' (revoke all sessions of a user) surfaced in the UI as the way to invalidate outstanding JWTs immediately. Document the staleness model in the integration guides.`,
+    acceptance: [
+      "Automated tests demonstrate immediate propagation for the session endpoint and bounded staleness for JWTs.",
+      "Guides contain a 'Propagation and staleness' section.",
+    ],
+  },
+  {
+    id: "AUTH-T46",
+    epic: "positions",
+    phase: 3,
+    priority: "Low",
+    estimate: 2,
+    labels: ["backend", "positions", "audit"],
+    deps: ["AUTH-T42", "AUTH-T73"],
+    title: "Position history queries",
+    description: `Endpoints returning the audit trail for a position (who was assigned/unassigned, renames, deletion) and for a user (all position changes), backed by AuditEvent indexes. Used by the admin UI detail pages.`,
+    acceptance: [
+      "Both queries paginate and return within 200 ms for 10k events on the test branch.",
+    ],
+  },
+
+  // ───────────────────────── E7 Admin UI & Account UI ─────────────────────────
+  {
+    id: "AUTH-T47",
+    epic: "ui",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["frontend", "ui"],
+    deps: ["AUTH-T25", "AUTH-T28"],
+    title: "App shell, navigation, and route guards for /admin and /account",
+    description: `Next.js App Router layouts: \`(auth)\` public pages, \`(app)\` authenticated pages with a header (user menu, sign out, sign out everywhere), \`/account\` for all users, \`/admin\` visible only to admins (server-side guard using \`can()\`; non-admins get 404). shadcn/ui components, light/dark via next-themes, SGA branding tokens. Toasts via sonner. Loading and error boundaries.`,
+    acceptance: [
+      "Non-admin visiting `/admin` receives a 404 page; admin sees the dashboard.",
+      "Layout works at 360 px and 1440 px; axe reports no serious violations.",
+    ],
+  },
+  {
+    id: "AUTH-T48",
+    epic: "ui",
+    phase: 2,
+    priority: "High",
+    estimate: 5,
+    labels: ["frontend", "ui", "admin"],
+    deps: ["AUTH-T47", "AUTH-T36", "AUTH-T43"],
+    title: "Admin: users list and user detail pages",
+    description: `Users list with search, filters (status, admin, position), pagination, and an 'Invited' badge. User detail: profile fields (editable), positions (assign/unassign with a searchable multi-select), admin toggle (disabled for self and PA with tooltip reason from \`can()\`), deactivate/reactivate, unlock, resend invite, sessions list with revoke, force re-login, and the user's audit timeline. Re-auth modal appears when the API returns REAUTH_REQUIRED.`,
+    acceptance: [
+      "Every action shows success/failure toasts and refreshes data; disabled controls explain why.",
+      "Playwright test: admin assigns a position, the user's session endpoint reflects it.",
+    ],
+  },
+  {
+    id: "AUTH-T49",
+    epic: "ui",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["frontend", "ui", "positions"],
+    deps: ["AUTH-T47", "AUTH-T42"],
+    title: "Admin: positions pages",
+    description: `List (with holder counts and category grouping), create dialog (key auto-suggested from name, editable before save, immutable after), edit page (name, category, description; key shown read-only with an explanation), delete dialog showing holder count and requiring the key to be typed, and a 'deleted positions' tab with history.`,
+    acceptance: [
+      "Key input rejects invalid characters live and shows the format rule.",
+      "Delete dialog blocks submission until the typed key matches.",
+    ],
+  },
+  {
+    id: "AUTH-T50",
+    epic: "ui",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["frontend", "ui", "registry"],
+    deps: ["AUTH-T47", "AUTH-T56"],
+    title: "Admin: product registry pages",
+    description: `CRUD pages for products (name, slug, base URL, description, icon URL, active, sort order, visible-to-positions). Show which trusted origins and redirect targets the registry currently yields.`,
+    acceptance: [
+      "Adding a product makes its origin trusted and its URL appear on account pages without a deploy (verified on dev).",
+    ],
+  },
+  {
+    id: "AUTH-T51",
+    epic: "ui",
+    phase: 3,
+    priority: "Medium",
+    estimate: 3,
+    labels: ["frontend", "ui", "audit"],
+    deps: ["AUTH-T47", "AUTH-T73"],
+    title: "Admin: audit log viewer with filters and CSV export",
+    description: `Table of AuditEvents with filters (type, actor, target, date range), detail drawer for metadata, and CSV export of the filtered set (server-streamed, capped at 50k rows).`,
+    acceptance: [
+      "Filtering by a user shows both events they performed and events targeting them.",
+      "Export matches the on-screen filter.",
+    ],
+  },
+  {
+    id: "AUTH-T52",
+    epic: "ui",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["frontend", "ui", "admin"],
+    deps: ["AUTH-T47", "AUTH-T37"],
+    title:
+      "Admin: Primary Admin transfer wizard, status, acceptance, and cancel pages",
+    description: `PA-only wizard: full-screen warning explaining consequences, recipient selection limited to eligible admins (MFA enrolled), typed email confirmation, re-auth step, summary. Status card on the admin dashboard while a transfer is in flight (with cancel). Recipient acceptance page (\`/admin/transfer/accept/[id]\`) with re-auth and decline. Public cancel page for the emailed token. Completion banner for all admins.`,
+    acceptance: [
+      "Wizard cannot be completed without typing the exact recipient email and passing re-auth.",
+      "Ineligible recipients (no MFA, not admin, deactivated) are not selectable and the reason is shown.",
+    ],
+  },
+  {
+    id: "AUTH-T53",
+    epic: "ui",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["frontend", "ui"],
+    deps: ["AUTH-T47", "AUTH-T33", "AUTH-T56"],
+    title:
+      "Account page: profile, positions, product links, sessions, sign out everywhere",
+    description: `\`/account\`: edit name and preferredName; read-only list of positions (key and name); 'Your SGA tools' grid of active products from the registry filtered by \`visibleToPositionKeys\` with links to each product (this is the hub users land on after login without a redirect); sessions list with per-device revoke and 'Sign out everywhere'; links to security settings.`,
+    acceptance: [
+      "A user with no positions sees only products visible to everyone.",
+      "Revoking another device's session removes it from the list and that device gets 401.",
+    ],
+  },
+  {
+    id: "AUTH-T54",
+    epic: "ui",
+    phase: 3,
+    priority: "High",
+    estimate: 3,
+    labels: ["frontend", "ui", "security"],
+    deps: ["AUTH-T23", "AUTH-T67"],
+    title:
+      "Account security page: change password, MFA enrollment, backup codes",
+    description: `\`/account/security\`: change password form; TOTP enrollment (QR + manual secret, verify code, download/copy backup codes once), regenerate backup codes, disable MFA (re-auth; disallowed for admins and PA with explanation). Show 'MFA required for admins' banner and block admin pages until enrolled.`,
+    acceptance: [
+      "An admin without MFA is redirected to enrollment when opening `/admin`.",
+      "Backup codes are shown once; using one logs a security notice.",
+    ],
+  },
+  {
+    id: "AUTH-T55",
+    epic: "ui",
+    phase: 3,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["frontend", "ui", "a11y"],
+    deps: ["AUTH-T48", "AUTH-T49", "AUTH-T53", "AUTH-T54"],
+    title: "Accessibility, responsive, and empty/error state pass",
+    description: `Audit every page with axe and keyboard-only navigation; add empty states, loading skeletons, and error states; verify focus management in dialogs; confirm color contrast in both themes.`,
+    acceptance: [
+      "axe: zero serious/critical issues on all pages; documented checklist completed.",
+    ],
+  },
+
+  // ───────────────────────── E8 Product Registry & SDK ─────────────────────────
+  {
+    id: "AUTH-T56",
+    epic: "sdk",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "registry", "security"],
+    deps: ["AUTH-T14"],
+    title:
+      "Product registry service: trusted origins and redirect allowlist at runtime",
+    description: `\`src/lib/products.ts\`: loads active products (cached in-memory for 60 s, invalidated on write), exposes \`getTrustedOrigins()\` (product origins + SGAuth origin + local dev origins when \`SGAUTH_ENV=local\`) fed to Better Auth's \`trustedOrigins\` as a function, and \`isAllowedRedirect(url)\` used by AUTH-T31 and AUTH-T30. If the registry query fails, fall back to a static list containing only SGAuth's own origin (fail closed for products, but SGAuth's own pages keep working). Never trust \`*.vercel.app\` and never use a wildcard \`https://*.northeasternsga.com\` (it would trust dangling subdomains).`,
+    acceptance: [
+      "Adding a product on dev makes cross-origin POSTs from its origin pass Better Auth's origin check within 60 s; removing it makes them fail.",
+      "Unit tests for origin normalization (trailing slash, port, case).",
+    ],
+  },
+  {
+    id: "AUTH-T57",
+    epic: "sdk",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["sdk", "infra"],
+    deps: ["AUTH-T28"],
+    title:
+      "Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm)",
+    description: `New repo \`SGAOperations/sgauth-sdk\` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the \`@sgaoperations\` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on \`v*\` tags; semantic versioning; \`CHANGELOG.md\`; provenance attestations enabled.`,
+    acceptance: [
+      "`npm install @sgaoperations/sgauth` works from any product repo with no `.npmrc` changes.",
+      "CI publishes on `v*` tags via trusted publishing and fails on version collisions; the package page shows provenance.",
+    ],
+  },
+  {
+    id: "AUTH-T58",
+    epic: "sdk",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["sdk", "sso"],
+    deps: ["AUTH-T57"],
+    title: "SDK: getSession() with cookie forwarding and a 60-second cache",
+    description: `\`getSession({ headers | cookieHeader })\`: extracts the SGAuth cookie (name from \`SGAUTH_COOKIE_NAME\`, default \`__Secure-sgauth.session_token\`), calls \`{SGAUTH_URL}/api/sgauth/session\` with the \`Cookie\` header, returns a typed \`SgaSession | null\`. In-memory LRU cache keyed by SHA-256 of the token, TTL 60 s (configurable, max 300 s), negative cache 10 s. **Availability:** SGAuth is a single point of failure for every product, so on network error or 5xx the SDK serves a previously cached session for that token for up to \`staleIfErrorSeconds\` (default 300, max 900) and calls \`onError\`; with no cached entry it returns null (fail closed). Timeout 3 s. Never caches 5xx as a session. Products must never log the forwarded Cookie header (documented). Ships the JSON schema types from AUTH-T28.`,
+    acceptance: [
+      "Unit tests with a mocked fetch: cache hit/miss, TTL expiry, 401 → null, timeout with cached entry → stale session + onError, timeout without cache → null + onError.",
+      "Revocation observed within 60 s in an integration test against dev.",
+    ],
+  },
+  {
+    id: "AUTH-T59",
+    epic: "sdk",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["sdk", "sso"],
+    deps: ["AUTH-T58"],
+    title:
+      "SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs)",
+    description: `Exports: \`createSgaProxy({ publicPaths })\` for Next.js \`proxy.ts\`/\`middleware.ts\` that **only checks for the presence of the SGAuth cookie** (no network call, no per-request latency) and redirects to \`loginUrl(currentUrl)\` when absent; real validation happens in server code via \`requireSession()\` (throws/redirects on an invalid or revoked cookie). \`hasPosition(session, key)\`, \`hasAnyPosition(session, keys)\`, \`hasAllPositions\`, \`isAdmin(session)\`; \`loginUrl(redirect)\`, \`logoutUrl(redirect)\`, \`accountUrl()\`. React cache() wrapper for server components so one request resolves the session once. Document why the proxy must not call SGAuth: middleware runs per request and per instance, so a network round trip there adds latency to every page and defeats the cache.`,
+    acceptance: [
+      "Example app in the repo demonstrates a protected page, a position-gated action, and logout.",
+      "Helpers never run in the browser (server-only guard) except the URL builders.",
+    ],
+  },
+  {
+    id: "AUTH-T60",
+    epic: "sdk",
+    phase: 3,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["sdk", "supabase", "jwt"],
+    deps: ["AUTH-T58", "AUTH-T29"],
+    title: "SDK: getAccessToken() for Supabase clients",
+    description: `\`getAccessToken({ headers })\` calls \`/api/auth/token\` with the forwarded cookie and caches the JWT until \`exp - 60 s\` keyed by session token hash. Provide \`createSupabaseAccessTokenProvider()\` returning the \`accessToken\` callback shape supabase-js expects, and a browser-safe variant that calls a product-side route which proxies to SGAuth (so the token never requires exposing SGAuth cookies to client JS).`,
+    acceptance: [
+      "Token refresh happens before expiry in a long-running test; a revoked session stops yielding tokens at the next refresh.",
+    ],
+  },
+  {
+    id: "AUTH-T61",
+    epic: "sdk",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["sdk", "docs"],
+    deps: ["AUTH-T59"],
+    title: "SDK documentation, example app, and versioning policy",
+    description: `README with install (public npm, no registry config), env vars (\`SGAUTH_URL\`, \`SGAUTH_COOKIE_NAME\`), quick start, API reference (typedoc), dev/preview topology (AUTH-T34), the stale-if-error behavior and its bound, upgrade notes, and a support policy (latest two minors).`,
+    acceptance: [
+      "A new product can integrate using only the README (validated by the VaultZ integration).",
+    ],
+  },
+  {
+    id: "AUTH-T62",
+    epic: "sdk",
+    phase: 3,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend", "security", "sso"],
+    deps: ["AUTH-T56", "AUTH-T28"],
+    title: "CORS for browser-side calls from registered products",
+    description: `Allow client components on registered product origins to call \`/api/sgauth/session\`, \`/api/auth/token\`, and \`/api/auth/sign-out\` with \`credentials: 'include'\`: dynamic \`Access-Control-Allow-Origin\` echoing only registry origins, \`Allow-Credentials: true\`, \`Vary: Origin\`, preflight handling, no wildcard. Server-side calls remain the recommended path.`,
+    acceptance: [
+      "Preflight from an unregistered origin gets no CORS headers; from a registered one it succeeds with credentials.",
+    ],
+  },
+
+  // ───────────────────────── E9 Security Hardening ─────────────────────────
+  {
+    id: "AUTH-T63",
+    epic: "security",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "security", "infra"],
+    deps: ["AUTH-T03", "AUTH-T07"],
+    title: "Upstash Redis rate limiting on auth and token endpoints",
+    description: `Use \`@upstash/ratelimit\` (sliding window) inside the handlers for **mutating and expensive endpoints only**: sign-in 10/min and 50/hour per IP; sign-up 5/hour per IP; forgot-password 3/10 min per IP and per email; verification resend 3/hour per email; token endpoint 60/min per session; re-auth 5/min per user; admin mutations 100/min per user. The **session endpoint is not Redis-limited** (the Upstash free tier is 500K commands/month and the session endpoint is the hot path); it relies on the SDK cache, Vercel's platform protections, and a cheap in-process token bucket. Disable Better Auth's built-in limiter. **On Upstash outage: fail open everywhere with a logged alert** (decision: an Upstash outage must never become an org-wide login outage); the DB-backed account lockout (AUTH-T64) remains the brute-force backstop. Return 429 with \`Retry-After\`. Budget: estimate monthly Redis commands from expected logins and document the alert threshold at 80% of the free quota.`,
+    acceptance: [
+      "Automated tests hit each limit and observe 429 + `Retry-After`; limits reset after the window.",
+      "With Upstash unreachable (fake), sign-in still succeeds and an alert-level log line is emitted.",
+      "Upstash keys are namespaced per environment (`sgauth:prod:`, `sgauth:dev:`).",
+    ],
+  },
+  {
+    id: "AUTH-T64",
+    epic: "security",
+    phase: 1,
+    priority: "High",
+    estimate: 5,
+    labels: ["backend", "security", "email"],
+    deps: ["AUTH-T15", "AUTH-T17", "AUTH-T20", "AUTH-T103"],
+    title:
+      "Escalating account lockout with emailed unlock and known-device exemption",
+    description: `Track failed password attempts per account (AccountLock). 5 failures within 15 minutes → lock 15 min; each subsequent lock doubles (30 min, 1 h, 2 h, … capped at 24 h); never permanent. **Known-device exemption (red-team):** a plain lockout lets anyone who knows an admin's email lock them out indefinitely. After every successful login SGAuth sets a signed, HttpOnly \`__Secure-sgauth.device\` cookie (host-only on auth.northeasternsga.com, 1-year, hashed in KnownDevice). Sign-in attempts that carry a valid known-device cookie for that account are exempt from the account lock (they remain subject to IP rate limits and their own separate 5-per-15-min counter); attempts without one count toward and are blocked by the lock. Attackers cannot obtain the cookie without a successful login. While locked, sign-in returns the same generic error as wrong password; the locked-account email tells the real owner what happened. On lock: email the user an unlock link (page + POST, AUTH-T103; single-use, 1 h) and a security notice; audit ACCOUNT_LOCKED / ACCOUNT_UNLOCKED. Successful login or password reset resets counters; lock level decays after 24 h clean. Applies to the Primary Admin. Admins can unlock from the UI.`,
+    acceptance: [
+      "Sixth attempt within the window from an unknown device is refused even with the correct password; the unlock link restores access.",
+      "The same account signing in from a browser holding a valid known-device cookie succeeds while the account is locked for unknown devices.",
+      "Lock durations escalate and cap at 24 h (time-travel test).",
+      "Unknown emails do not produce different responses or timing.",
+    ],
+  },
+  {
+    id: "AUTH-T65",
+    epic: "security",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "security", "sso"],
+    deps: ["AUTH-T56", "AUTH-T26"],
+    title: "CSRF and origin enforcement across subdomains",
+    description: `Because the cookie is shared with every subdomain and SameSite=Lax still sends it on same-site POSTs from sibling subdomains, SGAuth must verify the \`Origin\` (fallback \`Referer\`) header on every state-changing request against the registry-derived trusted origins (Better Auth does this for its routes; extend the check to all \`/api/sgauth/*\` mutations). Reject missing Origin on non-GET. Add \`Sec-Fetch-Site\` checks as defense in depth.`,
+    acceptance: [
+      "A POST to `/api/sgauth/admin/users` with `Origin: https://unregistered.northeasternsga.com` and a valid cookie is rejected 403.",
+      "Same POST from a registered product origin succeeds.",
+    ],
+  },
+  {
+    id: "AUTH-T66",
+    epic: "security",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend", "security"],
+    deps: ["AUTH-T05"],
+    title: "Security headers (CSP, HSTS, frame, referrer)",
+    description: `Set via \`next.config.ts\` headers: strict CSP (self + PostHog host, nonce for inline scripts), \`X-Frame-Options: DENY\`, \`Referrer-Policy: strict-origin-when-cross-origin\`, \`X-Content-Type-Options: nosniff\`, \`Permissions-Policy\` minimal. HSTS: \`max-age=31536000\` on auth.northeasternsga.com **without** \`includeSubDomains\`/\`preload\` unless every SGA subdomain is confirmed HTTPS-only (flag for the team; enabling it at the apex affects all products).`,
+    acceptance: [
+      "securityheaders.com grade A on production; CSP violations reported to PostHog or a report-only endpoint first for one week.",
+    ],
+  },
+  {
+    id: "AUTH-T67",
+    epic: "security",
+    phase: 2,
+    priority: "High",
+    estimate: 5,
+    labels: ["backend", "security", "better-auth"],
+    deps: ["AUTH-T15", "AUTH-T17"],
+    title:
+      "TOTP multi-factor authentication (optional for users, required for admins and the Primary Admin)",
+    description: `Add the Better Auth \`twoFactor\` plugin (TOTP + backup codes; no SMS/email OTP). Login flow: after password, if enrolled, prompt for a 6-digit code or backup code; 'trust this device' is NOT enabled (keep it simple and consistent with sessions). Enforcement: users with \`isAdmin\` must have MFA to access admin endpoints/pages (403 \`MFA_REQUIRED\` → enrollment redirect); granting admin to a user without MFA is allowed but they are locked out of admin functions until enrolled; the PA transfer recipient must be enrolled. Backup codes hashed; regeneration invalidates old ones; audit MFA_ENROLLED / MFA_DISABLED / MFA_BACKUP_USED.`,
+    acceptance: [
+      "Enrolled user must present a valid TOTP; replayed codes within the same step are rejected.",
+      "Admin without MFA cannot call any admin endpoint; after enrollment the same call succeeds.",
+      "Disabling MFA requires re-auth and is refused for admins/PA.",
+    ],
+  },
+  {
+    id: "AUTH-T68",
+    epic: "security",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["infra", "security", "docs"],
+    deps: ["AUTH-T26"],
+    title:
+      "Subdomain hygiene: DNS inventory, dangling-record removal, and policy",
+    description: `Because the session cookie is readable by every \`*.northeasternsga.com\` host, inventory all DNS records for the domain, remove or reclaim records that point at unowned Vercel/other targets (subdomain takeover), and write \`docs/SUBDOMAIN_POLICY.md\`: only products in the SGAuth registry may receive a subdomain; wildcard records are prohibited; third-party services get a separate domain. Add a quarterly checklist item.`,
+    acceptance: [
+      "Inventory spreadsheet/link attached; zero dangling records; policy merged and linked from the architecture doc.",
+    ],
+  },
+  {
+    id: "AUTH-T69",
+    epic: "security",
+    phase: 2,
+    priority: "Medium",
+    estimate: 1,
+    labels: ["infra", "security", "docs"],
+    deps: ["AUTH-T05", "AUTH-T29"],
+    title: "Secrets management and rotation procedures",
+    description: `Document and script rotation for \`BETTER_AUTH_SECRET\` (invalidates cookie signatures → all users re-login; schedule in a low-usage window), Resend key, Upstash token, Neon passwords, \`CRON_SECRET\`, and the **manual JWKS rotation** (AUTH-T29): (1) generate the new ES256 key pair in the Jwks table without switching signing; (2) run \`scripts/supabase-push-jwks.ts\` to PUT the combined JWKS into each Supabase project's third-party integration via \`custom_jwks\` (Management API) and confirm \`resolved_jwks\`; (3) switch signing to the new key; (4) after 7 days remove the old key and push again. Ensure secrets are scoped per Vercel environment and never printed in logs or preview builds.`,
+    acceptance: [
+      "`docs/runbooks/rotate-secrets.md` exists and a dry run of the JWKS rotation on dev against a throwaway Supabase project produces zero token rejections during the switch.",
+    ],
+  },
+  {
+    id: "AUTH-T70",
+    epic: "security",
+    phase: 1,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["backend", "security", "testing"],
+    deps: ["AUTH-T17", "AUTH-T19"],
+    title: "Account-enumeration resistance and timing uniformity",
+    description: `Ensure sign-in, forgot-password, sign-up, and verification-resend responses do not reveal whether an email exists (identical bodies and status codes). Better Auth already returns success for a duplicate sign-up when \`requireEmailVerification\` is on; verify that path and add the unverified-account overwrite from AUTH-T17. Add a dummy hash comparison on unknown-email sign-in to equalize timing.`,
+    acceptance: [
+      "Tests assert identical response bodies and status codes across known/unknown emails for each endpoint; a non-gating benchmark script reports timing deltas (a hard 50 ms CI assertion was rejected as flaky).",
+    ],
+  },
+  {
+    id: "AUTH-T71",
+    epic: "security",
+    phase: 3,
+    priority: "Low",
+    estimate: 1,
+    labels: ["ci", "security"],
+    deps: ["AUTH-T06"],
+    title: "Dependency and code scanning",
+    description: `Enable Dependabot (npm, weekly, grouped), \`npm audit --audit-level=high\` in CI, and GitHub CodeQL for JavaScript/TypeScript on PRs.`,
+    acceptance: [
+      "All three run on the repo; a seeded vulnerable dependency fails CI in a test PR.",
+    ],
+  },
+  {
+    id: "AUTH-T72",
+    epic: "security",
+    phase: 2,
+    priority: "Medium",
+    estimate: 3,
+    labels: ["docs", "security"],
+    deps: ["AUTH-T26", "AUTH-T29", "AUTH-T35"],
+    title: "Threat model and pre-launch security review checklist",
+    description: `Write \`docs/THREAT_MODEL.md\` (STRIDE-lite) covering: shared-cookie exposure and subdomain takeover, session fixation/replay, JWT misuse by Supabase products, admin abuse and self-escalation, PA transfer hijack, break-glass misuse, email link phishing, rate-limit bypass, Neon credential leakage. For each: mitigation and residual risk. Derive a pre-launch checklist executed in AUTH-T91.`,
+    acceptance: [
+      "Document reviewed by at least two team members; every residual risk has an owner or an accepted-risk note.",
+    ],
+  },
+
+  // ───────────────────────── E10 Observability & Audit ─────────────────────────
+  {
+    id: "AUTH-T73",
+    epic: "observability",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["backend", "audit"],
+    deps: ["AUTH-T13"],
+    title: "Audit event catalog, emitter, and coverage test",
+    description: `\`src/lib/audit.ts\`: a typed catalog (LOGIN_SUCCESS, LOGIN_FAILED, LOGOUT, SESSION_REVOKED, SESSIONS_REVOKED, PASSWORD_RESET_REQUESTED, PASSWORD_RESET, PASSWORD_CHANGED, PASSWORD_REHASHED, EMAIL_VERIFIED, USER_CREATED, USER_INVITED, USER_DEACTIVATED, USER_REACTIVATED, USER_DELETED, ADMIN_GRANTED, ADMIN_REVOKED, POSITION_CREATED/UPDATED/DELETED/ASSIGNED/UNASSIGNED, PRODUCT_CREATED/UPDATED/DELETED, PA_TRANSFER_*, BREAK_GLASS_PA_RECOVERY, ACCOUNT_LOCKED/UNLOCKED, MFA_*, BULK_IMPORT, JWKS_ROTATED) and \`audit(event)\` that captures actor, IP, UA from request context and writes inside the caller's transaction when one is open. Add a test that every mutating endpoint emits at least one audit event (route table cross-checked against catalog usage).`,
+    acceptance: [
+      "Catalog is the single source for the DB CHECK constraint (generated migration).",
+      "Coverage test fails when a new mutating route is added without an audit call.",
+    ],
+  },
+  {
+    id: "AUTH-T74",
+    epic: "observability",
+    phase: 1,
+    priority: "High",
+    estimate: 2,
+    labels: ["backend", "observability"],
+    deps: ["AUTH-T03"],
+    title: "Structured JSON logging with request IDs and redaction",
+    description: `Use \`pino\` (or a thin console JSON logger compatible with Vercel log drains): request id (from \`x-vercel-id\` or generated), route, user id (never email), latency, outcome. Redact tokens, cookies, passwords, and email bodies. Log levels by environment.`,
+    acceptance: [
+      "Sample production log line validated against a schema; a test asserts secrets are redacted.",
+    ],
+  },
+  {
+    id: "AUTH-T75",
+    epic: "observability",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["observability", "posthog"],
+    deps: ["AUTH-T74"],
+    title: "PostHog: server-side auth funnel events and error tracking",
+    description: `Integrate PostHog (free tier): server-side capture of login_succeeded/login_failed (reason category only), signup_started/completed, reset_requested/completed, mfa_enrolled, session_endpoint_error; identify by SGAuth user id only (no email/name properties). Enable PostHog error tracking on the server; on the client, load the PostHog script **only on authenticated /admin and /account pages, never on login, sign-up, reset, or verification pages** (a third-party script on a credential form is a supply-chain risk; those pages report errors via a first-party endpoint). Respect a \`POSTHOG_DISABLED\` flag for local/test. Add a dashboard for daily logins, failure rate, lockouts.`,
+    acceptance: [
+      "Events appear in PostHog from dev with no PII properties (verified by inspecting event payloads); an induced server error shows in error tracking.",
+    ],
+  },
+  {
+    id: "AUTH-T76",
+    epic: "observability",
+    phase: 1,
+    priority: "Medium",
+    estimate: 1,
+    labels: ["backend", "infra"],
+    deps: ["AUTH-T04", "AUTH-T29"],
+    title: "Health endpoint and uptime monitor",
+    description: `\`GET /api/health\` returns 200 with \`{ db: 'ok', jwks: 'ok', version }\` after a cheap \`SELECT 1\` and a JWKS presence check; 503 otherwise. Configure a free external uptime monitor hitting it every 5 minutes with email alerts to the admins.`,
+    acceptance: [
+      "Monitor is live and alerted correctly during a deliberate 10-minute dev outage test.",
+    ],
+  },
+  {
+    id: "AUTH-T77",
+    epic: "observability",
+    phase: 3,
+    priority: "Low",
+    estimate: 2,
+    labels: ["backend", "observability", "email"],
+    deps: ["AUTH-T73", "AUTH-T20", "AUTH-T38"],
+    title: "Threshold alerts for security events",
+    description: `A scheduled job (every 15 min via AUTH-T38) queries AuditEvent for spikes: >50 LOGIN_FAILED in 15 min, >5 ACCOUNT_LOCKED in an hour, any BREAK_GLASS_PA_RECOVERY, any PA_TRANSFER_INITIATED, JWKS rotation, job failures, Upstash fail-open events; emails all admins with a summary (deduplicated per hour).`,
+    acceptance: [
+      "Simulated spike triggers exactly one alert email; the same condition an hour later triggers again.",
+    ],
+  },
+  {
+    id: "AUTH-T78",
+    epic: "observability",
+    phase: 3,
+    priority: "Medium",
+    estimate: 3,
+    labels: ["backend", "privacy", "infra"],
+    deps: ["AUTH-T13", "AUTH-T36", "AUTH-T20", "AUTH-T38"],
+    title:
+      "Retention jobs: tombstone deactivated (30 d) and inactive (12 mo) users, purge sessions and PII",
+    description: `Daily job (via AUTH-T38): (1) **tombstone** users deactivated ≥30 days ago: status DELETED, email replaced by \`deleted+<id>@invalid\`, name 'Deleted user', preferredName null, password/accounts/MFA/known devices/sessions/positions removed, audit PII anonymized via the gated path; the row and id are kept so product foreign keys stay valid and products render 'Deleted user' (never the PA); (2) flag users with no login for 11 months and email an inactivity notice; tombstone at 12 months if still inactive (admins and the PA are exempt and listed for manual review; holding positions does not exempt); (3) purge expired sessions, **sessions whose \`createdAt\` is older than 90 days (absolute cap enforcement, AUTH-T27)**, verifications, unlock tokens, and unverified sign-ups older than 7 days; (4) null IP/UA on audit rows and sessions older than 90 days. Everything logged with counts; \`--dry-run\` support; admin UI shows upcoming tombstones. A tombstoned email may be re-registered later as a brand-new account (new id).`,
+    acceptance: [
+      "Time-travel tests for each rule; PA and admins are never auto-tombstoned.",
+      "A tombstoned user's id still resolves (status DELETED) with no PII; audit rows keep `actorUserId` but lose IP/UA/metadata PII.",
+      "Sessions older than 90 days are gone after the job even if recently refreshed.",
+    ],
+  },
+
+  // ───────────────────────── E11 Integration Guides & Docs ─────────────────────────
+  {
+    id: "AUTH-T79",
+    epic: "docs",
+    phase: 1,
+    priority: "High",
+    estimate: 3,
+    labels: ["docs"],
+    deps: ["AUTH-T26", "AUTH-T28", "AUTH-T29"],
+    title: "ARCHITECTURE.md: Neon mandate, components, session and token flows",
+    description: `Write the canonical architecture document: the Neon mandate in the first paragraph ('SGAuth runs on Neon serverless Postgres and does not use Supabase for any purpose'), component diagram (Vercel app, Neon, Upstash, Resend, PostHog), request flows (login, product session lookup, Supabase token flow, logout propagation, PA transfer), data model overview, environment topology, and links to runbooks and guides. Keep it current as a living document (owner: SGAuth lead).`,
+    acceptance: [
+      "Doc merged at `docs/ARCHITECTURE.md` with Mermaid diagrams that render on GitHub; reviewed by the team lead.",
+    ],
+  },
+  {
+    id: "AUTH-T80",
+    epic: "docs",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["docs", "sdk"],
+    deps: ["AUTH-T61", "AUTH-T34"],
+    title: "Integration guide for Neon-based products (Next.js)",
+    description: `\`docs/integration/neon-products.md\`: prerequisites (subdomain registered in the product registry), install SDK, env vars, add \`proxy.ts\`, read the session in server components/actions/route handlers, gate features by position keys (with a recommended per-product permission map file), key product tables by SGAuth user id (create-on-first-login pattern), link to the account page, logout, dev/preview topology, propagation/staleness, migration checklist for products with existing users, troubleshooting (cookie missing, 401 loops, origin rejected).`,
+    acceptance: [
+      "VaultZ integration completed by following the guide with no undocumented steps (feedback folded back in).",
+    ],
+  },
+  {
+    id: "AUTH-T81",
+    epic: "docs",
+    phase: 3,
+    priority: "High",
+    estimate: 5,
+    labels: ["docs", "supabase", "jwt"],
+    deps: ["AUTH-T29", "AUTH-T60"],
+    title:
+      "Integration guide for Supabase-backed products (third-party auth) plus the move-to-Neon alternative",
+    description: `\`docs/integration/supabase-products.md\` covering, with tested snippets:
+1. **Register SGAuth as a third-party auth provider** using the Supabase Management API (\`POST /v1/projects/{ref}/config/auth/third-party-auth\` with \`oidc_issuer_url: https://auth.northeasternsga.com\`, or \`jwks_url\`), a script \`scripts/supabase-register-tpa.ts\`, and how to verify (\`GET\` the integration, check \`resolved_jwks\`). Note the dashboard may not expose a generic provider; the API does.
+2. **Token requirements** SGAuth satisfies: ES256, \`kid\`, \`role: 'authenticated'\`, uuid \`sub\`, \`iss\`, \`exp\` ≤ 10 min.
+3. **Client setup**: \`createClient(url, key, { accessToken: () => getAccessToken() })\` server-side, and the browser proxy pattern from the SDK.
+4. **RLS**: \`auth.uid()\` = SGAuth user id; positions via \`(select auth.jwt() -> 'positions')\`; helper function \`has_position(text)\`; examples for select/insert policies; performance wrapping.
+5. **Decoupling from auth.users**: third-party users have no \`auth.users\` row; replace FKs/triggers with a product \`users\` table keyed by SGAuth id, created on first request.
+6. **Limitations**: no Supabase sessions/refresh/MFA/password features for these users; JWT staleness ≤10 min; Supabase JWKS refresh ≤30 min (why rotation has a 7-day grace); billing at $0.00325 per third-party MAU beyond quota; \`custom_jwks\` fallback if discovery fails.
+7. **Alternative**: server-side verification with \`jose\` against SGAuth's JWKS for products that do not need RLS.
+8. **Move to Neon instead**: checklist for migrating a Supabase product's Postgres to Neon and using the standard Neon guide, recommended for any product that needs auth and does not depend on Supabase-only features (Storage, Realtime).`,
+    acceptance: [
+      "A throwaway Supabase project registered via the script accepts an SGAuth token and an RLS policy using `auth.uid()` and a position claim behaves as documented (recorded in the guide with a verification date).",
+      "Guide includes the explicit limitations list and the MAU cost line.",
+    ],
+  },
+  {
+    id: "AUTH-T82",
+    epic: "docs",
+    phase: 2,
+    priority: "Medium",
+    estimate: 3,
+    labels: ["docs", "admin"],
+    deps: ["AUTH-T37", "AUTH-T39", "AUTH-T64", "AUTH-T41"],
+    title: "Admin runbooks",
+    description: `\`docs/runbooks/\`: Primary Admin transfer (step-by-step with screenshots), break-glass recovery, unlocking a user, bulk import, position lifecycle (create/rename/retire), key and secret rotation, incident response (revoke all sessions, rotate secret, notify), onboarding a new product (registry + subdomain + SDK), semester turnover checklist.`,
+    acceptance: [
+      "Each runbook has been executed once on dev by someone other than its author and corrected accordingly.",
+    ],
+  },
+  {
+    id: "AUTH-T83",
+    epic: "docs",
+    phase: 3,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["docs", "privacy"],
+    deps: ["AUTH-T78"],
+    title: "Privacy notice and data-handling document",
+    description: `Public page \`/privacy\` and \`docs/DATA_HANDLING.md\`: what SGAuth stores (name, preferred name, northeastern.edu email, positions, security metadata such as IP/user agent for 90 days, audit events), why, who can see it (admins), retention (deactivated 30 days, inactive 12 months), how to request deletion, and that SGAuth stores no NUID, grades, or academic records. Note that names and positions are directory-level information and that SGA, as a student organization, is not the university's FERPA steward; keep the data set that way.`,
+    acceptance: [
+      "Page live and linked from the login footer; reviewed by the Primary Admin.",
+    ],
+  },
+  {
+    id: "AUTH-T84",
+    epic: "docs",
+    phase: 3,
+    priority: "Low",
+    estimate: 1,
+    labels: ["docs", "sdk"],
+    deps: ["AUTH-T61"],
+    title: "Generated SDK API reference and changelog discipline",
+    description: `Typedoc site published to GitHub Pages from the SDK repo on release; enforce changelog entries via a CI check on PRs.`,
+    acceptance: [
+      "Reference site live; a PR without a changelog entry fails CI.",
+    ],
+  },
+  {
+    id: "AUTH-T85",
+    epic: "docs",
+    phase: 1,
+    priority: "Low",
+    estimate: 1,
+    labels: ["docs", "chore"],
+    deps: ["AUTH-T02", "AUTH-T06"],
+    title: "CLAUDE.md and CONTRIBUTING.md for agents and humans",
+    description: `Document conventions for coding agents and contributors: Neon-only (no Supabase), commands (dev, test, migrate, seed), folder layout, authz and audit requirements for any new mutating route, testing expectations, commit/PR conventions (labels), and links to the design docs. Update the repo's agent definitions that reference Supabase (prisma-migration-agent, security-reviewer) to Neon.`,
+    acceptance: [
+      "CLAUDE.md merged; agent definitions no longer mention Supabase.",
+    ],
+  },
+
+  // ───────────────────────── E12 User Migration & Rollout ─────────────────────────
+  {
+    id: "AUTH-T86",
+    epic: "rollout",
+    phase: 3,
+    priority: "High",
+    estimate: 2,
+    labels: ["migration", "chambers"],
+    deps: [],
+    title:
+      "Receive the Chambers auth.users export and define the import file format",
+    description: `**The export itself is a manual action item owned by Eli, outside Linear** (Chambers has no Linear team): export the Chambers Supabase \`auth.users\` table (\`id\`, \`email\`, \`encrypted_password\`, \`email_confirmed_at\`, \`last_sign_in_at\`, \`banned_until\`) joined to \`public.users\` (name fields, \`admin_role\`, \`iems_role\`, \`is_active\`) and board memberships **before the Supabase project is deleted**, into a JSON file kept out of git. This ticket: publish the expected JSON schema and a validation script (\`scripts/validate-export.ts\`) that checks the file, reports row counts and a checksum, and confirms hashes look like bcrypt (\`$2a$\`/\`$2b$\`). The file is stored in the team secrets vault and deleted after import.`,
+    acceptance: [
+      "Schema and validator merged; the received export validates with counts matching what Eli reports from Supabase.",
+    ],
+  },
+  {
+    id: "AUTH-T87",
+    epic: "rollout",
+    phase: 3,
+    priority: "High",
+    estimate: 3,
+    labels: ["migration", "backend", "chambers"],
+    deps: ["AUTH-T86", "AUTH-T21", "AUTH-T44", "AUTH-T13"],
+    title:
+      "Import script: Chambers users with bcrypt hashes and position mapping",
+    description: `\`scripts/import-users.ts --source chambers.json --mapping chambers-positions.json --dry-run\`: for each row, upsert User by lower-cased email (merge if it already exists from another import), store the bcrypt hash as \`bcrypt$<hash>\` in Account (only when no scrypt password exists), set \`emailVerified\` from \`email_confirmed_at\`, mark \`is_active = false\` users as DEACTIVATED, assign positions from an approved mapping file (Chambers roles → curated position keys), skip banned users, and write a report (created/merged/skipped with reasons) plus an id-mapping file (Supabase id → SGAuth id) for the Chambers team. Audit BULK_IMPORT. Never log hashes.`,
+    acceptance: [
+      "Dry run against dev reports counts; real run is idempotent (second run: 0 created).",
+      "Sample imported user logs in with their Chambers password on dev (AUTH-T21) and holds the mapped positions.",
+      "Mapping file approved by the Primary Admin before the production run.",
+    ],
+  },
+  {
+    id: "AUTH-T88",
+    epic: "rollout",
+    phase: 4,
+    priority: "High",
+    estimate: 2,
+    labels: ["migration", "aplio"],
+    deps: ["AUTH-T87", "AUTH-T22"],
+    title: "Aplio user import (emails and names, no passwords) with id mapping",
+    description: `Aplio users authenticated with email OTP and have no passwords. Extend the import script with \`--source aplio.json\` (id, email, name, isAdmin, deletedAt): upsert by email (duplicates of Chambers accounts merge into the existing account and keep its password), create the rest as password-less accounts that set a password lazily on first sign-in (AUTH-T22; **no emails are sent at import**), do not grant SGAuth admin from Aplio's \`isAdmin\` (product-level; APLIO-P04 maps it to a position), skip soft-deleted users, produce the id-mapping file for APLIO-P03. Accounts whose address is not northeastern.edu are imported as-is (the admin/import path bypasses the domain rule) with \`legacyEmail = true\`; they keep working, and an admin can later move them to the person's northeastern.edu address via AUTH-T24, preserving the SGAuth id and Aplio history. Eli plans to look up and correct these few addresses by hand; the import report lists them.`,
+    acceptance: [
+      "Report shows created/merged counts and lists every non-northeastern.edu account; the import sends no email; a sample imported user sets a password on first sign-in and sees their Aplio data; id-mapping file delivered to the Aplio team.",
+    ],
+  },
+  {
+    id: "AUTH-T89",
+    epic: "rollout",
+    phase: 4,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["migration"],
+    deps: ["AUTH-T88"],
+    title: "SenatePath and SenatePortal user import",
+    description: `Same script with \`--source senatepath.json\` (admin users only) and \`--source senateportal.json\` (email, first/last, role; SenatePortal is the new name for Attendance Manager) — NUID is NOT imported. Positions mapping files approved per product. Accounts are created password-less and set passwords lazily on first sign-in (AUTH-T22); no emails at import.`,
+    acceptance: [
+      "Both imports run on dev with reports; id-mapping files delivered to each team.",
+    ],
+  },
+  {
+    id: "AUTH-T90",
+    epic: "rollout",
+    phase: 3,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["docs", "rollout"],
+    deps: ["AUTH-T80", "AUTH-T87"],
+    title: "Rollout plan and user communications",
+    description: `Write \`docs/ROLLOUT.md\`: order SGAuth MVP → VaultZ → Chambers → Aplio (hard cutover) → SenatePath → Attendance Manager; per-product cutover checklist (pre-import users, registry entry, subdomain, env, SDK version, smoke test, announcement, rollback flag, support window of 3 days with a named contact); email templates announcing 'one login for all SGA tools' and, for Chambers users, that their existing password keeps working.`,
+    acceptance: [
+      "Plan reviewed with each product owner; dates recorded; announcement emails drafted.",
+    ],
+  },
+  {
+    id: "AUTH-T91",
+    epic: "rollout",
+    phase: 2,
+    priority: "High",
+    estimate: 2,
+    labels: ["rollout", "infra", "security"],
+    deps: ["AUTH-T72", "AUTH-T66", "AUTH-T76", "AUTH-T39", "AUTH-T64"],
+    title: "Production launch checklist and Primary Admin bootstrap",
+    description: `Execute before the first product goes live: DNS + DMARC verified; production env vars set; Neon PITR confirmed; Upstash and Resend production keys; PostHog project; uptime monitor; threat-model checklist items closed; bootstrap the first Primary Admin via a one-time script (\`scripts/bootstrap-primary-admin.ts\`, refuses to run if any PA exists) followed by MFA enrollment; at least two people hold break-glass credentials; backups of the curated positions; smoke test of login/logout/session endpoint from a product stub on a real subdomain.`,
+    acceptance: [
+      "Checklist completed and signed off in the ticket by the Primary Admin; bootstrap script left disabled afterwards.",
+    ],
+  },
+  {
+    id: "AUTH-T92",
+    epic: "rollout",
+    phase: 4,
+    priority: "Low",
+    estimate: 1,
+    labels: ["rollout", "docs"],
+    deps: ["AUTH-T90"],
+    title: "Post-launch review and legacy cleanup tracking",
+    description: `Two weeks after each product cutover: review PostHog funnel and audit metrics (failed logins, lockouts, support requests), remove the bcrypt verify path once no \`bcrypt$\` hashes remain, and confirm each product deleted its legacy auth code and secrets. Record findings in \`docs/ROLLOUT.md\`.`,
+    acceptance: [
+      "Review notes recorded for every product; legacy-cleanup subtasks closed.",
+    ],
+  },
+
+  // ───────────────────────── E13 Testing & QA ─────────────────────────
+  {
+    id: "AUTH-T93",
+    epic: "testing",
+    phase: 0,
+    priority: "High",
+    estimate: 3,
+    labels: ["testing", "infra"],
+    deps: ["AUTH-T01", "AUTH-T04"],
+    title: "Test harness: vitest, Neon test branch, factories, and test mailer",
+    description: `Configure vitest (node environment) with a global setup that points Prisma at the Neon \`test\` branch (reset from \`dev\` before each CI run; runs serialized by a GitHub Actions concurrency group because the 10-branch cap rules out per-run branches), applies migrations, and truncates tables between test files. Provide factories (\`createUser\`, \`createAdmin\`, \`createPrimaryAdmin\`, \`createSession\`, \`createPosition\`), a fake clock helper, a capturing mailer, and a fake Upstash (in-memory) limiter. Add \`npm test\` and coverage thresholds (80% lines on \`src/lib\`).`,
+    acceptance: [
+      "`npm test` runs locally against a personal branch and in CI against the test branch in under 5 minutes.",
+      "Factories and fakes documented in CONTRIBUTING.md.",
+    ],
+  },
+  {
+    id: "AUTH-T94",
+    epic: "testing",
+    phase: 1,
+    priority: "High",
+    estimate: 5,
+    labels: ["testing", "auth-core"],
+    deps: [
+      "AUTH-T93",
+      "AUTH-T17",
+      "AUTH-T18",
+      "AUTH-T19",
+      "AUTH-T27",
+      "AUTH-T64",
+    ],
+    title: "Integration tests for authentication flows",
+    description: `End-to-end (HTTP-level) tests: sign-up + verify + login; domain rejection; wrong password; lockout and unlock; forgot/reset including session revocation; invite acceptance; deactivated user; session sliding and absolute expiry; logout and sign-out-everywhere; re-auth freshness; rate-limit responses with the fake limiter.`,
+    acceptance: [
+      "All flows green in CI; each test asserts the expected audit events.",
+    ],
+  },
+  {
+    id: "AUTH-T95",
+    epic: "testing",
+    phase: 2,
+    priority: "High",
+    estimate: 3,
+    labels: ["testing", "admin"],
+    deps: ["AUTH-T93", "AUTH-T36", "AUTH-T37", "AUTH-T42", "AUTH-T43"],
+    title: "Authorization, admin, positions, and transfer integration tests",
+    description: `HTTP-level tests exercising the admin endpoints with the full actor/target matrix, the position lifecycle (create/rename/assign/delete/retired-key reuse), and the complete PA transfer state machine including cron execution and mid-flight recipient deactivation.`,
+    acceptance: [
+      "Matrix and state-machine tests pass; coverage of `authz.ts` and the transfer service ≥ 90%.",
+    ],
+  },
+  {
+    id: "AUTH-T96",
+    epic: "testing",
+    phase: 2,
+    priority: "High",
+    estimate: 5,
+    labels: ["testing", "sso", "e2e"],
+    deps: ["AUTH-T34", "AUTH-T59", "AUTH-T30"],
+    title: "Playwright end-to-end SSO test across subdomains",
+    description: `Spin up SGAuth and two minimal product stubs (using the SDK) on \`auth.sga.localhost\`, \`a.sga.localhost\`, \`b.sga.localhost\` in CI. Scenarios: login at auth → both products see the session; position assigned by an admin → product B gates a page accordingly; logout on product A → product B is logged out; expired session → redirect to login with the correct redirect param; open-redirect attempts rejected.`,
+    acceptance: [
+      "Playwright job green in CI with traces on failure; run time under 4 minutes.",
+    ],
+  },
+  {
+    id: "AUTH-T97",
+    epic: "testing",
+    phase: 2,
+    priority: "Medium",
+    estimate: 2,
+    labels: ["testing", "jwt", "supabase"],
+    deps: ["AUTH-T29"],
+    title: "JWT and JWKS conformance tests for Supabase requirements",
+    description: `Tests: token verifies with \`jose\` via remote JWKS; header has \`alg: ES256\` and \`kid\`; claims include uuid \`sub\`, \`role: 'authenticated'\`, \`iss\`, \`aud\`, \`exp - iat ≤ 600\`; discovery document is valid; rotation keeps the old key in the JWKS for the grace period; token endpoint rejects missing/revoked sessions.`,
+    acceptance: [
+      "Conformance suite green; a checklist in the Supabase guide references these tests.",
+    ],
+  },
+  {
+    id: "AUTH-T98",
+    epic: "testing",
+    phase: 3,
+    priority: "Low",
+    estimate: 2,
+    labels: ["testing", "performance"],
+    deps: ["AUTH-T28", "AUTH-T05"],
+    title: "Load sanity for the session endpoint on Neon",
+    description: `Run a k6/autocannon script against the dev deployment: 100 concurrent virtual users hitting \`/api/sgauth/session\` with valid cookies for 2 minutes. Record p50/p95, Neon connection count, and any pooler saturation; tune pool size and Neon compute settings; document results.`,
+    acceptance: [
+      "p95 < 250 ms and zero connection errors at 100 VUs; results in `docs/PERFORMANCE.md`.",
+    ],
+  },
+
+  // ───────────────────────── Backlog / spikes ─────────────────────────
+  {
+    id: "AUTH-T99",
+    epic: "authcore",
+    phase: 5,
+    priority: "Low",
+    estimate: 3,
+    labels: ["spike", "sso"],
+    deps: ["AUTH-T91"],
+    title: "Spike: Northeastern Microsoft Entra ID sign-in feasibility",
+    description: `Not a launch dependency. Investigate whether SGA can (a) get an app registered in Northeastern's Entra tenant via ITS, or (b) register a multi-tenant app in an SGA-owned tenant that Northeastern's tenant permits users to consent to, restricting sign-in to Northeastern's tenant id. If viable, prototype Better Auth's \`microsoft\` social provider behind a feature flag, linking to existing accounts by verified email. Report blockers, MFA inheritance (Duo), and the account-linking policy.`,
+    acceptance: [
+      "Written findings with a go/no-go recommendation and, if go, a follow-up ticket set.",
+    ],
+  },
+  {
+    id: "AUTH-T100",
+    epic: "authcore",
+    phase: 5,
+    priority: "Low",
+    estimate: 2,
+    labels: ["backlog", "email"],
+    deps: ["AUTH-T91"],
+    title: "Backlog: optional email OTP login (deferred due to email volume)",
+    description: `Deferred by decision: password is the launch method because Resend free-tier volume is constrained. Revisit after launch: Better Auth \`emailOTP\` plugin as an alternative sign-in for users who forget passwords, with strict per-user caps. Requires a volume estimate against the org-wide Resend budget first.`,
+    acceptance: [
+      "Decision recorded after reviewing 60 days of email volume metrics.",
+    ],
+  },
+
+  // ───────────────────────── Red-team additions ─────────────────────────
+  {
+    id: "AUTH-T101",
+    epic: "foundation",
+    phase: 0,
+    priority: "High",
+    estimate: 2,
+    labels: ["infra", "neon", "observability"],
+    deps: ["AUTH-T01"],
+    title: "Neon Free-plan quota monitoring, alerts, and upgrade runbook",
+    description: `Accepted risk from the red-team review: SGAuth runs on Neon Free, which suspends the compute for the remainder of the month once the project uses 100 CU-hours. A compute that stays awake most of the day at the 0.25 CU minimum uses about 180 CU-hours/month, so exhaustion is plausible once several products are live, and it would take every SGA login down at once.
+Mitigations: (1) a scheduled job (AUTH-T38, daily) reads consumption via the Neon API and emails all admins at 50%, 70%, and 85% of the monthly CU-hour quota, with a projection of the exhaustion date; (2) keep scale-to-zero at 5 minutes and rely on the SDK cache so idle periods suspend the compute; (3) \`docs/runbooks/neon-upgrade.md\`: one-click upgrade to Launch (pay-as-you-go, $0.106/CU-hour), what changes (7-day restore window, scale-to-zero configurable), and who is authorized to approve the spend; (4) record the 6-hour restore window as a known limitation in the architecture doc; (5) never add keep-warm pings (they burn the quota).`,
+    acceptance: [
+      "Alert emails fire at the thresholds (tested by lowering the threshold on dev).",
+      "Runbook merged and the upgrade trigger (85% or any suspension) is written into the on-call notes.",
+      "ARCHITECTURE.md states the Free-plan risk and the restore window explicitly.",
+    ],
+  },
+  {
+    id: "AUTH-T103",
+    epic: "authcore",
+    phase: 1,
+    priority: "Urgent",
+    estimate: 2,
+    labels: ["backend", "email", "security"],
+    deps: ["AUTH-T20"],
+    title:
+      "Scanner-safe email links: land on a page, consume the token on POST",
+    description: `Northeastern mail is Microsoft 365, and Defender Safe Links pre-fetches every link in incoming mail. A link that acts on GET (verify, reset, invite/set-password, unlock, PA transfer accept/cancel) would be consumed by the scanner before the user clicks. Rule for every emailed link in SGAuth: the URL opens a page that shows what is about to happen and a button; the token is validated for display on GET (never consumed, never marks anything) and consumed only on the button's POST (same-origin, CSRF-protected). Better Auth's built-in verify-email link acts on GET, so send our own URL (\`/verify-email?token=\`) that renders the confirmation page and calls the Better Auth verification endpoint on submit. HEAD requests and known scanner user agents get a 200 with no side effects. Provide one shared \`TokenActionPage\` component and a helper used by AUTH-T18, T19, T22, T24, T37, T64.`,
+    acceptance: [
+      "A HEAD or GET request to any emailed link does not consume the token (integration test); the subsequent POST does, exactly once.",
+      "Every email template's link points at a page implementing the pattern (test enumerates templates).",
+    ],
+  },
+  {
+    id: "AUTH-T105",
+    epic: "authcore",
+    phase: 4,
+    priority: "Medium",
+    estimate: 5,
+    labels: ["backend", "frontend", "security", "better-auth"],
+    deps: ["AUTH-T17", "AUTH-T32", "AUTH-T54", "AUTH-T67"],
+    title: "Passkeys as an optional sign-in method",
+    description: `Suggested by Benedikt and accepted: add the Better Auth \`passkey\` plugin (WebAuthn) as an optional, per-user sign-in method. Passkeys cost no email, resist phishing, and suit students who prefer not to manage passwords.
+- **Enrollment** from \`/account/security\` after fresh re-auth (AUTH-T32); users may register several passkeys and name/remove them. Relying-party ID is \`auth.northeasternsga.com\` (dev: \`auth-dev.northeasternsga.com\`), so passkeys are only usable on SGAuth's own login page; products never see WebAuthn.
+- **Sign-in:** the login page offers 'Sign in with a passkey' alongside email + password, including conditional UI (browser autofill) where supported. A successful passkey sign-in creates the same parent-domain session as a password sign-in.
+- **Password stays** as the account's fallback and for recovery; passkeys do not replace the password in v1.
+- **MFA:** a passkey does **not** satisfy the admin TOTP requirement in v1 (admins still enroll TOTP); revisit later.
+- Lockout counters (AUTH-T64) are unaffected by passkey attempts; failed WebAuthn ceremonies are rate-limited (AUTH-T63).
+- Schema: plugin's \`Passkey\` table via Prisma; audit PASSKEY_ADDED / PASSKEY_REMOVED / LOGIN_SUCCESS with method=passkey.
+- Tombstoning (AUTH-T78) and admin deactivation remove passkeys.`,
+    acceptance: [
+      "A user can enroll a passkey after re-auth, sign out, and sign back in with the passkey in Chrome, Safari, and Firefox (platform authenticator and a security key).",
+      "A passkey sign-in yields a session that products resolve exactly like a password sign-in (session endpoint contract test).",
+      "Removing a passkey or deactivating the user prevents its further use; audit events are emitted.",
+      "An admin who signs in with a passkey is still required to have TOTP enrolled for admin actions.",
+    ],
+  },
+  {
+    id: "AUTH-T104",
+    epic: "sessions",
+    phase: 1,
+    priority: "Urgent",
+    estimate: 2,
+    labels: ["spike", "sso", "better-auth"],
+    deps: ["AUTH-T05", "AUTH-T26"],
+    title:
+      "Spike: validate cross-subdomain cookies, prefixes, and local hostnames on the real domain before building on them",
+    description: `Community reports (better-auth issues #5611, #3938) describe cross-subdomain cookies being set and then dropped in some configurations. Before any product integration work, deploy the minimal Better Auth config to \`auth-dev.northeasternsga.com\` and a static stub on \`stub-dev.northeasternsga.com\`, then verify in Chrome, Firefox, and Safari: (1) login sets exactly one \`__Secure-sgauth-dev.session_token\` cookie with \`Domain=northeasternsga.com\`; (2) the stub's server receives it and the session endpoint resolves it; (3) sign-out clears it on both hosts; (4) the \`SGAUTH_ENV=preview\` host-only mode works on a \`*.vercel.app\` preview; (5) the local \`*.sga.localhost\` scheme works in all three browsers or the fallback (hosts-file \`sga.test\`) is adopted; (6) a stale cookie with the same name set by the stub host (cookie tossing) is observed and its effect documented. Record findings in \`docs/ENVIRONMENTS.md\` and adjust AUTH-T26/T34 accordingly.`,
+    acceptance: [
+      "Findings documented per browser with screenshots or HAR excerpts; any Better Auth version pin or workaround recorded.",
+      "Go/no-go on the parent-domain cookie approach signed off by the SGAuth lead.",
+    ],
+  },
+];
