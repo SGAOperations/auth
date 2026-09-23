@@ -47,3 +47,7 @@ next-env.d.ts
 # supabase
 /supabase/.branches
 /supabase/.temp
+
+# claude pipeline
+/.agents/
+/.claude/worktrees/

@@ -1,0 +1,44 @@
+# Reports Neon Free-plan branch usage against the PR's head commit.
+# SGAuth's budget: 10 branches total, 3 permanently held (main, dev, test)
+# per AUTH-T01, so ~7 are available for PR previews and personal dev
+# branches combined. AUTH-T09's daily cleanup job targets staying under 8.
+#
+# Deliberately NOT a required check on branch protection — see PIPELINE.md
+# "Neon budget awareness". This reports the project's state, not this PR's;
+# at capacity every open PR's check goes red here even if its own preview
+# is fine (the cap only blocks *new* branches). Read the run log
+# (`gh run view <id> --log`) for the full inventory rather than trusting a
+# cached number.
+#
+# Separately, AUTH-T101 alerts on the 100-compute-hour monthly quota, which
+# suspends the whole database (not just previews) for the rest of the
+# month if hit — that alert fires by email, not through this workflow.
+name: Neon Branch Check
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  run-neon-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch count
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          COUNT=$(curl -s -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
+            | jq '.branches | length')
+
+          echo "Neon branches in use: $COUNT/10"
+          echo "Full inventory:"
+          curl -s -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
+            | jq '[.branches[] | {name, id, created_at}]'
+
+          if [ "$COUNT" -ge 10 ]; then
+            echo "::error::$COUNT/10 Neon branches used — no preview database available"
+            exit 1
+          fi

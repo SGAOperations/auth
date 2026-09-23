@@ -1,0 +1,53 @@
+# Merge gate for pipeline-owned PRs. Only active on PRs carrying the
+# "claude" label (job-level `if:`) — a human/Dependabot PR gets a
+# `skipped` check, which GitHub counts as satisfied, so it merges on its
+# own merits. This is deliberately fail-open: nothing in this workflow can
+# close that; the mitigation is impl-agent always passing --label "claude"
+# at `gh pr create`, plus the cockpit's ungated-PR sweep.
+#
+# Gate logic:
+#   - PR has "claude" but not "security sensitive" (per the PR body marker)
+#       -> requires "approved"
+#   - PR has "claude" AND its body carries "SECURITY SENSITIVE"
+#       -> requires "approved" AND "security signed off"
+#
+# Add this as a required status check on `dev` and `main` branch
+# protection. Never add run-neon-check (separate workflow) to branch
+# protection — see that workflow's header comment.
+name: Approval Check
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, synchronize, reopened]
+
+jobs:
+  check-approval:
+    if: contains(github.event.pull_request.labels.*.name, 'claude')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(gh pr view "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --json body --jq .body)
+          LABELS='${{ toJson(github.event.pull_request.labels.*.name) }}'
+
+          HAS_APPROVED=$(echo "$LABELS" | jq 'any(. == "approved")')
+          HAS_SIGNOFF=$(echo "$LABELS" | jq 'any(. == "security signed off")')
+
+          if echo "$BODY" | grep -q "SECURITY SENSITIVE"; then
+            if [ "$HAS_APPROVED" = "true" ] && [ "$HAS_SIGNOFF" = "true" ]; then
+              echo "Gate satisfied: approved + security signed off."
+              exit 0
+            fi
+            echo "Blocked: security-sensitive PR needs both 'approved' and 'security signed off'."
+            exit 1
+          fi
+
+          if [ "$HAS_APPROVED" = "true" ]; then
+            echo "Gate satisfied: approved."
+            exit 0
+          fi
+
+          echo "Blocked: needs 'approved'."
+          exit 1
