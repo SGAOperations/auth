@@ -23,7 +23,7 @@ this one).
    dependencies, what it does, and a "Done when" line — same shape as every
    existing entry in the ticket guide.
 4. Create the GitHub issues (`gh issue create --repo SGAOperations/auth
-   --body-file .temp/ticket-<id>.md`), linked and cross-referenced by
+--body-file .temp/ticket-<id>.md`), linked and cross-referenced by
    number, left **unassigned** — opt-in (`work on #N` in the cockpit) is
    what claims and labels them, not scoping.
 5. Report the created issue numbers back to the user; don't label them

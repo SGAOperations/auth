@@ -82,7 +82,7 @@ Inline comments carry findings; body is a one-line verdict.
   account, GitHub forbids self `REQUEST_CHANGES`/`APPROVE`), else
   `REQUEST_CHANGES` (Critical/Medium present) or `APPROVE`.
 - **Each finding, one inline comment:** `**R<n>-<sev><id>** <emoji> —
-  <problem>. Fix: <one line>.` IDs `R<cycle>-<sev><id>`; severities 🔴
+<problem>. Fix: <one line>.` IDs `R<cycle>-<sev><id>`; severities 🔴
   Critical · 🟠 Medium · 🟡 Low · ⚪ Nit.
 - **Escalating bar:** cycle 1, any finding blocks; cycle 2, Low+ blocks
   (Nit doesn't); cycle 3+, Critical/Medium only. The Security Checklist's
@@ -99,7 +99,7 @@ Inline comments carry findings; body is a one-line verdict.
   it also needs `security signed off`, which only a human applies via
   `security-approve #N`. Say this in the review body as a one-line note so
   it isn't a silent extra step: `Needs security-approve before merge
-  (SECURITY SENSITIVE).`
+(SECURITY SENSITIVE).`
 - Findings above the bar → label `needs revision`.
 - A red `Vercel`/preview check tied to Neon budget or compute-hour quota is
   infrastructure, not a finding — never route to `needs revision` over it,

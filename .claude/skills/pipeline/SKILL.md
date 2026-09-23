@@ -68,7 +68,7 @@ gh pr list --repo SGAOperations/auth --search "no:assignee" --label "ready for r
   (`AskUserQuestion`): approve, request changes, or auto-approve future
   plans for this ticket. Approve → swap to `plan approved`. Changes → relay
   feedback, swap to `plan changes requested`. If the opt-in used `auto
-  plan`, skip this gate entirely and swap straight to `plan approved`.
+plan`, skip this gate entirely and swap straight to `plan approved`.
 - **`QUESTIONS FOR HUMAN:`** from `plan-agent` → relay verbatim, resume the
   same agent with the answer.
 - **`## Blocker`** from `impl-agent` → relay, resume the same agent with
@@ -149,10 +149,10 @@ in-flight agents mid-run — prefer `drain`.
 
 ## Recovery
 
-| Symptom | Fix |
-| --- | --- |
-| Stuck in an in-flight label, no agent running | `retry #N` — re-applies the trigger label |
-| Nothing dispatches, `status` doesn't list it | Unassigned or another operator's — claim with `work on #N` |
-| `run-neon-check` or compute-hour alert red | Not a code issue — read the check/email; report to the human immediately, don't route to `needs revision` |
-| `approved` but `security signed off` missing | Expected state for a `SECURITY SENSITIVE` PR — needs a human `security-approve #N`, not a retry |
-| An agent hit `BLOCKED:` or `maxTurns` | Clean stop by design — resolve the blocker, `retry #N` |
+| Symptom                                       | Fix                                                                                                       |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Stuck in an in-flight label, no agent running | `retry #N` — re-applies the trigger label                                                                 |
+| Nothing dispatches, `status` doesn't list it  | Unassigned or another operator's — claim with `work on #N`                                                |
+| `run-neon-check` or compute-hour alert red    | Not a code issue — read the check/email; report to the human immediately, don't route to `needs revision` |
+| `approved` but `security signed off` missing  | Expected state for a `SECURITY SENSITIVE` PR — needs a human `security-approve #N`, not a retry           |
+| An agent hit `BLOCKED:` or `maxTurns`         | Clean stop by design — resolve the blocker, `retry #N`                                                    |

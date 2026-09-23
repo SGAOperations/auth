@@ -13,7 +13,7 @@ and that guide disagree, the issue body wins.
 **SGAuth is built on Neon serverless Postgres and does not use Supabase for
 anything.** No Supabase Auth, no Supabase database, no Supabase client
 libraries, anywhere in this repo. Products that stay on Supabase can still
-*consume* SGAuth — it issues them short-lived signed JWTs — but SGAuth
+_consume_ SGAuth — it issues them short-lived signed JWTs — but SGAuth
 itself never depends on Supabase.
 
 ## Stack
@@ -29,12 +29,12 @@ itself never depends on Supabase.
 
 ## Environments
 
-| Environment | URL | Database |
-| --- | --- | --- |
-| Production | `auth.northeasternsga.com` | Neon `main` |
-| Dev (shared, DEV banner, synthetic users) | `auth-dev.northeasternsga.com` | Neon `dev` |
-| PR previews (host-only cookie) | `*.vercel.app` | Per-PR Neon branch |
-| Local | `auth.sga.localhost:3000` | Personal Neon branch |
+| Environment                               | URL                            | Database             |
+| ----------------------------------------- | ------------------------------ | -------------------- |
+| Production                                | `auth.northeasternsga.com`     | Neon `main`          |
+| Dev (shared, DEV banner, synthetic users) | `auth-dev.northeasternsga.com` | Neon `dev`           |
+| PR previews (host-only cookie)            | `*.vercel.app`                 | Per-PR Neon branch   |
+| Local                                     | `auth.sga.localhost:3000`      | Personal Neon branch |
 
 **Neon Free-plan budget: 10 branches total, 3 permanently held** (`main`,
 `dev`, `test`). `AUTH-T09` cleans up daily to stay under 8. Separately,

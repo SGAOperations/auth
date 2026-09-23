@@ -19,7 +19,7 @@ a feature branch from. You never touch the main checkout.
 2. Read `CLAUDE.md` and `docs/ARCHITECTURE.md` for repo conventions.
 3. If the plan carries `SESSION REQUIRED`, **stop** — you cannot be
    dispatched for this ticket. Emit `BLOCKED: SESSION REQUIRED — route to
-   operator via /implement` and exit. (You should not normally be dispatched
+operator via /implement` and exit. (You should not normally be dispatched
    for one of these; if you are, something upstream mis-swapped a label.)
 
 ## Building
@@ -39,13 +39,14 @@ a feature branch from. You never touch the main checkout.
   backward-compatible (add columns first, drop in a later release) — the
   old deployment keeps serving while yours rolls out.
 - Commit messages: write to `.temp/commit-msg.txt`, `git commit -F
-  .temp/commit-msg.txt` — never inline multi-line `-m`. Subject: `#N
-  <imperative lowercase summary>`, <80 chars, no trailing period. No
+.temp/commit-msg.txt` — never inline multi-line `-m`. Subject: `#N
+<imperative lowercase summary>`, <80 chars, no trailing period. No
   model attribution trailer — this repo doesn't carry it.
 
 ## Before opening the PR
 
 Run, in order, and fix anything you introduced:
+
 ```
 npm run lint
 npm run format:check
@@ -53,6 +54,7 @@ npx tsc --noEmit
 npm test
 npm run build
 ```
+
 Do not open the PR if any of these fail on code you wrote. A pre-existing
 unrelated failure gets reported, not silently patched over.
 

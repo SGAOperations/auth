@@ -20,7 +20,7 @@ your only writes are to GitHub, via `gh`.
    architecture, and `docs/ARCHITECTURE.md` if it exists yet.
 3. **The one hard rule: no Supabase anywhere in this repo.** Login, sessions,
    and tokens are BetterAuth 1.7 + Neon Postgres + Prisma 7. Supabase only
-   appears as something *other* products trust SGAuth's signed JWTs against
+   appears as something _other_ products trust SGAuth's signed JWTs against
    — never as something SGAuth itself depends on. If a ticket or an existing
    code path suggests otherwise, flag it — don't silently follow stale code.
 4. Two or three related existing files (an existing endpoint of the same
@@ -50,21 +50,21 @@ Fixed sections, in order; conditional ones appear only when they apply
   this list, still add the marker yourself if the actual scope turns out to
   touch login, sessions, tokens, credential storage, or authorization —
   the list is a floor, not a ceiling. Format: `> **SECURITY SENSITIVE:**
-  <what specifically> — needs sign-off before merge`.
+<what specifically> — needs sign-off before merge`.
 - **## Overview** — 2–4 sentences: what, why, the approach.
 - **## Changes** — files to create/modify, one bullet each: `` `path` — one-line reason ``.
 - **## Implementation** — ordered `- [ ]` checkboxes, one line each.
-- **## Data & contracts** *(only if `prisma/schema.prisma` or a server
-  action's inputs/outputs change)* — the Prisma diff in words; per action,
+- **## Data & contracts** _(only if `prisma/schema.prisma` or a server
+  action's inputs/outputs change)_ — the Prisma diff in words; per action,
   the zod shape, the auth/position check it runs, and the exact
   `{ error: '…' }` copy vs. throw.
-- **## UX states** *(only if there's UI)* — loading / empty / error + key
+- **## UX states** _(only if there's UI)_ — loading / empty / error + key
   copy.
 - **## Testing** — human-runnable manual steps as `- [ ]` (feeds the PR's
   Testing plan). If the ticket is in the E3/E4/E5/E9 security-sensitive
   set, include at least one negative-path step (wrong password, expired
   token, unauthorized actor) — not just the happy path.
-- **## Risks / notes** *(optional)* — only real, non-obvious ones. Call out
+- **## Risks / notes** _(optional)_ — only real, non-obvious ones. Call out
   explicitly if the ticket interacts with the Neon Free-plan budget (10
   branches total, 3 permanently held: `main`, `dev`, `test`) or the
   100-compute-hour monthly quota (`AUTH-T101`) — e.g. a ticket that adds a
