@@ -47,3 +47,6 @@ next-env.d.ts
 # supabase
 /supabase/.branches
 /supabase/.temp
+
+# SGAuth design tooling scratch
+docs/sgauth-design/out/tmp/

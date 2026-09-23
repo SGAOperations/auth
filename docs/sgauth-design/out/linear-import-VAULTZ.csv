@@ -1,0 +1,76 @@
+﻿"Title","Description","Priority","Estimate","Status","Labels"
+"Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy","**Ticket:** VAULTZ-V01  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** AUTH-T59 (SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs)); AUTH-T80 (Integration guide for Neon-based products (Next.js)); AUTH-T34 (Non-production SSO topology: dev deployment, local hostnames, product preview domains)
+
+Add the SDK from public npm (no registry config), env vars (`SGAUTH_URL`, `SGAUTH_COOKIE_NAME`), and `proxy.ts` using `createSgaProxy({ publicPaths: ['/api/uploadthing', '/health'] })` (cookie-presence check only; real validation in server code via `requireSession()`). Unauthenticated requests redirect to `https://auth.northeasternsga.com/login?redirect=<current URL>`. Register `https://vaultz.northeasternsga.com` (and `vaultz-dev.northeasternsga.com`) in the SGAuth product registry first.
+
+**Acceptance criteria**
+- [ ] Visiting any VaultZ page without an SGAuth session redirects to SGAuth login and back to the original page after login.
+- [ ] UploadThing callback route remains reachable without a session.","High","3","Backlog","epic:sgauth-integration, phase:2, sgauth, backend"
+"Remove the shared passphrase gate","**Ticket:** VAULTZ-V02  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy)
+
+Delete `lib/access-gate.ts`, `lib/actions/access.ts`, the passphrase page, and the `VAULTZ_ACCESS_CODE`/`VAULTZ_ACCESS_SECRET` env vars after the cutover (keep behind a `SGAUTH_ENABLED` flag for one release so rollback is a flag flip, then delete).
+
+**Acceptance criteria**
+- [ ] No references to the passphrase remain after the flag is removed; the `vaultz_access` cookie is no longer set.","High","2","Backlog","epic:sgauth-integration, phase:2, sgauth, backend"
+"Link VaultZ purchaser records to SGAuth user ids","**Ticket:** VAULTZ-V03  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy)
+
+VaultZ's `User` table records purchasers (first/last), not logins. Add `sgauthUserId String? @unique` and `email String?`. On first authenticated request, find-or-create the purchaser row for the session user (name from SGAuth split into first/last as a best effort, editable). Admin UI to link legacy purchaser rows to SGAuth users by email. Purchases created by the current user default `userId` to their linked row.
+
+**Acceptance criteria**
+- [ ] A first-time SGAuth user gets exactly one purchaser row; re-login does not duplicate.
+- [ ] Legacy rows can be linked once and the link is unique.","Medium","3","Backlog","epic:sgauth-integration, phase:2, sgauth, data"
+"Position-based permissions map for VaultZ","**Ticket:** VAULTZ-V04  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy); AUTH-T44 (Seed the curated SGA position list)
+
+Create `lib/permissions.ts` mapping SGAuth position keys to VaultZ capabilities, using keys from the curated seed (`prisma/seed/positions.json` in SGAOperations/auth). Starting proposal for the VaultZ owner to confirm: `vice-president-of-operational-affairs`, `comptroller`, `finance-manager` → manage designations/budgets/transfers; `student-body-president`, `executive-vice-president` → read everything; any other position holder → create their own purchases; no positions → no access. Add a product role (e.g. `vaultz-admin`) in the SGAuth admin UI only if the curated offices do not cover a need. Gate server actions and pages with `hasAnyPosition`. Permissions are decided in VaultZ, not in SGAuth; SGAuth only supplies positions. Document the map in the README and agree the keys with the curated position list.
+
+**Acceptance criteria**
+- [ ] Every mutating server action checks a capability; a user without positions cannot create or edit anything (tests).
+- [ ] The map is the only place position keys appear in VaultZ code.","High","3","Backlog","epic:sgauth-integration, phase:2, sgauth, permissions"
+"Account and sign-out links in the VaultZ header","**Ticket:** VAULTZ-V05  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy)
+
+Show the session user's name, a link to `accountUrl()`, and a sign-out action using `logoutUrl('https://vaultz.northeasternsga.com')`.
+
+**Acceptance criteria**
+- [ ] Sign out from VaultZ logs the user out of every SGA product (verified on dev).","Low","1","Backlog","epic:sgauth-integration, phase:2, sgauth, ui"
+"Dev and preview topology for VaultZ","**Ticket:** VAULTZ-V06  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy); AUTH-T34 (Non-production SSO topology: dev deployment, local hostnames, product preview domains)
+
+Configure the Vercel branch domain `vaultz-dev.northeasternsga.com` pointing at the dev branch with `SGAUTH_URL=https://auth-dev.northeasternsga.com` and the dev cookie name; local dev on `vaultz.sga.localhost:3001` against local SGAuth. Document in the VaultZ README.
+
+**Acceptance criteria**
+- [ ] Preview on the branch domain shares the dev SGAuth session; ad-hoc vercel.app previews show a documented 'SSO unavailable on this host' page instead of a redirect loop.","Medium","2","Backlog","epic:sgauth-integration, phase:2, sgauth, infra"
+"VaultZ cutover checklist and rollback","**Ticket:** VAULTZ-V07  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** VAULTZ-V02 (Remove the shared passphrase gate); VAULTZ-V04 (Position-based permissions map for VaultZ); AUTH-T91 (Production launch checklist and Primary Admin bootstrap)
+
+Execute the per-product checklist from the rollout plan: registry entry, DNS, env vars, SDK version pinned, smoke test, announcement to finance users, `SGAUTH_ENABLED` rollback flag verified, 3-day support window.
+
+**Acceptance criteria**
+- [ ] Checklist completed; rollback rehearsed on dev by flipping the flag.","Medium","1","Backlog","epic:sgauth-integration, phase:2, sgauth, rollout"
+"Tests for SGAuth guards and permissions in VaultZ","**Ticket:** VAULTZ-V08  
+**Epic:** SGAuth integration — VaultZ  
+**Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
+**Depends on:** VAULTZ-V04 (Position-based permissions map for VaultZ)
+
+Unit tests for the permissions map and integration tests (mocked SDK) for a protected page, a gated server action, and the purchaser link-on-first-login behavior.
+
+**Acceptance criteria**
+- [ ] Tests run in VaultZ CI and cover allow/deny for each capability.","Medium","2","Backlog","epic:sgauth-integration, phase:2, sgauth, testing"
