@@ -51,3 +51,6 @@ next-env.d.ts
 # claude pipeline
 /.agents/
 /.claude/worktrees/
+
+# SGAuth design tooling scratch
+docs/sgauth-design/out/tmp/
