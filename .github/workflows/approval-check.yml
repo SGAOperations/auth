@@ -97,10 +97,12 @@ jobs:
           # GitHub-controlled text into the script body — a label
           # containing a quote would otherwise break the shell quoting and
           # run as code.
+          # --slurp returns an array of pages; `.[][]` flattens it. It
+          # cannot be combined with gh's own --jq, so filter with local jq.
           gh api "repos/$REPO/issues/$PR/labels" --paginate --slurp \
-            --jq '[.[][].name]' > labels.json
+            | jq '[.[][].name]' > labels.json
           gh api "repos/$REPO/issues/$PR/events" --paginate --slurp \
-            --jq '[.[][]]' > events.json
+            | jq '[.[][]]' > events.json
 
           echo "Labels: $(jq -c . labels.json)"
 
