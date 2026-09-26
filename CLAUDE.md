@@ -5,8 +5,15 @@
 SGAuth is the single login for every SGA product on `*.northeasternsga.com`.
 Sign in once at `auth.northeasternsga.com` and VaultZ, Chambers, Aplio, and
 SenatePath all see the same session. Full ticket breakdown: **SGAuth
-Technical Ticket Guide** (139 tickets across 13 epics, E1–E13). If a ticket
+Technical Ticket Guide** — 104 `AUTH-T*` tickets across 13 epics (E1–E13)
+for this repo. (The guide's own headline count is higher because it also
+covers the consuming products' tickets, which don't live here.) If a ticket
 and that guide disagree, the issue body wins.
+
+That 104 is the size of the plan, not a measure of what's left — it doesn't
+move as tickets close. For live progress use `/pipeline status`, or
+`gh issue list --repo SGAOperations/auth --state open --label claude`;
+they read the issues, which are the source of truth.
 
 ## The one hard rule
 
@@ -70,7 +77,7 @@ npm run build           # production build
 npm run lint             # ESLint
 npm run format:check     # Prettier check
 npx tsc --noEmit         # typecheck
-npm test                 # Vitest against the Neon test branch (AUTH-T93)
+npm test                 # placeholder (exits 0) until AUTH-T93 lands Vitest
 npx prisma migrate dev --create-only --name <name>   # review before applying
 ```
 
@@ -80,14 +87,24 @@ This repo runs the Claude Code agent pipeline documented in each file under
 `.claude/agents/` and the cockpit skill at `.claude/skills/pipeline/`. Two
 gates beyond the base pipeline pattern:
 
-- **`SECURITY SENSITIVE`** marker — a PR-level merge gate (not a dispatch
+- **`security sensitive`** label — a PR-level merge gate (not a dispatch
   block) for anything touching login, sessions, tokens, credential
-  storage, or authorization. Requires a human `security-approve` in
-  addition to `approved` before merge. See `.claude/agents/plan-agent.md`
-  for the full trigger list.
-- **Test-execution gate** — `npm test` blocks `approved` the same way
-  lint/tsc already do; it was historically missing from the automated
-  checks list and is not optional for this repo.
+  storage, or authorization. Requires a human `security signed off` in
+  addition to `approved` before merge. `plan-agent` sets it from the plan's
+  `SECURITY SENSITIVE` marker and `impl-agent` carries it onto the PR; the
+  gate reads the **label**, because a PR body can be edited without review.
+  See `.claude/agents/plan-agent.md` for the full trigger list.
+- **Human approval** — `approved` and `security signed off` are only ever
+  applied by a person, and `Approval Check` enforces it: it reads the issue
+  event log and fails if an App, a bot, or the PR author applied either
+  label. `review-agent`'s success state is `awaiting approval`, which a
+  human promotes. Every new push strips both labels, so code added after a
+  sign-off doesn't inherit it.
+- **Test-execution gate** — `npm test` runs alongside lint/format/tsc/build
+  and blocks the review bar the same way. It is currently a placeholder
+  that exits 0; `AUTH-T93` replaces it with the real Vitest suite and the
+  gate becomes meaningful then, with no pipeline change needed. Until then,
+  treat a green `npm test` as "not run", not as coverage.
 
 Start it with `/pipeline` in an interactive session running in `default`
 permission mode.

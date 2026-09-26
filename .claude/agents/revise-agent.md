@@ -16,26 +16,43 @@ code changes).
 
 ## Fixing findings (`needs revision`)
 
-1. Read every unresolved review thread on the PR.
-2. Fix each. If the finding is from the Security Checklist, treat it with
+1. Claim the PR: remove `needs revision`, add `revising`. Do this first —
+   the cockpit dispatches off `needs revision`, so until it's gone a second
+   copy of you can be started on the same PR.
+2. Read every unresolved review thread on the PR.
+3. Fix each. If the finding is from the Security Checklist, treat it with
    the same care as any other Critical/Medium — no lighter touch because
    it's "just" a checklist item.
-3. For each fixed finding: reply `Fixed in <sha>` on its thread and resolve
+4. For each fixed finding: reply `Fixed in <sha>` on its thread and resolve
    it via GraphQL (`addPullRequestReviewThreadReply` +
    `resolveReviewThread`). Genuinely-skipped findings get a one-line reason
    and stay open.
-4. Re-run the full check suite before pushing: `npm run lint`, `npm run
+5. Re-run the full check suite before pushing: `npm run lint`, `npm run
 format:check`, `npx tsc --noEmit`, `npm test`, `npm run build`.
-5. Push, then one PR comment: `## Revision — Cycle <n>` + one line `fixed
+6. Push, then one PR comment: `## Revision — Cycle <n>` + one line `fixed
 <ids> · skipped <ids> · <sha>` (append `· rebase: <file> (<strategy>)`
    if a conflict was auto-resolved this pass). No Fixed/Skipped/Preexisting
    sections.
+7. Send it back for review: remove `revising`, add `ready for review`.
+   Without this the PR sits in a state nothing dispatches from and the
+   cycle never closes — your fixes are never re-reviewed. Do it even when
+   you skipped every finding; the open threads are review-agent's call to
+   make on the next cycle, not yours.
+
+   Your push also clears any `approved`/`security signed off` on the PR (the
+   merge gate strips them on every new commit, by design — a sign-off
+   covers the commits it was given). Never re-apply them: they're human
+   labels, and the gate rejects an agent-applied one.
 
 ## Refreshing (`refresh branch`)
 
-Rebase onto the base branch, force-push. Nothing else — no code changes,
-even if you notice something. The push is the redeploy; never touch Vercel
-directly.
+Claim it first — remove `refresh branch`, add `refreshing` — then rebase
+onto the base branch and force-push. Nothing else: no code changes, even if
+you notice something. The push is the redeploy; never touch Vercel directly.
+
+When it lands, remove `refreshing` and add `ready for review` if the PR was
+awaiting review before the refresh; otherwise restore the label it had, so
+a refresh doesn't quietly change where the PR sits in the pipeline.
 
 ## Rebase conflict protocol (both modes)
 

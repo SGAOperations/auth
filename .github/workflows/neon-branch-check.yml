@@ -3,12 +3,12 @@
 # per AUTH-T01, so ~7 are available for PR previews and personal dev
 # branches combined. AUTH-T09's daily cleanup job targets staying under 8.
 #
-# Deliberately NOT a required check on branch protection — see PIPELINE.md
-# "Neon budget awareness". This reports the project's state, not this PR's;
-# at capacity every open PR's check goes red here even if its own preview
-# is fine (the cap only blocks *new* branches). Read the run log
-# (`gh run view <id> --log`) for the full inventory rather than trusting a
-# cached number.
+# Deliberately NOT a required check on branch protection — see
+# `.claude/skills/pipeline/SKILL.md` "Neon budget awareness". This reports
+# the project's state, not this PR's; at capacity every open PR's check
+# goes red here even if its own preview is fine (the cap only blocks *new*
+# branches). Read the run log (`gh run view <id> --log`) for the full
+# inventory rather than trusting a cached number.
 #
 # Separately, AUTH-T101 alerts on the 100-compute-hour monthly quota, which
 # suspends the whole database (not just previews) for the rest of the
@@ -28,15 +28,33 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
         run: |
-          COUNT=$(curl -s -H "Authorization: Bearer $NEON_API_KEY" \
-            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
-            | jq '.branches | length')
+          set -euo pipefail
+
+          # --fail-with-body rather than a bare -f: a bad key or project id
+          # must fail this step loudly, and we still want Neon's error body
+          # in the log to say which it was. Without it, curl exits 0 on a
+          # 401 and jq turns the error payload into a null count.
+          if ! BRANCHES=$(curl -sS --fail-with-body \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches"); then
+            echo "::error::Neon API request failed — check NEON_API_KEY / NEON_PROJECT_ID."
+            echo "$BRANCHES"
+            exit 1
+          fi
+
+          # One fetch, reused for the count and the inventory: a second
+          # call can disagree with the first, and the inventory is what
+          # makes a red check actionable.
+          COUNT=$(jq '.branches | length' <<<"$BRANCHES")
+          if ! [[ "$COUNT" =~ ^[0-9]+$ ]]; then
+            echo "::error::Unexpected Neon API response — no .branches array."
+            echo "$BRANCHES"
+            exit 1
+          fi
 
           echo "Neon branches in use: $COUNT/10"
           echo "Full inventory:"
-          curl -s -H "Authorization: Bearer $NEON_API_KEY" \
-            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
-            | jq '[.branches[] | {name, id, created_at}]'
+          jq '[.branches[] | {name, id, created_at}]' <<<"$BRANCHES"
 
           if [ "$COUNT" -ge 10 ]; then
             echo "::error::$COUNT/10 Neon branches used — no preview database available"

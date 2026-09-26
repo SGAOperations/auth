@@ -7,6 +7,7 @@
 // anything, it only makes denials visible after the fact.
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 
 const ALLOWED_PREFIXES = [
   "gh ",
@@ -29,6 +30,26 @@ const ALLOWED_PREFIXES = [
   "mkdir -p",
 ];
 
+// impl-agent and revise-agent run with `isolation: worktree`, so their cwd
+// is a throwaway checkout that gets deleted when they finish — a log written
+// relative to cwd disappears with it, which is exactly the window the
+// cockpit needs to see. Resolve the real project root instead: the harness
+// sets CLAUDE_PROJECT_DIR, and `git rev-parse --git-common-dir` gets us
+// there from inside a worktree when it doesn't.
+function projectRoot() {
+  if (process.env.CLAUDE_PROJECT_DIR) return process.env.CLAUDE_PROJECT_DIR;
+  try {
+    const commonDir = execFileSync("git", ["rev-parse", "--git-common-dir"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    // .git/ lives at the root of the primary checkout; its parent is the root.
+    return path.dirname(path.resolve(commonDir));
+  } catch {
+    return process.cwd();
+  }
+}
+
 function isAllowed(cmd) {
   const trimmed = cmd.trim();
   return ALLOWED_PREFIXES.some(
@@ -45,7 +66,7 @@ process.stdin.on("end", () => {
     const cmd = input.tool_input?.command ?? "";
     if (!cmd || isAllowed(cmd)) process.exit(0);
 
-    const dir = path.join(process.cwd(), ".agents");
+    const dir = path.join(projectRoot(), ".agents");
     fs.mkdirSync(dir, { recursive: true });
     const line = `${new Date().toISOString()}\t${cmd.replace(/\n/g, " ")}\n`;
     fs.appendFileSync(path.join(dir, "denials.log"), line);

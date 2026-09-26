@@ -56,7 +56,7 @@ on:
 
 ```bash
 gh issue list --repo SGAOperations/auth --search "no:assignee" --label "ready,plan approved" --json number,title
-gh pr list --repo SGAOperations/auth --search "no:assignee" --label "ready for review,needs revision" --json number,title
+gh pr list --repo SGAOperations/auth --search "no:assignee" --label "ready for review,needs revision,awaiting approval" --json number,title
 ```
 
 **Ungated-PR sweep**, every tick: any PR you're tracking that's missing the
@@ -103,19 +103,22 @@ never-auto-resolve list and escalates on its own).
 
 ## Security-sensitive tickets
 
-No dispatch change — `plan-agent` marks the issue, `impl-agent`/
-`review-agent`/`revise-agent` run as normal. The only cockpit-visible
-difference: a PR with `approved` but missing `security signed off` is
-**not done**, even though every other signal says so. Call these out
+No dispatch change — `plan-agent` marks the issue and adds the `security
+sensitive` label, `impl-agent` carries that label onto the PR, and
+`review-agent`/`revise-agent` run as normal. The gate reads the label, not
+the body marker, so a PR carrying the marker without the label is gated on
+nothing — report that as a finding. The other cockpit-visible difference: a
+PR with `approved` but missing `security signed off` is **not done**, even
+though every other signal says so. Call these out
 explicitly under `status` (see below) — nothing else distinguishes one from
 a PR that's genuinely ready to merge.
 
 ## `status`
 
 Group by: in-flight (with which agent + how long), gated (`plan review`,
-`blocked`, `needs human`), **approved but unsigned** (has `approved`,
-missing `security signed off`, PR body carries `SECURITY SENSITIVE`),
-session-required awaiting a human session, unowned (from the sweep),
+`awaiting approval`, `blocked`, `needs human`), **approved but unsigned**
+(has `approved`, missing `security signed off`, carries `security
+sensitive`), session-required awaiting a human session, unowned (from the sweep),
 ungated PRs (from the sweep). A tick can't double-dispatch, but a human
 scanning `status` needs these distinctions spelled out — don't just say
 "in progress" for everything.

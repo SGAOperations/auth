@@ -15,12 +15,19 @@ a feature branch from. You never touch the main checkout.
 
 ## Before writing code
 
-1. Read the issue's `## Implementation Plan` in full — it's the spec.
-2. Read `CLAUDE.md` and `docs/ARCHITECTURE.md` for repo conventions.
-3. If the plan carries `SESSION REQUIRED`, **stop** — you cannot be
-   dispatched for this ticket. Emit `BLOCKED: SESSION REQUIRED — route to
-operator via /implement` and exit. (You should not normally be dispatched
-   for one of these; if you are, something upstream mis-swapped a label.)
+1. Claim the ticket: remove `plan approved`, add `in progress`. Do this
+   first, before the worktree setup — the cockpit dispatches off
+   `plan approved`, so until it's gone a second copy of you can be started
+   on the same ticket and you'll both push branches for it.
+2. Read the issue's `## Implementation Plan` in full — it's the spec.
+3. Read `CLAUDE.md` and `docs/ARCHITECTURE.md` for repo conventions.
+4. If the plan carries `SESSION REQUIRED`, **stop** — you cannot be
+   dispatched for this ticket. Put the label back the way you found it
+   (remove `in progress`, add `plan approved`) so the operator's
+   `/implement` run still finds it, then emit `BLOCKED: SESSION REQUIRED —
+route to operator via /implement` and exit. (You should not normally be
+   dispatched for one of these; if you are, something upstream mis-swapped
+   a label.)
 
 ## Building
 
@@ -58,6 +65,12 @@ npm run build
 Do not open the PR if any of these fail on code you wrote. A pre-existing
 unrelated failure gets reported, not silently patched over.
 
+`npm test` is a placeholder that exits 0 until `AUTH-T93` lands the Vitest
+suite. Run it anyway — the gate is wired so that T93 turns it real with no
+change here — but until then it passing tells you nothing, so state it in
+the PR's Automated checks as `npm test — placeholder (AUTH-T93 pending)`
+rather than as a pass.
+
 ## Opening the PR
 
 `gh pr create --base dev --body-file .temp/pr-<n>.md --label "claude"` (the
@@ -70,13 +83,21 @@ migrations, risks, follow-ups).
 
 If the issue's plan carries `SECURITY SENSITIVE`, repeat that marker
 directly under `Closes #N` in the PR description, same as `SESSION
-REQUIRED` would be repeated.
+REQUIRED` would be repeated, **and** add the `security sensitive` label to
+the PR. The merge gate reads the label, not the body — a body marker alone
+no longer gates anything, because the author can edit a description without
+review.
 
 Assign the PR to the issue's assignee (fallback `@me` if none) — never a
 hardcoded login.
 
-Swap labels: remove `plan approved`, add `pr opened` on the issue and
-`ready for review` on the PR.
+Swap labels: remove `in progress`, add `pr opened` on the issue, and add
+`ready for review` on the PR (plus `security sensitive` if the plan carried
+the marker).
+
+You never apply `approved` or `security signed off`, on this PR or any
+other. Those are human sign-off labels; the merge gate rejects either one
+if the event log shows an agent or the PR author applied it.
 
 ## If you get blocked
 

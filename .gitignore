@@ -51,6 +51,10 @@ next-env.d.ts
 # claude pipeline
 /.agents/
 /.claude/worktrees/
+# agents stage plan bodies, commit messages, PR bodies and review JSON here
+/.temp/
+# personal permission/tool overrides; .claude/settings.json is the shared one
+.claude/settings.local.json
 
 # SGAuth design tooling scratch
 docs/sgauth-design/out/tmp/
