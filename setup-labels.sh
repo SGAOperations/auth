@@ -14,13 +14,21 @@ failed=0
 
 create() {
   local name="$1" color="$2" desc="$3" out
+  # GitHub rejects descriptions over 100 characters with an opaque 422.
+  # Keep descriptions ASCII: ${#desc} counts bytes, so a multi-byte
+  # character would make this guard disagree with the API.
+  if [ "${#desc}" -gt 100 ]; then
+    echo "FAILED: $name - description is ${#desc} chars (max 100)" >&2
+    failed=1
+    return
+  fi
   if out=$(gh label create "$name" --repo "$REPO" --color "$color" \
              --description "$desc" --force 2>&1); then
     echo "ok: $name"
   elif grep -qi "already exists" <<<"$out"; then
     echo "skip (exists): $name"
   else
-    echo "FAILED: $name — $out" >&2
+    echo "FAILED: $name - $out" >&2
     failed=1
   fi
 }
@@ -29,30 +37,33 @@ create() {
 create "claude"                   "5319E7" "Claude is handling this ticket"
 create "ready"                    "0E8A16" "Dispatch plan-agent"
 create "planning"                 "FBCA04" "Plan being researched/written"
-create "plan review"              "D93F0B" "Plan written — awaiting human approval"
+create "plan review"              "D93F0B" "Plan written - awaiting human approval"
 create "plan changes requested"   "D93F0B" "Dispatch plan-agent in revision mode"
 create "plan approved"            "0E8A16" "Dispatch impl-agent"
 create "auto plan"                "C5DEF5" "Plan gate skipped: auto-approved"
 create "in progress"              "FBCA04" "Implementation underway"
 create "pr opened"                "0E8A16" "PR open; state tracked on the PR"
 create "blocked"                  "B60205" "Needs human decision"
-create "security sensitive"       "B60205" "Touches login/sessions/tokens/credentials/authorization — gates on 'security signed off' as well as 'approved'. Set from the plan's SECURITY SENSITIVE marker; the merge gate reads this label, not the PR body."
+# The full rule (plan marker -> label -> merge gate) lives in
+# .github/workflows/approval-check.yml and CLAUDE.md; GitHub caps label
+# descriptions at 100 characters, so keep these short.
+create "security sensitive"       "B60205" "Touches login/sessions/tokens/credentials/authz - needs 'security signed off' plus 'approved'"
 
 # PR labels
 create "ready for review"         "0E8A16" "Dispatch review-agent"
 create "reviewing"                "FBCA04" "Review underway"
 create "needs revision"           "D93F0B" "Dispatch revise-agent"
 create "revising"                 "FBCA04" "Fixes underway"
-create "awaiting approval"        "C5DEF5" "Review passed the cycle's bar — awaiting a human 'approved'"
-create "approved"                 "0E8A16" "Human sign-off to merge — never set by an agent; the merge gate rejects it if an app/bot applied it"
-create "security signed off"      "5319E7" "Human security sign-off — required alongside approved on SECURITY SENSITIVE PRs, never set by an agent"
-create "needs human"              "B60205" "Cycle cap hit or ambiguous rebase — pipeline stops"
+create "awaiting approval"        "C5DEF5" "Review passed the cycle's bar - awaiting a human 'approved'"
+create "approved"                 "0E8A16" "Human sign-off to merge - never set by an agent; the merge gate rejects it if an app/bot applied it"
+create "security signed off"      "5319E7" "Human security sign-off - required with 'approved' on security sensitive PRs; never set by an agent"
+create "needs human"              "B60205" "Cycle cap hit or ambiguous rebase - pipeline stops"
 create "refresh branch"           "C5DEF5" "Dispatch revise-agent in refresh mode"
 create "refreshing"               "FBCA04" "Branch refresh underway"
 
 if [ "$failed" -ne 0 ]; then
   echo >&2
-  echo "One or more labels could not be created — see FAILED lines above." >&2
+  echo "One or more labels could not be created - see FAILED lines above." >&2
   echo "The merge gate reads 'approved', 'security signed off' and" >&2
   echo "'security sensitive'; it cannot work until those exist." >&2
   exit 1
