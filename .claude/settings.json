@@ -22,6 +22,7 @@
       "Bash(stat *)",
       "Bash(file *)",
       "Bash(pwd)",
+      "Bash(cd *)",
       "Bash(grep)",
       "Bash(egrep)",
       "Bash(rg)",

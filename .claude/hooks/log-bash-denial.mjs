@@ -27,6 +27,8 @@ const ALLOWED_PREFIXES = [
   "stat",
   "file",
   "pwd",
+  "cd ",
+  "cd",
   "mkdir -p",
 ];
 
@@ -50,11 +52,23 @@ function projectRoot() {
   }
 }
 
-function isAllowed(cmd) {
-  const trimmed = cmd.trim();
+function matchesPrefix(segment) {
+  const trimmed = segment.trim();
+  if (!trimmed) return true;
   return ALLOWED_PREFIXES.some(
     (p) => trimmed === p.trim() || trimmed.startsWith(p),
   );
+}
+
+// settings.json evaluates each segment of a compound command separately, so
+// `cd x && gh y` needs BOTH `cd` and `gh` allowed. Match that here, or a
+// command like `cd x && curl evil` would look allowed on its `cd` prefix
+// alone and never get logged. Splitting ignores quoting, which can only
+// over-report (a denial logged that wasn't one) — never the reverse.
+function isAllowed(cmd) {
+  return cmd
+    .split(/&&|\|\||[;|]/)
+    .every(matchesPrefix);
 }
 
 let raw = "";
