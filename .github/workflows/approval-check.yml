@@ -40,6 +40,17 @@ permissions:
   pull-requests: write
   issues: write
 
+# Serialize this workflow per PR. Without it a `labeled` run can evaluate
+# the gate while a `synchronize` run is still stripping the stale approval,
+# read the label before it is gone, and report a green check-approval for
+# the new commits. Both runs report under the same check name on the same
+# SHA, so whichever finishes last is the one branch protection honors.
+# cancel-in-progress stays false on purpose: cancelling a run mid-gate
+# would leave whatever it had already reported standing.
+concurrency:
+  group: approval-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   # A sign-off applies to the commits it was given, not to whatever lands
   # afterwards. check-approval `needs` this job and reads labels back from
@@ -58,14 +69,49 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          for label in "approved" "security signed off"; do
+
+          # Only a 404 means "the label isn't on this PR", which is the one
+          # benign outcome. Every other failure (403, 5xx, rate limit, a
+          # network error) must fail the job: a silently-failed strip leaves
+          # the stale `approved` in place, and check-approval would then read
+          # it back, find a human in the event log, and go green on commits
+          # nobody signed off. Swallowing those is the bug this job exists to
+          # prevent.
+          strip_label() {
+            local label="$1" encoded out
             encoded=$(jq -rn --arg l "$label" '$l|@uri')
-            if gh api -X DELETE "repos/$REPO/issues/$PR/labels/$encoded" >/dev/null 2>&1; then
+
+            if out=$(gh api -X DELETE "repos/$REPO/issues/$PR/labels/$encoded" 2>&1); then
               echo "Removed '$label' — new commits pushed since it was applied."
-            else
+              return 0
+            fi
+            if grep -qi 'HTTP 404' <<<"$out"; then
               echo "No '$label' to remove."
+              return 0
+            fi
+            echo "::error::Could not remove '$label' — refusing to leave a stale approval in place. $out"
+            return 1
+          }
+
+          failed=0
+          for label in "approved" "security signed off"; do
+            strip_label "$label" || failed=1
+          done
+          [ "$failed" -eq 0 ] || exit 1
+
+          # Post-condition. A 404 from that endpoint is ambiguous (the label
+          # is not on the PR, or the issue itself was not found), so confirm
+          # the outcome we actually care about rather than trusting the error
+          # string alone.
+          gh api "repos/$REPO/issues/$PR/labels" --paginate --slurp \
+            | jq '[.[][].name]' > stripped-labels.json
+          for label in "approved" "security signed off"; do
+            if jq -e --arg l "$label" 'any(.[]; . == $l)' stripped-labels.json >/dev/null; then
+              echo "::error::'$label' is still on the PR after the strip."
+              failed=1
             fi
           done
+          exit "$failed"
 
   check-approval:
     # always(): strip-stale-approval is skipped on every action but
