@@ -1,0 +1,89 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx shadcn *)",
+      "Bash(npx shadcn@latest *)",
+      "Bash(npx shadcn@* *)",
+      "Bash(npx prisma *)",
+      "Bash(npx tsc *)",
+      "Edit(**)",
+      "Write(**)",
+      "Bash(grep *)",
+      "Bash(egrep *)",
+      "Bash(rg *)",
+      "Bash(find *)",
+      "Bash(ls *)",
+      "Bash(wc *)",
+      "Bash(sort *)",
+      "Bash(uniq *)",
+      "Bash(stat *)",
+      "Bash(file *)",
+      "Bash(pwd)",
+      "Bash(cd *)",
+      "Bash(grep)",
+      "Bash(egrep)",
+      "Bash(rg)",
+      "Bash(find)",
+      "Bash(ls)",
+      "Bash(wc)",
+      "Bash(sort)",
+      "Bash(uniq)",
+      "Bash(stat)",
+      "Bash(file)",
+      "Bash(mkdir -p *)",
+      "WebFetch(domain:nextjs.org)",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:ui.shadcn.com)",
+      "WebFetch(domain:better-auth.com)",
+      "WebFetch(domain:neon.tech)",
+      "WebFetch(domain:orm.prisma.io)",
+      "WebFetch(domain:upstash.com)",
+      "WebFetch(domain:resend.com)"
+    ],
+    "deny": [
+      "Bash(gh pr merge*)",
+      "Bash(gh issue delete*)",
+      "Bash(gh repo delete*)",
+      "Bash(gh auth*)",
+      "Bash(git push * main*)",
+      "Bash(git push origin main*)",
+      "Bash(git push * dev*)",
+      "Bash(git push origin dev*)",
+      "Bash(git push *:main*)",
+      "Bash(git push *:dev*)",
+      "Bash(npm publish*)",
+      "Bash(npm login*)",
+      "Bash(npm adduser*)",
+      "Bash(npx vercel*)",
+      "Bash(vercel*)",
+      "Bash(find * -exec *)",
+      "Bash(find * -execdir *)",
+      "Bash(find * -delete*)",
+      "Bash(find * -ok *)",
+      "Bash(find * -okdir *)",
+      "Bash(find -exec *)",
+      "Bash(find -execdir *)",
+      "Bash(find -delete*)",
+      "Bash(find -ok *)",
+      "Bash(find -okdir *)",
+      "Bash(sh -c *)",
+      "Bash(bash -c *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/log-bash-denial.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

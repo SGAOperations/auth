@@ -1,0 +1,212 @@
+# Merge gate for pipeline-owned PRs. Only active on PRs carrying the
+# "claude" label (job-level `if:`) — a human/Dependabot PR gets a
+# `skipped` check, which GitHub counts as satisfied, so it merges on its
+# own merits. This is deliberately fail-open: nothing in this workflow can
+# close that; the mitigation is impl-agent always passing --label "claude"
+# at `gh pr create`, plus the cockpit's ungated-PR sweep.
+#
+# Gate logic:
+#   - PR has "claude" but not "security sensitive"
+#       -> requires "approved"
+#   - PR has "claude" AND "security sensitive"
+#       -> requires "approved" AND "security signed off"
+#
+# Both gating labels must have been applied by a human who is not the PR
+# author. Two things enforce that:
+#   1. No agent applies them. review-agent's success state is
+#      "awaiting approval"; a human promotes that to "approved".
+#   2. This job re-checks it from the issue event log, so an agent that
+#      mis-labels itself (or a bot/App token) is caught here rather than
+#      merging. Agents run under the author's own `gh` auth, so
+#      author-applied is the case that actually matters — App/Bot actors
+#      are rejected too, for defense in depth.
+# What this cannot detect: a second human with write access rubber-stamping
+# for the author. That's a social control, not a CI one.
+#
+# The strip-stale-approval job runs first on every new push, so code added
+# after a sign-off cannot ride in on it.
+#
+# Add "Approval Check / check-approval" as a required status check on `dev`
+# and `main` branch protection. Never add run-neon-check (separate
+# workflow) to branch protection — see that workflow's header comment.
+name: Approval Check
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+# Serialize this workflow per PR. Without it a `labeled` run can evaluate
+# the gate while a `synchronize` run is still stripping the stale approval,
+# read the label before it is gone, and report a green check-approval for
+# the new commits. Both runs report under the same check name on the same
+# SHA, so whichever finishes last is the one branch protection honors.
+# cancel-in-progress stays false on purpose: cancelling a run mid-gate
+# would leave whatever it had already reported standing.
+concurrency:
+  group: approval-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  # A sign-off applies to the commits it was given, not to whatever lands
+  # afterwards. check-approval `needs` this job and reads labels back from
+  # the API, so the gate always evaluates post-strip rather than against
+  # the event payload it was triggered with.
+  strip-stale-approval:
+    if: |
+      github.event.action == 'synchronize'
+        && contains(github.event.pull_request.labels.*.name, 'claude')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove approval labels carried over from earlier commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Only a 404 means "the label isn't on this PR", which is the one
+          # benign outcome. Every other failure (403, 5xx, rate limit, a
+          # network error) must fail the job: a silently-failed strip leaves
+          # the stale `approved` in place, and check-approval would then read
+          # it back, find a human in the event log, and go green on commits
+          # nobody signed off. Swallowing those is the bug this job exists to
+          # prevent.
+          strip_label() {
+            local label="$1" encoded out
+            encoded=$(jq -rn --arg l "$label" '$l|@uri')
+
+            if out=$(gh api -X DELETE "repos/$REPO/issues/$PR/labels/$encoded" 2>&1); then
+              echo "Removed '$label' — new commits pushed since it was applied."
+              return 0
+            fi
+            if grep -qi 'HTTP 404' <<<"$out"; then
+              echo "No '$label' to remove."
+              return 0
+            fi
+            echo "::error::Could not remove '$label' — refusing to leave a stale approval in place. $out"
+            return 1
+          }
+
+          failed=0
+          for label in "approved" "security signed off"; do
+            strip_label "$label" || failed=1
+          done
+          [ "$failed" -eq 0 ] || exit 1
+
+          # Post-condition. A 404 from that endpoint is ambiguous (the label
+          # is not on the PR, or the issue itself was not found), so confirm
+          # the outcome we actually care about rather than trusting the error
+          # string alone.
+          gh api "repos/$REPO/issues/$PR/labels" --paginate --slurp \
+            | jq '[.[][].name]' > stripped-labels.json
+          for label in "approved" "security signed off"; do
+            if jq -e --arg l "$label" 'any(.[]; . == $l)' stripped-labels.json >/dev/null; then
+              echo "::error::'$label' is still on the PR after the strip."
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+  check-approval:
+    # always(): strip-stale-approval is skipped on every action but
+    # synchronize, and a skipped dependency would otherwise skip the gate.
+    if: |
+      always()
+        && contains(github.event.pull_request.labels.*.name, 'claude')
+    needs: [strip-stale-approval]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if the stale-approval strip did not run to completion
+        if: needs.strip-stale-approval.result == 'failure'
+        run: |
+          echo "::error::Could not clear stale approval labels for this push."
+          exit 1
+
+      - name: Evaluate labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+
+          # Read labels and the event log from the API rather than the
+          # trigger payload: the payload is a snapshot from before
+          # strip-stale-approval ran. Nothing here interpolates
+          # GitHub-controlled text into the script body — a label
+          # containing a quote would otherwise break the shell quoting and
+          # run as code.
+          # --slurp returns an array of pages; `.[][]` flattens it. It
+          # cannot be combined with gh's own --jq, so filter with local jq.
+          gh api "repos/$REPO/issues/$PR/labels" --paginate --slurp \
+            | jq '[.[][].name]' > labels.json
+          gh api "repos/$REPO/issues/$PR/events" --paginate --slurp \
+            | jq '[.[][]]' > events.json
+
+          echo "Labels: $(jq -c . labels.json)"
+
+          has_label() { jq -e --arg l "$1" 'any(.[]; . == $l)' labels.json >/dev/null; }
+
+          # Who applied $1 most recently, and is that a human other than
+          # the PR author? Prints a reason and returns 1 if not.
+          human_applied() {
+            local label="$1" event actor type via
+            event=$(jq -c --arg l "$label" \
+              '[.[] | select(.event == "labeled" and .label.name == $l)] | last' events.json)
+
+            if [ "$event" = "null" ]; then
+              echo "  cannot confirm who applied '$label' (no event-log entry)"
+              return 1
+            fi
+
+            actor=$(jq -r '.actor.login // ""' <<<"$event")
+            type=$(jq -r '.actor.type // ""' <<<"$event")
+            via=$(jq -r '.performed_via_github_app.slug // ""' <<<"$event")
+
+            if [ -n "$via" ]; then
+              echo "  '$label' was applied via the '$via' GitHub App — a human must apply it"
+              return 1
+            fi
+            if [ "$type" != "User" ]; then
+              echo "  '$label' was applied by a ${type:-unknown} ($actor) — a human must apply it"
+              return 1
+            fi
+            if [ "$actor" = "$PR_AUTHOR" ]; then
+              echo "  '$label' was applied by the PR author ($actor) — someone else must sign off"
+              return 1
+            fi
+
+            echo "  '$label' applied by $actor"
+            return 0
+          }
+
+          # Security-sensitive status is a label, not a body marker: the
+          # author can edit their own description at any time with no
+          # review, which would silently drop the sign-off requirement.
+          if has_label "security sensitive"; then
+            echo "Security-sensitive PR: needs 'approved' + 'security signed off'."
+            ok=true
+            for label in "approved" "security signed off"; do
+              if has_label "$label"; then
+                human_applied "$label" || ok=false
+              else
+                echo "  missing '$label'"
+                ok=false
+              fi
+            done
+            [ "$ok" = true ] || { echo "Blocked."; exit 1; }
+            echo "Gate satisfied: approved + security signed off."
+            exit 0
+          fi
+
+          echo "Standard PR: needs 'approved'."
+          has_label "approved" || { echo "Blocked: needs 'approved'."; exit 1; }
+          human_applied "approved" || { echo "Blocked."; exit 1; }
+          echo "Gate satisfied: approved."

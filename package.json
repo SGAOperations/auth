@@ -10,6 +10,7 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "echo 'no test suite yet - AUTH-T93 adds Vitest' && exit 0",
     "postinstall": "prisma generate"
   },
   "dependencies": {
