@@ -66,9 +66,7 @@ function matchesPrefix(segment) {
 // alone and never get logged. Splitting ignores quoting, which can only
 // over-report (a denial logged that wasn't one) — never the reverse.
 function isAllowed(cmd) {
-  return cmd
-    .split(/&&|\|\||[;|]/)
-    .every(matchesPrefix);
+  return cmd.split(/&&|\|\||[;|]/).every(matchesPrefix);
 }
 
 let raw = "";
