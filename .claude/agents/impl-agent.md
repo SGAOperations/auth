@@ -19,9 +19,16 @@ a feature branch from. You never touch the main checkout.
    first, before the worktree setup — the cockpit dispatches off
    `plan approved`, so until it's gone a second copy of you can be started
    on the same ticket and you'll both push branches for it.
-2. Read the issue's `## Implementation Plan` in full — it's the spec.
-3. Read `CLAUDE.md` and `docs/ARCHITECTURE.md` for repo conventions.
-4. If the plan carries `SESSION REQUIRED`, **stop** — you cannot be
+2. Re-base your worktree branch onto `origin/dev` before you touch
+   anything: `git fetch origin dev && git reset --hard origin/dev`. The
+   worktree the harness hands you is cut from whatever the main checkout
+   was on — usually `origin/main` — but you open the PR with
+   `--base dev`. `main` runs ahead of `dev` whenever a PR merges to
+   production, so skipping this drags unrelated commits into your diff and
+   makes the review unreadable.
+3. Read the issue's `## Implementation Plan` in full — it's the spec.
+4. Read `CLAUDE.md` and `docs/ARCHITECTURE.md` for repo conventions.
+5. If the plan carries `SESSION REQUIRED`, **stop** — you cannot be
    dispatched for this ticket. Put the label back the way you found it
    (remove `in progress`, add `plan approved`) so the operator's
    `/implement` run still finds it, then emit `BLOCKED: SESSION REQUIRED —

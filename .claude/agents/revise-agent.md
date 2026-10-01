@@ -47,8 +47,12 @@ format:check`, `npx tsc --noEmit`, `npm test`, `npm run build`.
 ## Refreshing (`refresh branch`)
 
 Claim it first — remove `refresh branch`, add `refreshing` — then rebase
-onto the base branch and force-push. Nothing else: no code changes, even if
-you notice something. The push is the redeploy; never touch Vercel directly.
+onto the PR's own base and force-push. Read the base rather than assuming
+it: `gh pr view <n> --json baseRefName -q .baseRefName`, then
+`git fetch origin <base> && git rebase origin/<base>`. It is `dev` for
+every pipeline PR, and rebasing onto `main` instead would pull production
+commits into the diff. Nothing else: no code changes, even if you notice
+something. The push is the redeploy; never touch Vercel directly.
 
 When it lands, remove `refreshing` and add `ready for review` if the PR was
 awaiting review before the refresh; otherwise restore the label it had, so
