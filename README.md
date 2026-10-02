@@ -71,3 +71,36 @@ Internal authentication service
 | `npm run lint`         | Run ESLint                       |
 | `npm run format`       | Format code with Prettier        |
 | `npm run format:check` | Check formatting without writing |
+
+## Database — Neon
+
+SGAuth is built on [Neon](https://neon.com/) serverless Postgres and **does not
+use Supabase for anything**: no Supabase Auth, no Supabase database, and no
+Supabase client libraries, anywhere in SGAuth. This section describes the
+target state.
+
+> The Supabase stack entry, the Docker prerequisite, the `npx supabase start`
+> step, and the Supabase variables above are the old scaffold. They are being
+> removed in #13 (AUTH-T02). Do not run them or follow them.
+
+The Neon project is `sgauth` (`aws-us-east-1`) with three permanent branches:
+
+| Branch | Purpose                          |
+| ------ | -------------------------------- |
+| `main` | Production                       |
+| `dev`  | Shared non-production deployment |
+| `test` | CI integration tests             |
+
+Preview and personal branches are created on top of these. The Free plan caps a
+project at 10 branches, so the three above are the permanent baseline.
+
+Two database roles exist: a **runtime** role (DML only, no DDL) used by
+`DATABASE_URL`, and a **migration** role (owns the schema, DDL) used by
+`DIRECT_URL` for `prisma migrate deploy`. `DATABASE_URL` is the pooled
+connection (host contains `-pooler`), `DIRECT_URL` is the direct one, and both
+use `sslmode=verify-full`. Credentials live in Vercel env and the team password
+manager, never in git. Pooled vs. direct handling under Prisma is settled in
+AUTH-T04.
+
+To restore `main` to an earlier point in time, see
+[docs/runbooks/neon-restore.md](docs/runbooks/neon-restore.md).
