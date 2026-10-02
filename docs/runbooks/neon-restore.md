@@ -34,7 +34,8 @@ rewrites production data, and every SGA product's login depends on it.
    revoked, deactivated, rotated or changed after the target timestamp comes
    back as it was. The rewound `main` is live the moment the restore completes,
    so the exposure window described under "Close the exposure window first"
-   below starts then, and step 5 below is written to close it immediately.
+   below starts then. Step 5 below takes SGAuth offline before that moment, and
+   traffic stays off until step 8 is complete.
 
 ## Restore procedure
 
@@ -48,17 +49,24 @@ count first) and does not touch production until you decide to promote it.
    Travel assist to run read-only queries at that timestamp first.
 3. Choose **Restore to a new branch** and name it `restore-<yyyymmdd>-<hhmm>`.
 4. Inspect the new branch (row counts, the affected records).
-5. If correct, restore `main` itself from the same timestamp. Neon keeps a
+5. **Take SGAuth offline (maintenance mode) before you touch `main`.** This
+   is required, not optional. Do it before step 6 so the restored database is
+   never reachable by live traffic. If you cannot take the deployment offline,
+   stop here: leave `main` alone, keep the `restore-*` branch, and escalate to
+   the second SGA operator.
+6. If correct, restore `main` itself from the same timestamp. Neon keeps a
    backup branch of the pre-restore state, named `main_old_<timestamp>`, which
    also uses a branch slot. **That branch is the only surviving copy of the
    audit rows, revocations and other auth state written after the target
    timestamp** (the restored `main`'s audit log is rewound). Do not delete it
    yet.
-6. **Close the exposure window immediately**, before doing anything else (see
-   the next section): force-expire every session on the restored `main`.
-7. Work through the re-check list below, using `main_old_*` as the source of
-   truth for what must be re-applied.
-8. Delete `restore-*` only when you are done. Delete `main_old_*` last, and
+7. Force-expire every session on the restored `main` (see the next section).
+   SGAuth is still offline.
+8. Work through the re-apply list below, using `main_old_*` as the source of
+   truth for what must be re-applied. **SGAuth stays offline until every item
+   on that list is re-applied or deliberately ruled out.** Only then bring it
+   back online.
+9. Delete `restore-*` only when you are done. Delete `main_old_*` last, and
    only when every condition under "Keep `main_old_*` until" below is met, so
    the branch count returns to 3/10 (AUTH-T09 treats leftovers as clutter).
 
@@ -77,23 +85,39 @@ character in Windows `cmd.exe`, so unquoted it is silently mangled.
 
 A restore rewinds the whole database, so anything done after the target
 timestamp is undone: sessions revoked, accounts deactivated or deleted,
-password resets, lockouts, signing-key rotations. From the moment `main` is
-restored, revoked sessions are valid again and a compromised account may be
-back in service. Do these in order, and do not defer them behind the re-check
-list:
+password resets, lockouts, passkey and 2FA changes, signing-key rotations.
+From the moment `main` is restored, revoked sessions are valid again and a
+compromised account may be back in service.
 
-1. **Before promoting `main` (step 5), write down the target timestamp and the
+**Principle: traffic does not come back until the auth state an attacker could
+exploit has been re-applied, not just until old sessions are dead.**
+Force-expiring sessions is necessary but not sufficient. An attacker whose
+account deactivation was rewound, or whose old password, passkey or disabled
+2FA came back, simply signs in again and gets a brand-new, legitimately issued
+session. So the exposure window runs from the restore until the whole
+re-apply list below is done, and SGAuth stays in maintenance mode for all of it.
+
+> Table and column names in this runbook ("the session table", "the key
+> table", and so on) are provisional. The schema is still Supabase-shaped, and
+> the real names are not settled until AUTH-T10 lands the Neon schema. Re-check
+> them against the live schema rather than assuming they were verified.
+
+Do these in order, with SGAuth offline throughout:
+
+1. **Before promoting `main` (step 6), write down the target timestamp and the
    restore time**, so the post-timestamp window is unambiguous. Neon preserves
    everything written in that window in `main_old_*` once the restore happens.
-2. **At the moment `main` goes live, force-expire every session** on the
-   restored `main` (delete or expire all rows in the session table, so every
-   user must sign in again). Do this before re-applying anything else. If the
-   SGAuth deployment can be taken offline or into maintenance first, do that
-   for the span between the restore and this step; if not, run the force-expiry
-   in the same sitting as the restore, with no other work in between. Every
+2. **Take SGAuth offline first** (step 5), then promote `main`. The restored
+   database must never serve live traffic while it holds rewound auth state.
+3. **Force-expire every session** on the restored `main` (delete or expire all
+   rows in the session table, so every user must sign in again). Every
    consuming product's short-lived JWT also stops being refreshable once its
    session is gone.
-3. **Only then** re-apply the post-timestamp state listed below.
+4. **Re-apply the post-timestamp auth state** listed below, starting with
+   revocations and deactivations and then passwords and tokens, while still
+   offline.
+5. **Only then bring SGAuth back online**, once force-expiry and every item in
+   the re-apply list are done or deliberately ruled out.
 
 ## Re-apply auth state from `main_old_*`
 
@@ -153,8 +177,9 @@ Verify each of the following before declaring recovery complete:
       rotated after the target timestamp, the old password is back in effect:
       rotate again and update Vercel env and the password manager.
 - [ ] **Auth state is re-applied.** Done per the two sections above
-      (sessions force-expired first, then everything re-applied from
-      `main_old_*`); do not tick this until `main_old_*` has been extracted.
+      (SGAuth offline, sessions force-expired, everything re-applied from
+      `main_old_*`, and only then back online); do not tick this until
+      `main_old_*` has been extracted.
 - [ ] **Branch count** is back to 3/10 (`main`, `dev`, `test`).
 - [ ] **Migration state.** `_prisma_migrations` matches the migrations in the
       deployed commit.
