@@ -2,6 +2,9 @@
 
 Internal authentication service
 
+> **Setup below is the old Supabase scaffold, being removed in #13 (AUTH-T02). Do
+> not run it.** For the target database setup, see [Database — Neon](#database--neon).
+
 ## Stack
 
 - [React 19](https://react.dev/)
@@ -47,7 +50,7 @@ Internal authentication service
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key — "Publishable" in CLI output (public)                            |
    | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key — "Secret" in CLI output (**never expose to the client**) |
 
-   > Locally there is no connection pooling, so `DATABASE_URL` and `DIRECT_URL` will be the same.
+   > In the old local scaffold there is no connection pooling, so the two URLs point at the same database. On Neon they differ: `DATABASE_URL` is pooled and uses the runtime role, `DIRECT_URL` is direct and uses the migration role (see [Database — Neon](#database--neon)).
 
 4. Run Prisma migrations:
 
