@@ -49,11 +49,16 @@ count first) and does not touch production until you decide to promote it.
 6. Delete `restore-*` and `main_old_*` branches once you are done, so the
    branch count returns to 3/10 (AUTH-T09 treats leftovers as clutter).
 
-CLI equivalent (confirm syntax against the current `neonctl` docs before use):
+CLI equivalent:
 
 ```sh
-neonctl branches restore main ^self@<timestamp> --project-id <NEON_PROJECT_ID> --preserve-under-name main_old_before_restore
+neonctl branches restore main "^self@<timestamp>" --project-id <NEON_PROJECT_ID> --preserve-under-name main_old_before_restore
 ```
+
+`<timestamp>` is RFC 3339 in UTC, for example `2026-10-01T14:30:00.000Z`.
+`--preserve-under-name` is required when restoring a branch to its own history
+(`^self`). Quote the `"^self@<timestamp>"` argument: `^` is the escape
+character in Windows `cmd.exe`, so unquoted it is silently mangled.
 
 ## After the restore: re-check
 
@@ -67,6 +72,16 @@ Verify each of the following before declaring recovery complete:
       `DIRECT_URL` (direct, migration role) both connect. If a role password was
       rotated after the target timestamp, the old password is back in effect:
       rotate again and update Vercel env and the password manager.
+- [ ] **Auth state is re-applied.** A restore rewinds the whole database, so
+      anything done after the target timestamp is undone: sessions revoked,
+      accounts deactivated or deleted, password resets, lockouts, and signing-key
+      rotations. Revoked sessions become valid again and a compromised account may
+      be back in service. Re-apply every post-timestamp revocation, deactivation,
+      deletion, reset and lockout (use the audit log and incident notes, and note
+      that the audit log is also rewound). Then force-expire every session
+      created before the restore, and confirm the JWT signing keys published in
+      JWKS match the restored key table (rotate again if a key was rotated or
+      revoked after the timestamp).
 - [ ] **Branch count** is back to 3/10 (`main`, `dev`, `test`).
 - [ ] **Migration state.** `_prisma_migrations` matches the migrations in the
       deployed commit.
