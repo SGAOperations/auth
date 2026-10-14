@@ -204,12 +204,17 @@ export const PRODUCT_TICKETS = [
     priority: "High",
     estimate: 5,
     labels: ["sgauth", "permissions"],
-    deps: ["CHAMBERS-C02", "AUTH-T44"],
+    deps: ["CHAMBERS-C02", "AUTH-T44", "CHAMBERS-C06"],
     title:
-      "Map admin_role / iems_role to SGAuth positions; keep body memberships internal",
-    description: `Define \`lib/permissions.ts\`: Chambers admin capabilities derive from position keys: curated offices (proposal: \`vice-president-of-operational-affairs\`, \`speaker-of-the-senate\`, \`senate-operations-coordinator\`) plus product roles created in the SGAuth admin UI for roles that are not SGA offices (\`chambers-admin\`, \`chambers-iems\`); board/body memberships stay in Chambers tables keyed by SGAuth user id and continue to drive booking scopes. Replace \`hasLiveAdmin\`/\`is_admin()\` checks in app code with position checks; since Chambers is on Neon, RLS helpers are replaced by app-level checks in the data layer.`,
+      "Map admin_role / iems_role and body memberships to SGAuth positions",
+    description: `Define \`lib/permissions.ts\`: Chambers admin capabilities derive from position keys, at the two tiers \`admin_role\` already encodes (\`MANAGEMENT_ROLES\` vs. the rest of \`ADMIN_ROLES\`, in \`lib/admin-roles.ts\`) rather than a single flat admin check. Five of the six current \`admin_role\` values already have a matching curated SGA office key (proposal, pending CHAMBERS-C06 approval): \`executive-vice-president\`, \`vice-president-of-operational-affairs\`, \`digital-innovation-manager\`, \`information-manager\` for the Management tier (\`isManagementRole()\`), plus \`comptroller\` for the booking-only tier. \`Digital Innovation Project Member\` has no curated match and, like \`iems_role\`, becomes a product role created in the SGAuth admin UI for roles that are not SGA offices (\`chambers-admin\` for the Management-tier gap, \`chambers-iems\`).
+
+Board/body memberships (\`board_memberships\`: \`Leadership\` | \`Member\` per body) are derived from position keys too, rather than staying Chambers-admin-controlled: the curated position list AUTH-T44 seeds (SGAOperations/auth#56) already carries a member and/or leadership key for every body -- director/chair keys for \`Leadership\`, \`-member\`/\`-committee-member\` keys for \`Member\` -- covering every member and every leadership seat, not just the admin offices above. Chambers resolves a user's \`board_memberships\` rows from their current SGAuth positions (synced on login / SDK cache refresh, the same 60 s bound as admin capabilities) instead of through the Users / Membership-requests admin UI, which this ticket retires for regular body assignment; that UI's controls stay only for the two admin tiers and \`iems_role\` until CHAMBERS-C05 removes local toggles entirely.
+
+Replace \`hasLiveAdmin\`/\`is_admin()\` checks in app code with position checks; since Chambers is on Neon, RLS helpers are replaced by app-level checks in the data layer.`,
     acceptance: [
-      "Every admin-only route and action checks positions; a user whose position is removed in SGAuth loses admin ability within 60 s (SDK cache) without any Chambers-side change.",
+      "Every admin-only route and action checks positions at the correct tier (Management vs. booking-only); a user whose position is removed in SGAuth loses that ability within 60 s (SDK cache) without any Chambers-side change.",
+      "A user's board_memberships rows are derived from their current SGAuth positions rather than assigned in the Chambers admin UI; gaining or losing a body position updates membership within the same 60 s window.",
       "Body-scoped booking rules unchanged (existing tests pass).",
     ],
   },

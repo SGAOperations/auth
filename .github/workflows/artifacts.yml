@@ -1,0 +1,57 @@
+# Layer 2 of the testing loop: a `gh`-driven pass over real pull requests,
+# asserting the same artifact patterns `check` does at write-time.
+#
+# Runs on every push (`opened`/`synchronize`) and at `approved`. The
+# push run catches everything final the moment it is written — commit
+# subjects, the pull request body, label legality — instead of waiting for a
+# full plan → implement → review cycle to finish first. The
+# `approved` run is the only one that ever sees reviews and revision
+# comments, since those arrive without a push, so both triggers stay.
+#
+# This MAY be registered as a required status check now: the narrowing that
+# used to gate the whole job gates only its one step below, so every event
+# this workflow subscribes to concludes the job rather than leaving a
+# required check pending on one that never runs.
+
+name: Artifacts
+
+on:
+  pull_request:
+    types: [labeled, opened, synchronize]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull request number to audit (blank audits the 5 most recent)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  audit-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Audit pipeline artifacts
+        # On `labeled`, only when the pull request has just reached
+        # `approved` and is one the pipeline owns — every other
+        # `labeled` event skips here, at the step, not the job, so the job
+        # still concludes and a required check still reports. `opened`,
+        # `synchronize`, and `workflow_dispatch` always run.
+        if: >-
+          github.event.action != 'labeled' ||
+          (github.event.label.name == 'approved' &&
+           contains(github.event.pull_request.labels.*.name, 'claude'))
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event_name == 'workflow_dispatch' && inputs.pr || github.event.pull_request.number }}
+        # $PR is deliberately unquoted: a blank dispatch input must expand to no
+        # argument at all, which is how the script enters sweep mode.
+        run: node scripts/port-artifacts.mjs audit $PR
