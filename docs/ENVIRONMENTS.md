@@ -44,6 +44,8 @@ Everything else, including every other `/api/auth/*` endpoint, needs the cookie.
 
 Playwright and CI must first `POST /preview-gate/unlock` (form-urlencoded `password`, with a same-origin `Origin` header) to obtain the cookie on gated environments. On Vercel previews they also need the Vercel bypass header. Unlock attempts are limited to 10 per IP per 15 minutes per instance.
 
+The limiter's client IP is the `x-real-ip` header, then the first `x-forwarded-for` hop, then a shared `unknown` bucket. It assumes Vercel's header handling, where the platform overwrites both headers so a client cannot spoof them. On any other host (including `npm start`), a client can set those headers and sidestep the limit, and a request with neither header shares one bucket with every other such caller. The 16 or more character password is what protects the gate there.
+
 ### Deployment Protection Exception
 
 The Deployment Protection Exception for `auth-dev` must not be enabled until this gate is deployed on `dev`.

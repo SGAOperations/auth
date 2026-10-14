@@ -186,6 +186,14 @@ describe("createAttemptLimiter", () => {
 });
 
 describe("clientIp", () => {
+  it("prefers x-real-ip over forwarded hops", () => {
+    const headers = new Headers({
+      "x-real-ip": " 9.9.9.9 ",
+      "x-forwarded-for": "1.2.3.4, 5.6.7.8",
+    });
+    expect(clientIp(headers)).toBe("9.9.9.9");
+  });
+
   it("takes the first forwarded hop", () => {
     const headers = new Headers({ "x-forwarded-for": " 1.2.3.4 , 5.6.7.8" });
     expect(clientIp(headers)).toBe("1.2.3.4");

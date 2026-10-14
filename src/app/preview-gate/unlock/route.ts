@@ -56,14 +56,20 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 403, headers: NO_STORE });
   }
 
-  const form = await request.formData();
+  // Count the attempt before parsing, so unparseable bodies are limited too.
+  const attempt = unlockLimiter.hit(clientIp(request.headers), Date.now());
+
+  // formData() throws on a non-form Content-Type or a malformed body.
+  const form = await request.formData().catch(() => null);
+  if (!form) {
+    return backToGate(request, attempt.allowed ? "wrong" : "rate", "/");
+  }
+
   const raw = {
     password: form.get("password"),
     next: form.get("next") ?? undefined,
   };
   const next = safeNextPath(typeof raw.next === "string" ? raw.next : "/");
-
-  const attempt = unlockLimiter.hit(clientIp(request.headers), Date.now());
   if (!attempt.allowed) return backToGate(request, "rate", next);
 
   const parsed = formSchema.safeParse(raw);
