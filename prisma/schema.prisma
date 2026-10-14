@@ -12,43 +12,91 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+  DELETED
+}
+
 model User {
-  id        String        @id @default(uuid())
-  isAdmin   Boolean       @default(false)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  sessions  Session[]
-  projects  UserProject[]
-}
-
-model Project {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  apiKey      String        @unique @default(uuid())
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  sessions    Session[]
-  users       UserProject[]
-}
-
-model UserProject {
-  userId    String
-  projectId String
-  user      User     @relation(fields: [userId], references: [id])
-  project   Project  @relation(fields: [projectId], references: [id])
-  createdAt DateTime @default(now())
-  deletedAt DateTime?
-  @@id([userId, projectId])
+  id                String        @id @default(uuid(7))
+  email             String        @unique @db.Citext
+  emailVerified     Boolean       @default(false)
+  name              String
+  preferredName     String?
+  isAdmin           Boolean       @default(false)
+  isPrimaryAdmin    Boolean       @default(false)
+  status            UserStatus    @default(ACTIVE)
+  deactivatedAt     DateTime?
+  deletedAt         DateTime?
+  legacyEmail       Boolean       @default(false)
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  twoFactorEnabled  Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  sessions          Session[]
+  accounts          Account[]
+  knownDevices      KnownDevice[]
 }
 
 model Session {
-  id        String   @id @default(uuid())
-  userId    String
-  projectId String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  project   Project  @relation(fields: [projectId], references: [id])
+  id                String    @id @default(uuid(7))
+  token             String    @unique
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt         DateTime
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  absoluteExpiresAt DateTime  @default(dbgenerated("(CURRENT_TIMESTAMP + '90 days'::interval)"))
+  lastReauthAt      DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                    String    @id @default(uuid(7))
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  /// scrypt hash, or an imported `bcrypt$...` hash re-hashed on first login (AUTH-T21)
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(uuid(7))
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model KnownDevice {
+  id         String   @id @default(uuid(7))
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
 }

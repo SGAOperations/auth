@@ -10,46 +10,30 @@ const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({ adapter });
 
+// Both users are password-less (no Account row): passwords are set lazily.
 async function main() {
-  const admin = await prisma.user.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000001" },
+  await prisma.user.upsert({
+    where: { email: "dev-admin@northeastern.edu" },
     update: {},
-    create: { id: "00000000-0000-0000-0000-000000000001", isAdmin: true },
-  });
-
-  const user = await prisma.user.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000002" },
-    update: {},
-    create: { id: "00000000-0000-0000-0000-000000000002", isAdmin: false },
-  });
-
-  const project1 = await prisma.project.create({
-    data: { name: "Attendance Manager", description: "Cool project" },
-  });
-
-  const project2 = await prisma.project.create({
-    data: { name: "Website Creation", description: "Less project" },
-  });
-
-  await prisma.userProject.createMany({
-    data: [
-      { userId: admin.id, projectId: project1.id },
-      { userId: admin.id, projectId: project2.id },
-      { userId: user.id, projectId: project1.id },
-    ],
-    skipDuplicates: true,
-  });
-
-  await prisma.session.create({
-    data: {
-      userId: admin.id,
-      projectId: project1.id,
-      token: "admin-session-token",
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24h
+    create: {
+      email: "dev-admin@northeastern.edu",
+      name: "Dev Admin",
+      emailVerified: true,
+      isAdmin: true,
     },
   });
 
-  console.log("data seeded!");
+  await prisma.user.upsert({
+    where: { email: "dev-user@northeastern.edu" },
+    update: {},
+    create: {
+      email: "dev-user@northeastern.edu",
+      name: "Dev User",
+      emailVerified: true,
+    },
+  });
+
+  console.log("seeded dev-admin@ and dev-user@northeastern.edu");
 }
 
 main()
