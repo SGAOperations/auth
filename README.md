@@ -41,13 +41,13 @@ Internal authentication service
 
    | Variable                        | Purpose                                                                             |
    | ------------------------------- | ----------------------------------------------------------------------------------- |
-   | `DATABASE_URL`                  | Pooled Postgres connection used by the application (via PgBouncer in prod)          |
-   | `DIRECT_URL`                    | Direct Postgres connection used by Prisma for migrations                            |
+   | `DATABASE_URL`                  | Pooled (`-pooler`) Neon connection used at runtime                                  |
+   | `DIRECT_URL`                    | Direct Neon connection used by the Prisma CLI                                       |
    | `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL (public)                                                       |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key — "Publishable" in CLI output (public)                            |
    | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key — "Secret" in CLI output (**never expose to the client**) |
 
-   > Locally there is no connection pooling, so `DATABASE_URL` and `DIRECT_URL` will be the same.
+   > A personal Neon branch has both a pooled and a direct host, so `DATABASE_URL` and `DIRECT_URL` always differ. See [Database connections](#database-connections).
 
 4. Run Prisma migrations:
 
@@ -60,6 +60,21 @@ Internal authentication service
    ```sh
    npm run dev
    ```
+
+## Database connections
+
+Neon exposes two hosts per branch, so the app needs two connection strings.
+
+- **Why two URLs.** The Prisma CLI needs a session-level connection for migrations (advisory locks, DDL), and Neon's PgBouncer runs in transaction mode. Serverless runtime traffic goes through the pooler so many short-lived Vercel instances don't exhaust Postgres connections.
+
+  | Variable       | Host                        | Used by                                                                                                      |
+  | -------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------ |
+  | `DATABASE_URL` | Pooled (host has `-pooler`) | The running app (`src/lib/prisma.ts`) and `prisma/seed.ts`                                                   |
+  | `DIRECT_URL`   | Direct (no `-pooler`)       | The Prisma CLI via `prisma.config.ts`: `migrate dev`, `migrate deploy`, `migrate reset`, `db push`, `studio` |
+
+- **Driver adapter.** The runtime client uses `@prisma/adapter-pg` (TCP) with a pool of `max: 5`, a 10 s idle timeout and a 5 s connect timeout per function instance. `@prisma/adapter-neon` was not chosen because SGAuth runs on the Vercel Node runtime, not Edge, so no WebSocket transport is needed.
+- **`pgbouncer=true` is not used.** It is a flag for Prisma's Rust query engine. With a driver adapter, `pg` is expected to talk to the pooler directly, and Neon's pooler is expected to support protocol-level prepared statements. Not yet verified against a live Neon branch.
+- **`sslmode=verify-full`** is expected on both URLs. Neon console strings may append `&channel_binding=require`, which is optional. Not yet verified against a live Neon branch.
 
 ## Scripts
 
