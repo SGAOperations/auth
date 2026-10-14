@@ -192,8 +192,9 @@ function isUniqueViolation(error: unknown): boolean {
 
 /**
  * Writes the plan in one transaction. The plan is recomputed from a re-read
- * inside the transaction, so a concurrent admin edit is never overwritten from
- * a stale read. Returns the plan that was actually applied.
+ * inside the transaction, which narrows the window for overwriting a
+ * concurrent admin edit but does not close it: the transaction runs at READ
+ * COMMITTED with no row locks. Returns the plan that was actually applied.
  */
 export async function applySync(
   db: PrismaClient,
@@ -201,31 +202,36 @@ export async function applySync(
 ): Promise<{ plan: PlanEntry[]; counts: SyncCounts }> {
   const curated = plan.map((entry) => entry.curated);
   try {
-    return await db.$transaction(async (tx) => {
-      const fresh = planSync(curated, await readExistingPositions(tx));
-      for (const entry of fresh) {
-        if (entry.action === "create") {
-          await tx.position.create({
-            data: {
-              key: entry.curated.key,
-              name: entry.curated.name,
-              category: entry.curated.category ?? null,
-              createdById: null,
-              updatedById: null,
-            },
-          });
-        } else if (entry.action === "update") {
-          await tx.position.update({
-            where: { id: entry.id },
-            data: {
-              name: entry.curated.name,
-              category: entry.curated.category ?? null,
-            },
-          });
+    return await db.$transaction(
+      async (tx) => {
+        const fresh = planSync(curated, await readExistingPositions(tx));
+        for (const entry of fresh) {
+          if (entry.action === "create") {
+            await tx.position.create({
+              data: {
+                key: entry.curated.key,
+                name: entry.curated.name,
+                category: entry.curated.category ?? null,
+                createdById: null,
+                updatedById: null,
+              },
+            });
+          } else if (entry.action === "update") {
+            await tx.position.update({
+              where: { id: entry.id },
+              data: {
+                name: entry.curated.name,
+                category: entry.curated.category ?? null,
+              },
+            });
+          }
         }
-      }
-      return { plan: fresh, counts: countPlan(fresh) };
-    });
+        return { plan: fresh, counts: countPlan(fresh) };
+      },
+      // The first production apply is ~82 sequential round trips to Neon, well
+      // past Prisma's 5 s default; a timeout would roll the whole apply back.
+      { timeout: 120_000, maxWait: 15_000 },
+    );
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new SyncConflictError(

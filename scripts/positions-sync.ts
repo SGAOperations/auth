@@ -1,6 +1,5 @@
 import "dotenv/config";
 import pg from "pg";
-import { z } from "zod";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import {
@@ -13,6 +12,12 @@ import {
   planSync,
   readExistingPositions,
 } from "../prisma/seed/positions.js";
+import {
+  UsageError,
+  describeTarget,
+  parseArgs,
+  parseSyncEnv,
+} from "../prisma/seed/sync-env.js";
 
 // Standalone ops script: parses its own env and builds its own client, the same
 // exception as prisma/seed.ts. Dry run by default; `--apply` writes. Allowed in
@@ -20,45 +25,18 @@ import {
 
 const USAGE = "Usage: npm run positions:sync [-- --apply]";
 
-const envSchema = z.object({
-  DIRECT_URL: z.string().min(1),
-  SGAUTH_ENV: z.enum(["production", "dev", "preview", "local"]),
-});
-
-function parseArgs(argv: string[]): { apply: boolean } {
-  const unknown = argv.filter((arg) => arg !== "--apply");
-  if (unknown.length > 0) {
-    throw new UsageError(`Unknown argument: ${unknown.join(" ")}`);
-  }
-  return { apply: argv.includes("--apply") };
-}
-
-class UsageError extends Error {}
-
-/** Host and database only: never the credentials. */
-function describeTarget(url: string): string {
-  const { host, pathname } = new URL(url);
-  return `${host}/${pathname.replace(/^\//, "")}`;
-}
-
 async function main() {
   const { apply } = parseArgs(process.argv.slice(2));
-
-  const env = envSchema.safeParse(process.env);
-  if (!env.success) {
-    throw new UsageError(
-      `Invalid environment (DIRECT_URL and SGAUTH_ENV=production|dev|preview|local are required):\n${z.prettifyError(env.error)}`,
-    );
-  }
+  const env = parseSyncEnv(process.env);
 
   // Validated before connecting: a bad JSON file never touches the database.
   const curated = await loadCuratedPositions();
 
   console.log(
-    `Target: ${describeTarget(env.data.DIRECT_URL)} (SGAUTH_ENV=${env.data.SGAUTH_ENV})`,
+    `Target: ${describeTarget(env.DIRECT_URL)} (SGAUTH_ENV=${env.SGAUTH_ENV})`,
   );
 
-  const pool = new pg.Pool({ connectionString: env.data.DIRECT_URL });
+  const pool = new pg.Pool({ connectionString: env.DIRECT_URL });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
   try {
     const plan = planSync(curated, await readExistingPositions(prisma));
@@ -96,7 +74,13 @@ main().catch((error) => {
   ) {
     console.error(error.message);
   } else {
-    console.error(error);
+    // Never console.error the raw error: some carry connection strings or the
+    // offending input, and DIRECT_URL holds the migration role's password.
+    console.error(
+      error instanceof Error
+        ? `${error.name}: ${error.message}`
+        : "Unexpected error",
+    );
   }
   process.exitCode = 1;
 });
