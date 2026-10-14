@@ -27,7 +27,7 @@ Every variable set in Vercel, by scope. "Preview (`dev`)" is the branch-specific
 | `BETTER_AUTH_SECRET`                                                                      | Better Auth signing secret. Generate with `npx @better-auth/cli secret`.                                                              | distinct value | distinct value         | distinct value         | its own value | manual | yes    |
 | `SGAUTH_PREVIEW_GATE_PASSWORD` ([#134](https://github.com/SGAOperations/auth/issues/134)) | Password for the browser-route gate outside production.                                                                               | not set        | distinct value         | distinct value         | not set       | manual | yes    |
 | `SGAUTH_SIGNUP_ALLOWLIST` ([#134](https://github.com/SGAOperations/auth/issues/134))      | Comma-separated exact emails and `@domain` suffixes allowed to sign up outside production. Lists people, so it stays out of the repo. | not set        | set                    | set                    | not set       | manual | no     |
-| `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`                  | Read by `settings.ts` (preview `baseURL`) and by `scripts/vercel-build.mjs`.                                                          | system         | system                 | system                 | n/a           | Vercel | no     |
+| `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`                  | Read by `settings.ts` (preview `baseURL`, the `local`-on-Vercel assertion) and by `scripts/vercel-build.mjs`.                         | system         | system                 | system                 | n/a           | Vercel | no     |
 | `VERCEL_AUTOMATION_BYPASS_SECRET`                                                         | Exposes one bypass secret. Listed for reference only. Never copied into another product.                                              | system         | system                 | system                 | n/a           | Vercel | yes    |
 
 Notes:
@@ -44,6 +44,53 @@ Rules:
 - Every connection string uses `sslmode=verify-full`. The one exception is `DIRECT_URL`, which may use `sslmode=require&sslaccept=strict` if the migration CLI rejects `verify-full`. If that happens, note it on #12.
 - The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD` and `SGAUTH_SIGNUP_ALLOWLIST`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password.
 - Never set `SGAUTH_PREVIEW_GATE=off` in a Vercel scope.
+
+## Cookies and SDK values
+
+One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from it. The names come from `resolveCookiePolicy` in `src/lib/auth/cookies.ts`, and `cookies.test.ts` pins them. The full cookie contract is in [SESSION-COOKIE.md](SESSION-COOKIE.md).
+
+| Environment | SGAuth URL / `SGAUTH_URL`              | Session cookie (`SGAUTH_COOKIE_NAME`)   | `Domain`              | Secure | Neon branch | Who may use it                                        |
+| ----------- | -------------------------------------- | --------------------------------------- | --------------------- | ------ | ----------- | ----------------------------------------------------- |
+| Production  | `https://auth.northeasternsga.com`     | `__Secure-sgauth.session_token`         | `northeasternsga.com` | yes    | `main`      | every production product (these are the SDK defaults) |
+| Dev         | `https://auth-dev.northeasternsga.com` | `__Secure-sgauth-dev.session_token`     | `northeasternsga.com` | yes    | `dev`       | product dev and preview environments                  |
+| Preview     | the deployment's `*.vercel.app` host   | `__Secure-sgauth-preview.session_token` | none (host-only)      | yes    | `dev`       | SGAuth's own testing only, no product SSO             |
+| Local       | `http://auth.sga.localhost:3000`       | `sgauth-local.session_token`            | `sga.localhost`       | no     | personal    | developers on their own machine                       |
+
+## Product previews
+
+- Each product adds a Vercel branch domain `<product>-dev.northeasternsga.com` on its own dev branch, with `SGAUTH_URL=https://auth-dev.northeasternsga.com` and `SGAUTH_COOKIE_NAME=__Secure-sgauth-dev.session_token`.
+- The product registers that origin in SGAuth's product registry once AUTH-T56 (#68) exists.
+- Ad-hoc `*.vercel.app` product previews **cannot use SSO**. The browser never sends a `northeasternsga.com` cookie to `vercel.app`, so use the branch domain.
+- Testers unlock the [gate](#pre-production-gates) on `auth-dev` once per browser (7 days). Product servers call the exempt machine endpoints and need no gate cookie or Vercel header once the Deployment Protection Exception is on. Until then, product previews cannot redirect a browser to `auth-dev`.
+
+## Local development
+
+- Run `npm run dev` with `SGAUTH_ENV=local`, then browse to `http://auth.sga.localhost:3000`, never `http://localhost:3000`. On bare `localhost` the browser rejects the `Domain=sga.localhost` cookie, and the origin is not trusted.
+- Products run on `<product>.sga.localhost:<port>` (VaultZ on `vaultz.sga.localhost:3001`) with `SGAUTH_URL=http://auth.sga.localhost:3000` and `SGAUTH_COOKIE_NAME=sgauth-local.session_token`.
+- Name resolution by browser:
+  - Chrome and Edge resolve `*.localhost` natively.
+  - Firefox: add the hostnames to `network.dns.localDomains` in `about:config`.
+  - Safari, or any tool that does not: add a hosts-file line `127.0.0.1 auth.sga.localhost vaultz.sga.localhost`.
+- Safari's handling of `Domain=sga.localhost` is unverified. AUTH-T104 (#115) confirms it or switches to `sga.test` through the hosts file, and records the result here.
+- **Product stub.** `node scripts/sso-stub.mjs` serves `http://vaultz.sga.localhost:3001`. It reads the session cookie and asks SGAuth who it belongs to, so it shows whether the cookie reached a sibling host. It reads `SGAUTH_URL`, `SGAUTH_COOKIE_NAME` and `PORT` (the defaults match the values above) and listens on loopback only. It forwards the session cookie to `SGAUTH_URL`, so it refuses to start when `SGAUTH_URL` is `http` on any host other than `localhost`, `*.localhost` or loopback.
+- **Manual SSO test.** Sign in at `http://auth.sga.localhost:3000` with a synthetic account, then reload `http://vaultz.sga.localhost:3001`: it shows "Signed in as ...". In DevTools, the `sgauth-local.session_token` cookie has Domain `.sga.localhost`, HttpOnly, SameSite=Lax, and no Secure flag. Sign-in needs a sign-in method (#29); the Playwright job in AUTH-T96 (#108) automates this check.
+
+## Dev environment rules
+
+- Every non-production environment shows the "DEVELOPMENT ENVIRONMENT" banner (`LOCAL ENVIRONMENT` locally) and is `noindex`, through a robots meta tag and an `X-Robots-Tag` header. `dev` and `preview` show the same text on purpose, so the gate page does not reveal which one it is.
+- **Build-time behaviour.** The banner and the `noindex` header and meta tag are fixed by the `SGAUTH_ENV` present at **build** time: `/` is statically rendered and the header comes from `next.config.ts`. A server started from a build made with a different `SGAUTH_ENV` keeps the banner and `noindex` of the build, not of the runtime value. Vercel builds each deployment with its own environment, so this holds there. Never serve a build made for one environment as another.
+- **Synthetic users only.** Never run a real-user import (AUTH-T87, #99) or copy production data into Neon `dev`.
+- Every secret is separate from production: `BETTER_AUTH_SECRET`, the Resend key (AUTH-T20, #32) and an Upstash key namespace (AUTH-T63, #75). Those tickets add their own rows to the variable table.
+- **Startup assertion.** `assertSecureCookieConfig` checks the options handed to Better Auth at boot and refuses to start with:
+  - `SGAUTH_ENV=local` while Vercel's `VERCEL_ENV` is set, with a base URL host that does not end in `.localhost`, with `useSecureCookies` on, or with cross-subdomain cookies not enabled on `sga.localhost`;
+  - outside `local`: a non-`https` base URL, `useSecureCookies` off, a non-Secure or non-HttpOnly cookie, or `SameSite` other than `lax`;
+  - on `production` and `dev`: cross-subdomain cookies not enabled on `northeasternsga.com`, or a cookie prefix other than `sgauth` (production) or `sgauth-dev` (dev).
+
+  It prints `Insecure cookie configuration for SGAUTH_ENV=<env>:` followed by one `- <rule>` line per failure, and never a secret.
+
+## SDK dev mode
+
+Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70), and the integration guide (AUTH-T80, #92) links back here.
 
 ## Build pipeline
 

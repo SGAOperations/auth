@@ -11,7 +11,7 @@ The policy comes from `SGAUTH_ENV`, not from separate environment variables, so 
 | `production` | `__Secure-sgauth.session_token`         | `northeasternsga.com`                            | yes    | yes      | Lax      | `/`  | SGAuth and every production product |
 | `dev`        | `__Secure-sgauth-dev.session_token`     | `northeasternsga.com`                            | yes    | yes      | Lax      | `/`  | SGAuth dev and every dev product    |
 | `preview`    | `__Secure-sgauth-preview.session_token` | host-only (the deployment's `*.vercel.app` host) | yes    | yes      | Lax      | `/`  | SGAuth's own testing only           |
-| `local`      | see #46 and `docs/ENVIRONMENTS.md`      | (#46 sets `sga.localhost`)                       | no     | yes      | Lax      | `/`  | local development                   |
+| `local`      | `sgauth-local.session_token`            | `sga.localhost`                                  | no     | yes      | Lax      | `/`  | local development                   |
 
 - Better Auth's other cookies share the same prefix and attributes: `dont_remember`, and `session_data` and `account_data`, which are never set here.
 - There is no cookie cache, so no `session_data` cookie. Every request reads the session from the database, and revocation and sign-out take effect on the next request.

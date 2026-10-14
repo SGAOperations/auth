@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { resolveCookiePolicy } from "@/lib/auth/cookies";
 import {
   parseSignupAllowlist,
   type SignupAllowlist,
@@ -88,6 +89,8 @@ export function toAuthSettings(env: z.infer<typeof authEnvSchema>) {
 
   return {
     sgauthEnv: env.SGAUTH_ENV,
+    vercelEnv: env.VERCEL_ENV,
+    cookies: resolveCookiePolicy(env.SGAUTH_ENV),
     secret: env.BETTER_AUTH_SECRET,
     baseURL,
     // AUTH-T56 replaces with the product registry

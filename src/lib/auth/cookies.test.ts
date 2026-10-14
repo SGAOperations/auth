@@ -3,6 +3,7 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { getCookies, parseSetCookieHeader } from "better-auth/cookies";
 import { describe, expect, it } from "vitest";
 import {
+  assertSecureCookieConfig,
   buildCookieOptions,
   resolveCookiePolicy,
   sessionCookieName,
@@ -53,7 +54,23 @@ describe("resolveCookiePolicy", () => {
   });
 });
 
+describe("resolveCookiePolicy local", () => {
+  it("returns a parent-domain, non-secure local row", () => {
+    expect(resolveCookiePolicy("local")).toEqual({
+      prefix: "sgauth-local",
+      domain: "sga.localhost",
+      secure: false,
+    });
+  });
+});
+
 describe("sessionCookieName", () => {
+  it("names the local cookie without __Secure-", () => {
+    expect(sessionCookieName(resolveCookiePolicy("local"))).toBe(
+      "sgauth-local.session_token",
+    );
+  });
+
   it("prefixes every deployed environment with __Secure-", () => {
     expect(sessionCookieName(resolveCookiePolicy("production"))).toBe(
       "__Secure-sgauth.session_token",
@@ -101,6 +118,18 @@ describe("Better Auth's view of the cookies", () => {
     expect(sessionToken.attributes).not.toHaveProperty("domain");
   });
 
+  it("scopes the local session cookie to sga.localhost without Secure", () => {
+    const { sessionToken } = getCookies(optionsFor("local"));
+    expect(sessionToken.name).toBe("sgauth-local.session_token");
+    expect(sessionToken.attributes).toMatchObject({
+      domain: "sga.localhost",
+      secure: false,
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+    });
+  });
+
   it("gives every environment disjoint cookie names", () => {
     const names = ENVS.flatMap((env) => {
       const cookies = getCookies(optionsFor(env));
@@ -118,6 +147,208 @@ describe("Better Auth's view of the cookies", () => {
 
   it("disables the session cookie cache", () => {
     expect(optionsFor("production").session?.cookieCache?.enabled).toBe(false);
+  });
+});
+
+type Advanced = NonNullable<BetterAuthOptions["advanced"]>;
+
+function checkInput(
+  sgauthEnv: SgauthEnv,
+  overrides: { advanced?: Partial<Advanced>; baseURL?: string } = {},
+  vercelEnv?: string,
+) {
+  const base = optionsFor(sgauthEnv);
+  return {
+    sgauthEnv,
+    baseURL: overrides.baseURL ?? (base.baseURL as string),
+    vercelEnv,
+    advanced: { ...base.advanced, ...overrides.advanced },
+  };
+}
+
+describe("assertSecureCookieConfig", () => {
+  it.each(ENVS)("passes the real configuration (%s)", (env) => {
+    expect(() => assertSecureCookieConfig(checkInput(env))).not.toThrow();
+  });
+
+  it("refuses production with useSecureCookies off", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("production", { advanced: { useSecureCookies: false } }),
+      ),
+    ).toThrow(
+      "Insecure cookie configuration for SGAUTH_ENV=production:\n- useSecureCookies must be true",
+    );
+  });
+
+  it("refuses production with a non-secure default attribute", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("production", {
+          advanced: {
+            defaultCookieAttributes: {
+              httpOnly: true,
+              secure: false,
+              sameSite: "lax",
+              path: "/",
+            },
+          },
+        }),
+      ),
+    ).toThrow(/defaultCookieAttributes\.secure must not be false/);
+  });
+
+  it("refuses production with a non-HttpOnly default attribute", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("production", {
+          advanced: {
+            defaultCookieAttributes: {
+              httpOnly: false,
+              secure: true,
+              sameSite: "lax",
+              path: "/",
+            },
+          },
+        }),
+      ),
+    ).toThrow(/defaultCookieAttributes\.httpOnly must not be false/);
+  });
+
+  it("refuses production with an http baseURL", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("production", {
+          baseURL: "http://auth.northeasternsga.com",
+        }),
+      ),
+    ).toThrow(/baseURL must use https/);
+  });
+
+  it("refuses production on the local cookie domain", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("production", {
+          advanced: {
+            crossSubDomainCookies: { enabled: true, domain: "sga.localhost" },
+          },
+        }),
+      ),
+    ).toThrow(/crossSubDomainCookies must be enabled on northeasternsga\.com/);
+  });
+
+  it("refuses production with cross-subdomain cookies disabled", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("production", {
+          advanced: { crossSubDomainCookies: { enabled: false } },
+        }),
+      ),
+    ).toThrow(/crossSubDomainCookies must be enabled/);
+  });
+
+  it("refuses dev with the production prefix", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("dev", { advanced: { cookiePrefix: "sgauth" } }),
+      ),
+    ).toThrow(/cookiePrefix must be "sgauth-dev"/);
+  });
+
+  it("refuses SameSite=None", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("dev", {
+          advanced: {
+            defaultCookieAttributes: {
+              httpOnly: true,
+              secure: true,
+              sameSite: "none",
+              path: "/",
+            },
+          },
+        }),
+      ),
+    ).toThrow(/sameSite must be "lax"/);
+  });
+
+  it.each(["production", "preview"])(
+    "refuses local when VERCEL_ENV is %s",
+    (vercelEnv) => {
+      expect(() =>
+        assertSecureCookieConfig(checkInput("local", {}, vercelEnv)),
+      ).toThrow(
+        "Insecure cookie configuration for SGAUTH_ENV=local:\n- SGAUTH_ENV=local cannot run on Vercel",
+      );
+    },
+  );
+
+  it("allows local with VERCEL_ENV unset", () => {
+    expect(() => assertSecureCookieConfig(checkInput("local"))).not.toThrow();
+  });
+
+  it("refuses local on a real host", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", { baseURL: "http://auth.northeasternsga.com" }),
+      ),
+    ).toThrow(/baseURL host must end in \.localhost/);
+  });
+
+  it("refuses local on an unparseable baseURL", () => {
+    expect(() =>
+      assertSecureCookieConfig(checkInput("local", { baseURL: "not a url" })),
+    ).toThrow(/baseURL host must end in \.localhost/);
+  });
+
+  it("refuses local with useSecureCookies on", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", { advanced: { useSecureCookies: true } }),
+      ),
+    ).toThrow(/useSecureCookies must be false/);
+  });
+
+  it("refuses local on the parent cookie domain", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", {
+          advanced: {
+            crossSubDomainCookies: {
+              enabled: true,
+              domain: "northeasternsga.com",
+            },
+          },
+        }),
+      ),
+    ).toThrow(/crossSubDomainCookies must be enabled on sga\.localhost/);
+  });
+
+  it("refuses local with cross-subdomain cookies disabled", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", {
+          advanced: { crossSubDomainCookies: { enabled: false } },
+        }),
+      ),
+    ).toThrow(/crossSubDomainCookies must be enabled on sga\.localhost/);
+  });
+
+  it("reports every failure on its own line", () => {
+    let message = "";
+    try {
+      assertSecureCookieConfig(
+        checkInput("production", {
+          advanced: {
+            useSecureCookies: false,
+            crossSubDomainCookies: { enabled: false },
+          },
+        }),
+      );
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message.split("\n")).toHaveLength(3);
   });
 });
 

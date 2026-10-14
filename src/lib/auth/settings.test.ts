@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveCookiePolicy } from "@/lib/auth/cookies";
 import {
   parseAuthEnv,
   resolveBaseURL,
@@ -119,6 +120,27 @@ describe("parseAuthEnv", () => {
       parseAuthEnv({ SGAUTH_ENV: "staging", BETTER_AUTH_SECRET: SECRET }),
     ).toThrow(/SGAUTH_ENV/);
   });
+
+  it("returns VERCEL_ENV as vercelEnv, and undefined when unset", () => {
+    const base = { SGAUTH_ENV: "local", BETTER_AUTH_SECRET: SECRET };
+    expect(parseAuthEnv(base).vercelEnv).toBeUndefined();
+    expect(parseAuthEnv({ ...base, VERCEL_ENV: "" }).vercelEnv).toBeUndefined();
+    expect(parseAuthEnv({ ...base, VERCEL_ENV: "preview" }).vercelEnv).toBe(
+      "preview",
+    );
+  });
+
+  it.each(["production", "dev", "local"] as const)(
+    "returns the cookie policy for %s",
+    (sgauthEnv) => {
+      const result = parseAuthEnv({
+        SGAUTH_ENV: sgauthEnv,
+        BETTER_AUTH_SECRET: SECRET,
+        SGAUTH_PREVIEW_GATE: "off",
+      });
+      expect(result.cookies).toEqual(resolveCookiePolicy(sgauthEnv));
+    },
+  );
 
   it("sets trustedOrigins to the baseURL", () => {
     const result = parseAuthEnv({
