@@ -11,6 +11,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "seed": "prisma db seed",
+    "positions:sync": "tsx scripts/positions-sync.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -53,6 +55,7 @@
     "shadcn": "^4.21.5",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "4.23.15",
     "typescript": "^5",
     "vitest": "^4.1.11"
   },

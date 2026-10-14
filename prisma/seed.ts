@@ -2,6 +2,13 @@ import "dotenv/config";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
+import {
+  applySync,
+  formatSummary,
+  loadCuratedPositions,
+  planSync,
+  readExistingPositions,
+} from "./seed/positions.js";
 
 // Connect to whatever database is specified by DATABASE_URL
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
@@ -17,6 +24,11 @@ async function main() {
   if (process.env.SGAUTH_ENV === "production") {
     throw new Error("Refusing to seed dev fixtures when SGAUTH_ENV=production");
   }
+
+  const curated = await loadCuratedPositions();
+  const planned = planSync(curated, await readExistingPositions(prisma));
+  const { plan } = await applySync(prisma, planned);
+  console.log(formatSummary(plan));
 
   await prisma.user.upsert({
     where: { email: "dev-admin@example.invalid" },
