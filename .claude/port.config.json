@@ -9,9 +9,18 @@
   "commands": {
     "bootstrap": ["npm ci"],
     "checks": [
-      { "run": "npm run lint", "fix": null },
-      { "run": "npm run format:check", "fix": "npm run format" },
-      { "run": "npx tsc --noEmit", "fix": null }
+      {
+        "run": "npm run lint",
+        "fix": null
+      },
+      {
+        "run": "npm run format:check",
+        "fix": "npm run format"
+      },
+      {
+        "run": "npx tsc --noEmit",
+        "fix": null
+      }
     ],
     "artifacts": "node scripts/port-artifacts.mjs",
     "worktrees": "node scripts/port-worktrees.mjs",
@@ -20,7 +29,7 @@
     "forensics": null
   },
   "docs": {
-    "engineering": null,
+    "engineering": "docs/ENGINEERING.md",
     "design": null
   },
   "models": {
@@ -35,10 +44,17 @@
     "release": true,
     "scope": true
   },
-  "release": { "postPublishHook": null },
+  "release": {
+    "postPublishHook": null
+  },
   "reviewCycleCap": 5,
-  "budget": { "wallClockMinutes": null },
-  "concurrency": { "sharedFiles": [], "overlapThreshold": 2 },
+  "budget": {
+    "wallClockMinutes": null
+  },
+  "concurrency": {
+    "sharedFiles": [],
+    "overlapThreshold": 2
+  },
   "sessionRequiredPaths": ["CLAUDE.md", ".claude/**", "port.config.json"],
   "extraAllow": [
     "Bash(npx tsc *)",
