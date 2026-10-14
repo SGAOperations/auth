@@ -175,3 +175,36 @@ model Product {
 
   @@index([isActive, sortOrder])
 }
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  BREAK_GLASS
+}
+
+enum AuditTargetType {
+  USER
+  POSITION
+  PRODUCT
+  SESSION
+  TRANSFER
+}
+
+/// Append-only. UPDATE only via withAuditAnonymization (src/lib/audit.ts); DELETE/TRUNCATE never (AUTH-T13 trigger)
+model AuditEvent {
+  id          String           @id @default(uuid(7))
+  /// validated against AUDIT_EVENT_TYPES in src/lib/audit.ts; no DB CHECK by design
+  type        String
+  actorType   AuditActorType
+  actorUserId String?
+  targetType  AuditTargetType?
+  targetId    String?
+  metadata    Json             @default("{}")
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime         @default(now())
+
+  @@index([type, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
+}
