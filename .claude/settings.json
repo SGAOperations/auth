@@ -1,0 +1,70 @@
+{
+  "env": {
+    "DIRECT_URL": "postgresql://placeholder"
+  },
+  "extraKnownMarketplaces": {
+    "port": {
+      "source": {
+        "source": "github",
+        "repo": "b-at-neu/port",
+        "ref": "v0.4.0"
+      },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "port@port": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Skill",
+      "Bash(grep)",
+      "Bash(grep *)",
+      "Bash(find)",
+      "Bash(find *)",
+      "Bash(ls)",
+      "Bash(ls *)",
+      "Bash(wc)",
+      "Bash(wc *)",
+      "Bash(pwd)",
+      "Bash(pwd *)",
+      "Bash(mkdir -p *)",
+      "Edit(**)",
+      "Write(**)",
+      "Read(~/.claude/plugins/**)",
+      "WebFetch(domain:code.claude.com)",
+      "Bash(npx tsc *)",
+      "Bash(node scripts/port-artifacts.mjs *)",
+      "Bash(node scripts/port-worktrees.mjs *)",
+      "Bash(node scripts/port-budget.mjs *)"
+    ],
+    "deny": [
+      "Bash(gh pr merge *)",
+      "Bash(gh issue delete *)",
+      "Bash(gh repo delete *)",
+      "Bash(gh auth *)",
+      "Bash(git push * dev)",
+      "Bash(git push origin dev)",
+      "Bash(git push *:dev)",
+      "Bash(git push * main)",
+      "Bash(git push origin main)",
+      "Bash(git push *:main)",
+      "Bash(npm publish *)",
+      "Bash(npm login *)",
+      "Bash(npm adduser *)",
+      "Bash(find * -exec *)",
+      "Bash(find * -execdir *)",
+      "Bash(find * -delete*)",
+      "Bash(find * -ok *)",
+      "Bash(find * -okdir *)",
+      "Bash(find -exec *)",
+      "Bash(find -execdir *)",
+      "Bash(find -delete*)",
+      "Bash(find -ok *)",
+      "Bash(find -okdir *)"
+    ]
+  }
+}
