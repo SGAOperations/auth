@@ -128,3 +128,120 @@ describe("parseAuthEnv", () => {
     expect(result.trustedOrigins).toEqual([result.baseURL]);
   });
 });
+
+describe("parseAuthEnv gates", () => {
+  const PASSWORD = "p".repeat(16);
+  const base = { BETTER_AUTH_SECRET: SECRET, VERCEL_URL: "deploy.vercel.app" };
+
+  it.each(["dev", "preview"] as const)(
+    "refuses %s without a gate password, naming the variable",
+    (sgauthEnv) => {
+      expect(() => parseAuthEnv({ ...base, SGAUTH_ENV: sgauthEnv })).toThrow(
+        /SGAUTH_PREVIEW_GATE_PASSWORD: required when SGAUTH_ENV is dev or preview/,
+      );
+    },
+  );
+
+  it("treats an empty gate password as unset", () => {
+    expect(() =>
+      parseAuthEnv({
+        ...base,
+        SGAUTH_ENV: "dev",
+        SGAUTH_PREVIEW_GATE_PASSWORD: "",
+      }),
+    ).toThrow(/SGAUTH_PREVIEW_GATE_PASSWORD/);
+  });
+
+  it.each(["dev", "preview"] as const)(
+    "parses %s with the gate explicitly off",
+    (sgauthEnv) => {
+      const result = parseAuthEnv({
+        ...base,
+        SGAUTH_ENV: sgauthEnv,
+        SGAUTH_PREVIEW_GATE: "off",
+      });
+      expect(result.previewGate).toBeNull();
+    },
+  );
+
+  it("returns the password for a gated environment", () => {
+    const result = parseAuthEnv({
+      ...base,
+      SGAUTH_ENV: "dev",
+      SGAUTH_PREVIEW_GATE_PASSWORD: PASSWORD,
+    });
+    expect(result.previewGate).toEqual({ password: PASSWORD });
+  });
+
+  it("rejects a 15-character password without echoing it", () => {
+    const short = "q".repeat(15);
+    let message = "";
+    try {
+      parseAuthEnv({
+        ...base,
+        SGAUTH_ENV: "dev",
+        SGAUTH_PREVIEW_GATE_PASSWORD: short,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toContain("SGAUTH_PREVIEW_GATE_PASSWORD");
+    expect(message).not.toContain(short);
+  });
+
+  it.each(["production", "local"] as const)(
+    "ignores a set password on %s",
+    (sgauthEnv) => {
+      const result = parseAuthEnv({
+        ...base,
+        SGAUTH_ENV: sgauthEnv,
+        SGAUTH_PREVIEW_GATE_PASSWORD: PASSWORD,
+      });
+      expect(result.previewGate).toBeNull();
+    },
+  );
+
+  it("returns no allowlist in production, even when one is set", () => {
+    const result = parseAuthEnv({
+      ...base,
+      SGAUTH_ENV: "production",
+      SGAUTH_SIGNUP_ALLOWLIST: "@example.edu",
+    });
+    expect(result.signupAllowlist).toBeNull();
+  });
+
+  it("returns an empty allowlist on local when unset", () => {
+    const result = parseAuthEnv({ ...base, SGAUTH_ENV: "local" });
+    expect(result.signupAllowlist?.emails.size).toBe(0);
+    expect(result.signupAllowlist?.domains.size).toBe(0);
+  });
+
+  it("parses the allowlist outside production", () => {
+    const result = parseAuthEnv({
+      ...base,
+      SGAUTH_ENV: "local",
+      SGAUTH_SIGNUP_ALLOWLIST: "a@b.com,@example.edu",
+    });
+    expect([...(result.signupAllowlist?.emails ?? [])]).toEqual(["a@b.com"]);
+    expect([...(result.signupAllowlist?.domains ?? [])]).toEqual([
+      "example.edu",
+    ]);
+  });
+
+  it("reports a malformed allowlist entry by position only", () => {
+    const secretish = "not-an-email-zzz";
+    let message = "";
+    try {
+      parseAuthEnv({
+        ...base,
+        SGAUTH_ENV: "local",
+        SGAUTH_SIGNUP_ALLOWLIST: `a@b.com,${secretish}`,
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/Invalid auth environment:/);
+    expect(message).toContain("SGAUTH_SIGNUP_ALLOWLIST: invalid entry #1");
+    expect(message).not.toContain(secretish);
+  });
+});
