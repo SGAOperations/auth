@@ -112,8 +112,8 @@ The Neon project is `sgauth` (`aws-us-east-1`) with three permanent branches:
 Preview and personal branches are created on top of these. The Free plan caps a
 project at 10 branches, so the three above are the permanent baseline.
 
-Two database roles exist: a **runtime** role (DML only, no DDL) used by
-`DATABASE_URL`, and a **migration** role (owns the schema, DDL) used by
+Two database roles exist in the `neondb` database: `runtime` (DML only, no DDL)
+used by `DATABASE_URL`, and `migration` (owns the schema, DDL) used by
 `DIRECT_URL` for `prisma migrate deploy`. `DATABASE_URL` is the pooled
 connection (host contains `-pooler`), `DIRECT_URL` is the direct one, and both
 use `sslmode=verify-full`. Credentials live in Vercel env and the team password

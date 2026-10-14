@@ -104,27 +104,34 @@ re-apply list below is done, and SGAuth stays in maintenance mode for all of it.
 
 Do these in order, with SGAuth offline throughout:
 
-1. **Before promoting `main` (step 6), write down the target timestamp and the
-   restore time**, so the post-timestamp window is unambiguous. Neon preserves
-   everything written in that window in `main_old_*` once the restore happens.
-2. **Take SGAuth offline first** (step 5), then promote `main`. The restored
-   database must never serve live traffic while it holds rewound auth state.
-3. **Force-expire every session** on the restored `main` (delete or expire all
-   rows in the session table, so every user must sign in again). Every
-   consuming product's short-lived JWT also stops being refreshable once its
-   session is gone.
-4. **Re-apply the post-timestamp auth state** listed below, starting with
-   revocations and deactivations and then passwords and tokens, while still
-   offline.
-5. **Only then bring SGAuth back online**, once force-expiry and every item in
-   the re-apply list are done or deliberately ruled out.
+- **Before promoting `main` (procedure step 6), write down the target timestamp
+  and the restore time**, so the post-timestamp window is unambiguous. Neon
+  preserves everything written in that window in `main_old_*` once the restore
+  happens.
+- **Take SGAuth offline first** (procedure step 5), then promote `main`. The
+  restored database must never serve live traffic while it holds rewound auth
+  state.
+- **Force-expire every session** on the restored `main` (delete or expire all
+  rows in the session table, so every user must sign in again). Every
+  consuming product's short-lived JWT also stops being refreshable once its
+  session is gone.
+- **Re-apply the post-timestamp auth state** listed below, starting with
+  revocations and deactivations and then passwords and tokens, while still
+  offline.
+- **Only then bring SGAuth back online**, once force-expiry and every item in
+  the re-apply list are done or deliberately ruled out.
 
 ## Re-apply auth state from `main_old_*`
 
 Query `main_old_*` (read-only; it holds the post-timestamp audit log and
 revocations that the restored `main` no longer has) and diff its audit log
 against the restored `main` to list everything that happened after the target
-timestamp. Re-apply each of these, and record each as done:
+timestamp. Re-apply each of these, and record each as done.
+
+An item may be **deliberately ruled out** only with evidence: the `main_old_*`
+audit diff shows no such event after the target timestamp (or the affected user
+is confirmed unaffected). Record that basis in the incident notes before
+SGAuth goes back online; an item with no recorded basis is not ruled out.
 
 - [ ] **Revocations and deactivations.** Every session revoked, account
       deactivated or deleted, and lockout applied after the timestamp (a
@@ -134,6 +141,12 @@ timestamp. Re-apply each of these, and record each as done:
       consumed after the timestamp: a consumed token is valid again, and a
       token issued afterward is gone. Invalidate all outstanding ones on the
       restored `main` and let users request new ones.
+- [ ] **Database role passwords.** A `runtime` or `migration` password rotated
+      after the timestamp is rewound, so the old, possibly compromised password
+      is back in effect, and maintenance mode does not block direct database
+      access. If the incident involved a credential exposure, or either password
+      was rotated after the timestamp, rotate both again now, before SGAuth goes
+      back online, and update Vercel env and the password manager.
 - [ ] **Passkeys and 2FA.** Passkeys removed or added and 2FA enrolled, reset
       or disabled after the timestamp. A removed passkey or disabled 2FA that
       comes back is a security regression; an enrollment that disappears locks
@@ -169,13 +182,14 @@ are done, stop that job's deletion of this branch until the incident closes.
 A restore resets the branch's data and catalog state to the target moment.
 Verify each of the following before declaring recovery complete:
 
-- [ ] **Roles still exist and have the right privileges.** The runtime role has
-      DML only (no DDL); the migration role owns the `public` schema. Role changes
-      made after the target timestamp are undone by a restore.
-- [ ] **Connection strings still work.** `DATABASE_URL` (pooled, runtime role) and
-      `DIRECT_URL` (direct, migration role) both connect. If a role password was
-      rotated after the target timestamp, the old password is back in effect:
-      rotate again and update Vercel env and the password manager.
+- [ ] **Roles still exist and have the right privileges.** The `runtime` role has
+      DML only (no DDL); the `migration` role owns the `public` schema. Role
+      changes made after the target timestamp are undone by a restore.
+- [ ] **Connection strings still work.** `DATABASE_URL` (pooled, `runtime` role)
+      and `DIRECT_URL` (direct, `migration` role) both connect. Any role password
+      rotation was already handled before going online (see "Database role
+      passwords" above); confirm the new passwords are in Vercel env and the
+      password manager.
 - [ ] **Auth state is re-applied.** Done per the two sections above
       (SGAuth offline, sessions force-expired, everything re-applied from
       `main_old_*`, and only then back online); do not tick this until
