@@ -50,3 +50,8 @@ next-env.d.ts
 
 # SGAuth design tooling scratch
 docs/sgauth-design/out/tmp/
+
+# port pipeline
+.agents/
+.temp/
+.claude/worktrees/

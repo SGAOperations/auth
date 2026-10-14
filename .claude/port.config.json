@@ -1,0 +1,49 @@
+{
+  "$schema": "https://raw.githubusercontent.com/b-at-neu/port/main/schema/port.config.schema.json",
+  "tracker": "github",
+  "repo": "SGAOperations/auth",
+  "branches": {
+    "integration": "dev",
+    "production": "main"
+  },
+  "commands": {
+    "bootstrap": ["npm ci"],
+    "checks": [
+      { "run": "npm run lint", "fix": null },
+      { "run": "npm run format:check", "fix": "npm run format" },
+      { "run": "npx tsc --noEmit", "fix": null }
+    ],
+    "artifacts": "node scripts/port-artifacts.mjs",
+    "worktrees": "node scripts/port-worktrees.mjs",
+    "budget": "node scripts/port-budget.mjs",
+    "tick": null,
+    "forensics": null
+  },
+  "docs": {
+    "engineering": null,
+    "design": null
+  },
+  "models": {
+    "plan": "opus",
+    "impl": "sonnet",
+    "review": "sonnet",
+    "revise": "sonnet"
+  },
+  "labels": {},
+  "modules": {
+    "approvalGate": false,
+    "release": true,
+    "scope": true
+  },
+  "release": { "postPublishHook": null },
+  "reviewCycleCap": 5,
+  "budget": { "wallClockMinutes": null },
+  "concurrency": { "sharedFiles": [], "overlapThreshold": 2 },
+  "sessionRequiredPaths": ["CLAUDE.md", ".claude/**", "port.config.json"],
+  "extraAllow": [
+    "Bash(npx tsc *)",
+    "Bash(node scripts/port-artifacts.mjs *)",
+    "Bash(node scripts/port-worktrees.mjs *)",
+    "Bash(node scripts/port-budget.mjs *)"
+  ]
+}
