@@ -39,7 +39,10 @@ model User {
   sessions          Session[]
   accounts          Account[]
   knownDevices      KnownDevice[]
-  positionsCreated  Position[]     @relation("PositionCreatedBy")
+  accountLock       AccountLock?
+  unlockTokens      UnlockToken[]
+  twoFactors        TwoFactor[]
+  positionsCreated Position[]     @relation("PositionCreatedBy")
   positionsUpdated  Position[]     @relation("PositionUpdatedBy")
   positions         UserPosition[] @relation("UserPositionHolder")
   positionsAssigned UserPosition[] @relation("UserPositionAssignedBy")
@@ -104,6 +107,55 @@ model KnownDevice {
   createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
 
+  @@index([userId])
+}
+
+model AccountLock {
+  userId          String    @id
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  failedCount     Int       @default(0)
+  windowStartedAt DateTime  @default(now())
+  lockedUntil     DateTime?
+  lockLevel       Int       @default(0)
+  lastFailedAt    DateTime?
+  lastFailedIp    String?
+}
+
+model UnlockToken {
+  id        String    @id @default(uuid(7))
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// lower-case hex SHA-256 of the emailed token; the raw token is never stored
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Jwks {
+  id         String    @id @default(uuid(7))
+  publicKey  String
+  /// encrypted at rest by the Better Auth jwt plugin (default)
+  privateKey String
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+}
+
+model TwoFactor {
+  id                      String    @id @default(uuid(7))
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+
+  @@index([secret])
   @@index([userId])
 }
 
