@@ -1,4 +1,4 @@
--- AUTH-T12: Primary Admin invariants at the database level, and the
+-- Primary Admin invariants at the database level, and the
 -- PrimaryAdminTransfer table.
 --
 -- Why: the design allows exactly one Primary Admin (PA), who can never be
@@ -22,8 +22,7 @@
 --
 -- The session variable is NOT a security boundary. It stops accidental writes
 -- from application code, and anyone holding the database role can set it. It is
--- set only by the transfer service (AUTH-T37) and the break-glass script
--- (AUTH-T39).
+-- set only by the transfer service and the break-glass script.
 --
 -- Setting the variable: always transaction-local, either
 --   SELECT set_config('sgauth.pa_transfer', 'on', true);
