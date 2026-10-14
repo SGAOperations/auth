@@ -11,20 +11,16 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  // Fake Supabase user IDs
-  const adminSupabaseId = "00000000-0000-0000-0000-000000000001";
-  const userSupabaseId = "00000000-0000-0000-0000-000000000002";
-
   const admin = await prisma.user.upsert({
-    where: { supabaseUserId: adminSupabaseId },
+    where: { id: "00000000-0000-0000-0000-000000000001" },
     update: {},
-    create: { supabaseUserId: adminSupabaseId, isAdmin: true },
+    create: { id: "00000000-0000-0000-0000-000000000001", isAdmin: true },
   });
 
   const user = await prisma.user.upsert({
-    where: { supabaseUserId: userSupabaseId },
+    where: { id: "00000000-0000-0000-0000-000000000002" },
     update: {},
-    create: { supabaseUserId: userSupabaseId, isAdmin: false },
+    create: { id: "00000000-0000-0000-0000-000000000002", isAdmin: false },
   });
 
   const project1 = await prisma.project.create({

@@ -13,13 +13,12 @@ datasource db {
 }
 
 model User {
-  id             String        @id @default(uuid())
-  supabaseUserId String        @unique  // FK to auth.users(id)
-  isAdmin        Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  sessions       Session[]
-  projects       UserProject[]
+  id        String        @id @default(uuid())
+  isAdmin   Boolean       @default(false)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  sessions  Session[]
+  projects  UserProject[]
 }
 
 model Project {
