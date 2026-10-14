@@ -161,5 +161,6 @@ jobs:
       - name: Reset Neon test branch
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-        run: npx neonctl branches reset test --parent --project-id "${{ vars.NEON_PROJECT_ID }}"
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: npx neonctl branches reset test --parent --project-id "$NEON_PROJECT_ID"
       - run: npm test
