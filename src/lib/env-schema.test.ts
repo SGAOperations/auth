@@ -111,4 +111,67 @@ describe("parseServerEnv", () => {
     expect(message).toContain("SGAUTH_PREVIEW_GATE_PASSWORD");
     expect(message).not.toContain(short);
   });
+
+  describe("local seed Primary Admin", () => {
+    const seed = {
+      SEED_PRIMARY_ADMIN_EMAIL: "  Admin@Example.COM ",
+      SEED_PRIMARY_ADMIN_PASSWORD: "correct-horse-battery",
+    };
+
+    it("parses on local, trimming and lower-casing the email", () => {
+      const env = parseServerEnv({ ...valid, ...seed });
+      expect(env.SEED_PRIMARY_ADMIN_EMAIL).toBe("admin@example.com");
+      expect(env.SEED_PRIMARY_ADMIN_PASSWORD).toBe(
+        seed.SEED_PRIMARY_ADMIN_PASSWORD,
+      );
+    });
+
+    it("requires the password when the email is set", () => {
+      expect(
+        messageOf({
+          ...valid,
+          SEED_PRIMARY_ADMIN_EMAIL: seed.SEED_PRIMARY_ADMIN_EMAIL,
+        }),
+      ).toContain("SEED_PRIMARY_ADMIN_PASSWORD: missing");
+    });
+
+    it("rejects an 11-character password without echoing it", () => {
+      const short = "k".repeat(11);
+      const message = messageOf({
+        ...valid,
+        ...seed,
+        SEED_PRIMARY_ADMIN_PASSWORD: short,
+      });
+      expect(message).toContain("SEED_PRIMARY_ADMIN_PASSWORD");
+      expect(message).not.toContain(short);
+    });
+
+    it("rejects an invalid email", () => {
+      expect(
+        messageOf({ ...valid, ...seed, SEED_PRIMARY_ADMIN_EMAIL: "nope" }),
+      ).toContain("SEED_PRIMARY_ADMIN_EMAIL");
+    });
+
+    it.each(["dev", "preview", "production"])(
+      "refuses every seed key when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const message = messageOf({
+          ...valid,
+          ...seed,
+          SGAUTH_ENV: sgauthEnv,
+          SEED_PRIMARY_ADMIN_NAME: "Admin",
+        });
+        for (const key of [
+          "SEED_PRIMARY_ADMIN_EMAIL",
+          "SEED_PRIMARY_ADMIN_PASSWORD",
+          "SEED_PRIMARY_ADMIN_NAME",
+        ]) {
+          expect(message).toContain(
+            `${key}: only allowed when SGAUTH_ENV=local`,
+          );
+        }
+        expect(message).not.toContain(seed.SEED_PRIMARY_ADMIN_PASSWORD);
+      },
+    );
+  });
 });

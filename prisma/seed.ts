@@ -3,21 +3,22 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import { env } from "../src/lib/env";
+import { SeedRefusedError, assertSeedAllowed } from "./seed/guard.js";
 import { productCreateSchema } from "../src/lib/product-input";
 import {
+  PrimaryAdminSeedError,
+  applyPrimaryAdmin,
+  formatPrimaryAdminSummary,
+} from "./seed/primary-admin.js";
+import {
+  CuratedPositionsError,
+  SyncConflictError,
   applySync,
   formatSummary,
   loadCuratedPositions,
   planSync,
   readExistingPositions,
 } from "./seed/positions.js";
-
-// Connect to whatever database is specified by DATABASE_URL
-const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
-
-const adapter = new PrismaPg(pool);
-
-const prisma = new PrismaClient({ adapter });
 
 const DEV_PRODUCTS = [
   {
@@ -54,60 +55,93 @@ const DEV_PRODUCTS = [
   },
 ];
 
-// Both users are password-less (no Account row): passwords are set lazily.
-// Addresses use the reserved .invalid TLD so no real mailbox can ever receive
-// a reset link for a seeded account, and neither email is marked verified.
-async function main() {
-  if (env.SGAUTH_ENV === "production") {
-    throw new Error("Refusing to seed dev fixtures when SGAUTH_ENV=production");
-  }
+async function main(): Promise<void> {
+  // Before any client exists: a refused run makes no connection.
+  assertSeedAllowed(env.SGAUTH_ENV);
 
-  const curated = await loadCuratedPositions();
-  const planned = planSync(curated, await readExistingPositions(prisma));
-  const { plan } = await applySync(prisma, planned);
-  console.log(formatSummary(plan));
+  // Connect to whatever database is specified by DATABASE_URL
+  const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
+  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+  try {
+    const curated = await loadCuratedPositions();
+    const planned = planSync(curated, await readExistingPositions(prisma));
+    const { plan } = await applySync(prisma, planned);
+    console.log(formatSummary(plan));
 
-  await prisma.user.upsert({
-    where: { email: "dev-admin@example.invalid" },
-    update: {},
-    create: {
-      email: "dev-admin@example.invalid",
-      name: "Dev Admin",
-      isAdmin: true,
-    },
-  });
-
-  await prisma.user.upsert({
-    where: { email: "dev-user@example.invalid" },
-    update: {},
-    create: {
-      email: "dev-user@example.invalid",
-      name: "Dev User",
-    },
-  });
-
-  // Placeholders stay inactive: the registry loader trusts every active
-  // product's origin, and these subdomains are not deployed yet. `update: {}`
-  // keeps admin edits on dev from being clobbered by a re-seed.
-  for (const product of DEV_PRODUCTS) {
-    const data = productCreateSchema.parse(product);
-    await prisma.product.upsert({
-      where: { slug: data.slug },
-      update: {},
-      create: data,
+    // Both users are password-less (no Account row): passwords are set lazily.
+    // Addresses use the reserved .invalid TLD so no real mailbox can ever
+    // receive a reset link for a seeded account, and neither email is marked
+    // verified. createMany skips existing rows without writing, so a re-run
+    // changes nothing.
+    const fixtures = await prisma.user.createMany({
+      data: [
+        {
+          email: "dev-admin@example.invalid",
+          name: "Dev Admin",
+          isAdmin: true,
+        },
+        { email: "dev-user@example.invalid", name: "Dev User" },
+      ],
+      skipDuplicates: true,
     });
-  }
+    console.log(
+      fixtures.count > 0
+        ? `Dev fixtures: ${fixtures.count} created`
+        : "Dev fixtures already present; nothing changed.",
+    );
 
-  console.log(
-    "seeded dev-admin@ and dev-user@example.invalid, and the dev products",
-  );
+    // Placeholders stay inactive: the registry loader trusts every active
+    // product's origin, and these subdomains are not deployed yet. `update: {}`
+    // keeps admin edits on dev from being clobbered by a re-seed.
+    for (const product of DEV_PRODUCTS) {
+      const data = productCreateSchema.parse(product);
+      await prisma.product.upsert({
+        where: { slug: data.slug },
+        update: {},
+        create: data,
+      });
+    }
+    console.log(`Dev products: ${DEV_PRODUCTS.length} ensured.`);
+
+    if (env.SGAUTH_ENV === "local") {
+      if (
+        env.SEED_PRIMARY_ADMIN_EMAIL !== undefined &&
+        env.SEED_PRIMARY_ADMIN_PASSWORD !== undefined
+      ) {
+        const email = env.SEED_PRIMARY_ADMIN_EMAIL;
+        const applied = await applyPrimaryAdmin(prisma, {
+          email,
+          password: env.SEED_PRIMARY_ADMIN_PASSWORD,
+          name: env.SEED_PRIMARY_ADMIN_NAME ?? "Local Primary Admin",
+        });
+        console.log(formatPrimaryAdminSummary(email, applied));
+      } else {
+        console.log(
+          "No SEED_PRIMARY_ADMIN_EMAIL set; skipping the local Primary Admin.",
+        );
+      }
+    }
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((error) => {
+  if (
+    error instanceof SeedRefusedError ||
+    error instanceof PrimaryAdminSeedError ||
+    error instanceof CuratedPositionsError ||
+    error instanceof SyncConflictError
+  ) {
+    console.error(error.message);
+  } else {
+    // Never console.error the raw error: some carry connection strings or the
+    // offending input.
+    console.error(
+      error instanceof Error
+        ? `${error.name}: ${error.message}`
+        : "Unexpected error",
+    );
+  }
+  process.exitCode = 1;
+});
