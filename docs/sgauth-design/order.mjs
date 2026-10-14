@@ -54,7 +54,7 @@ for (const t of all)
     end = t.id;
   }
 const chain = [];
-for (let cur = end; cur; ) {
+for (let cur = end; cur;) {
   chain.unshift(cur);
   let nx = null,
     nb = -1;

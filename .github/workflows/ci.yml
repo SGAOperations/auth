@@ -61,6 +61,17 @@ jobs:
           node-version: 22
       - run: node --test scripts/neon-branch-hygiene.test.mjs
 
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
   migrations:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -117,14 +128,15 @@ jobs:
       group: neon-test-branch
       cancel-in-progress: false
     env:
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
       DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
       DIRECT_URL: ${{ secrets.NEON_TEST_DIRECT_URL }}
       SGAUTH_ENV: local
       BETTER_AUTH_SECRET: ci-only-not-a-secret-0123456789abcdef
     steps:
       - name: Check Neon credentials
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
         run: |
           missing=0
           for name in NEON_API_KEY NEON_PROJECT_ID DATABASE_URL DIRECT_URL; do
@@ -147,5 +159,7 @@ jobs:
           key: prisma-engines-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx prisma generate
       - name: Reset Neon test branch
-        run: npx --yes neonctl@2 branches reset test --parent --project-id "$NEON_PROJECT_ID"
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: npx neonctl branches reset test --parent --project-id "${{ vars.NEON_PROJECT_ID }}"
       - run: npm test

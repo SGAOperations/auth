@@ -5,6 +5,7 @@
       { "context": "typecheck" },
       { "context": "lint" },
       { "context": "format" },
+      { "context": "audit" },
       { "context": "migrations" },
       { "context": "test" }
     ]
