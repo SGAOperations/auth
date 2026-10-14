@@ -287,6 +287,53 @@ describe("assertSecureCookieConfig", () => {
     expect(() => assertSecureCookieConfig(checkInput("local"))).not.toThrow();
   });
 
+  it("refuses local on a real host", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", { baseURL: "http://auth.northeasternsga.com" }),
+      ),
+    ).toThrow(/baseURL host must end in \.localhost/);
+  });
+
+  it("refuses local on an unparseable baseURL", () => {
+    expect(() =>
+      assertSecureCookieConfig(checkInput("local", { baseURL: "not a url" })),
+    ).toThrow(/baseURL host must end in \.localhost/);
+  });
+
+  it("refuses local with useSecureCookies on", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", { advanced: { useSecureCookies: true } }),
+      ),
+    ).toThrow(/useSecureCookies must be false/);
+  });
+
+  it("refuses local on the parent cookie domain", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", {
+          advanced: {
+            crossSubDomainCookies: {
+              enabled: true,
+              domain: "northeasternsga.com",
+            },
+          },
+        }),
+      ),
+    ).toThrow(/crossSubDomainCookies must be enabled on sga\.localhost/);
+  });
+
+  it("refuses local with cross-subdomain cookies disabled", () => {
+    expect(() =>
+      assertSecureCookieConfig(
+        checkInput("local", {
+          advanced: { crossSubDomainCookies: { enabled: false } },
+        }),
+      ),
+    ).toThrow(/crossSubDomainCookies must be enabled on sga\.localhost/);
+  });
+
   it("reports every failure on its own line", () => {
     let message = "";
     try {

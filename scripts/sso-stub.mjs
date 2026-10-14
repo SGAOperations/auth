@@ -14,8 +14,16 @@
 //
 // Usage: node scripts/sso-stub.mjs
 import { createServer } from "node:http";
+import { checkSgauthUrl } from "./sso-stub-url.mjs";
 
 const SGAUTH_URL = process.env.SGAUTH_URL ?? "http://auth.sga.localhost:3000";
+// The session cookie is forwarded to SGAUTH_URL, so refuse to send it in
+// cleartext to a remote host.
+const urlProblem = checkSgauthUrl(SGAUTH_URL);
+if (urlProblem) {
+  console.error(`sso-stub: ${urlProblem}`);
+  process.exit(1);
+}
 const COOKIE_NAME =
   process.env.SGAUTH_COOKIE_NAME ?? "sgauth-local.session_token";
 const PORT = Number(process.env.PORT ?? 3001);

@@ -72,16 +72,17 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
   - Firefox: add the hostnames to `network.dns.localDomains` in `about:config`.
   - Safari, or any tool that does not: add a hosts-file line `127.0.0.1 auth.sga.localhost vaultz.sga.localhost`.
 - Safari's handling of `Domain=sga.localhost` is unverified. AUTH-T104 (#115) confirms it or switches to `sga.test` through the hosts file, and records the result here.
-- **Product stub.** `node scripts/sso-stub.mjs` serves `http://vaultz.sga.localhost:3001`. It reads the session cookie and asks SGAuth who it belongs to, so it shows whether the cookie reached a sibling host. It reads `SGAUTH_URL`, `SGAUTH_COOKIE_NAME` and `PORT` (the defaults match the values above) and listens on loopback only.
+- **Product stub.** `node scripts/sso-stub.mjs` serves `http://vaultz.sga.localhost:3001`. It reads the session cookie and asks SGAuth who it belongs to, so it shows whether the cookie reached a sibling host. It reads `SGAUTH_URL`, `SGAUTH_COOKIE_NAME` and `PORT` (the defaults match the values above) and listens on loopback only. It forwards the session cookie to `SGAUTH_URL`, so it refuses to start when `SGAUTH_URL` is `http` on any host other than `localhost`, `*.localhost` or loopback.
 - **Manual SSO test.** Sign in at `http://auth.sga.localhost:3000` with a synthetic account, then reload `http://vaultz.sga.localhost:3001`: it shows "Signed in as ...". In DevTools, the `sgauth-local.session_token` cookie has Domain `.sga.localhost`, HttpOnly, SameSite=Lax, and no Secure flag. Sign-in needs a sign-in method (#29); the Playwright job in AUTH-T96 (#108) automates this check.
 
 ## Dev environment rules
 
 - Every non-production environment shows the "DEVELOPMENT ENVIRONMENT" banner (`LOCAL ENVIRONMENT` locally) and is `noindex`, through a robots meta tag and an `X-Robots-Tag` header. `dev` and `preview` show the same text on purpose, so the gate page does not reveal which one it is.
+- **Build-time behaviour.** The banner and the `noindex` header and meta tag are fixed by the `SGAUTH_ENV` present at **build** time: `/` is statically rendered and the header comes from `next.config.ts`. A server started from a build made with a different `SGAUTH_ENV` keeps the banner and `noindex` of the build, not of the runtime value. Vercel builds each deployment with its own environment, so this holds there. Never serve a build made for one environment as another.
 - **Synthetic users only.** Never run a real-user import (AUTH-T87, #99) or copy production data into Neon `dev`.
 - Every secret is separate from production: `BETTER_AUTH_SECRET`, the Resend key (AUTH-T20, #32) and an Upstash key namespace (AUTH-T63, #75). Those tickets add their own rows to the variable table.
 - **Startup assertion.** `assertSecureCookieConfig` checks the options handed to Better Auth at boot and refuses to start with:
-  - `SGAUTH_ENV=local` while Vercel's `VERCEL_ENV` is set;
+  - `SGAUTH_ENV=local` while Vercel's `VERCEL_ENV` is set, with a base URL host that does not end in `.localhost`, with `useSecureCookies` on, or with cross-subdomain cookies not enabled on `sga.localhost`;
   - outside `local`: a non-`https` base URL, `useSecureCookies` off, a non-Secure or non-HttpOnly cookie, or `SameSite` other than `lax`;
   - on `production` and `dev`: cross-subdomain cookies not enabled on `northeasternsga.com`, or a cookie prefix other than `sgauth` (production) or `sgauth-dev` (dev).
 

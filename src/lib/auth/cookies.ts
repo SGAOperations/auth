@@ -8,8 +8,9 @@ import type { SgauthEnv } from "@/lib/env-schema";
 
 export const PARENT_COOKIE_DOMAIN = "northeasternsga.com";
 // Browsers resolve every *.localhost name to loopback, so a product on
-// vaultz.sga.localhost shares this cookie with auth.sga.localhost. #115 may
-// replace it with sga.test if a browser rejects the Domain attribute.
+// vaultz.sga.localhost shares this cookie with auth.sga.localhost. It may be
+// replaced with sga.test if a browser rejects the Domain attribute (see
+// docs/ENVIRONMENTS.md, "Local development").
 export const LOCAL_COOKIE_DOMAIN = "sga.localhost";
 
 export interface CookiePolicy {
@@ -88,6 +89,15 @@ const SHARED_PREFIXES: Partial<Record<SgauthEnv, string>> = {
   dev: "sgauth-dev",
 };
 
+/** True when the URL parses and its host ends in `.localhost`. */
+function isLocalhostName(url: string): boolean {
+  try {
+    return new URL(url).hostname.endsWith(".localhost");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Refuses to boot with an insecure cookie configuration. It checks the object
  * Better Auth will receive, not the policy, so a later override cannot bypass
@@ -99,6 +109,18 @@ export function assertSecureCookieConfig(input: CookieConfigInput): void {
 
   if (sgauthEnv === "local") {
     if (vercelEnv) failures.push("SGAUTH_ENV=local cannot run on Vercel");
+    if (!isLocalhostName(baseURL)) {
+      failures.push("baseURL host must end in .localhost");
+    }
+    if (advanced.useSecureCookies !== false) {
+      failures.push("useSecureCookies must be false");
+    }
+    const shared = advanced.crossSubDomainCookies;
+    if (shared?.enabled !== true || shared.domain !== LOCAL_COOKIE_DOMAIN) {
+      failures.push(
+        `crossSubDomainCookies must be enabled on ${LOCAL_COOKIE_DOMAIN}`,
+      );
+    }
   } else {
     const attributes = advanced.defaultCookieAttributes;
     if (!baseURL.startsWith("https://")) {
