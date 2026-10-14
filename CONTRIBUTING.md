@@ -13,7 +13,7 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `ma
 
 ### Fixing a `migrations` failure
 
-Run `npx prisma migrate dev --name <change>` locally and commit the new `prisma/migrations/` directory. Never edit a committed migration (see `docs/ENGINEERING.md` section 2); add a new one instead.
+Run `npm run prisma:migrate-dev -- --name <change>` against a personal Neon branch (see [docs/MIGRATIONS.md](docs/MIGRATIONS.md)) and commit the new `prisma/migrations/` directory. Never edit a committed migration (see `docs/ENGINEERING.md` section 2); add a new one instead.
 
 ### Neon secrets for the `test` job
 

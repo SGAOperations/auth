@@ -73,8 +73,10 @@ From a fresh clone to a seeded local Primary Admin takes under 15 minutes.
 7. Apply the migrations. On an up-to-date branch this applies nothing, or only the newer migrations:
 
    ```sh
-   npx prisma migrate dev
+   npm run prisma:migrate-dev
    ```
+
+   This refuses to run against Neon `main` or `dev`; see [docs/MIGRATIONS.md](docs/MIGRATIONS.md).
 
 8. Seed the database:
 
@@ -92,7 +94,7 @@ From a fresh clone to a seeded local Primary Admin takes under 15 minutes.
    + set password for you@example.com
    ```
 
-9. Start the dev server, then open `http://auth.sga.localhost:3000` (never `localhost:3000`) and sign in with the seed email and password.
+9. Start the dev server, then open `http://auth.sga.localhost:3000` (never `localhost:3000`; see [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md#local-development)) and sign in with the seed email and password:
 
    ```sh
    npm run dev
@@ -158,17 +160,20 @@ Neon exposes two hosts per branch, so the app needs two connection strings.
 
 ## Scripts
 
-| Command                  | Description                                                                          |
-| ------------------------ | ------------------------------------------------------------------------------------ |
-| `npm run dev`            | Start Next.js dev server                                                             |
-| `npm run build`          | Production build                                                                     |
-| `npm run start`          | Start production server                                                              |
-| `npm run lint`           | Run ESLint                                                                           |
-| `npm run format`         | Format code with Prettier                                                            |
-| `npm run format:check`   | Check formatting without writing                                                     |
-| `npm test`               | Run the Vitest suites                                                                |
-| `npm run seed`           | Seed positions, dev fixtures and (local only) the Primary Admin                      |
-| `npm run positions:sync` | Dry-run the curated position sync; add `-- --apply` to write. Allowed in production. |
+| Command                        | Description                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| `npm run dev`                  | Start Next.js dev server                                                             |
+| `npm run build`                | Production build                                                                     |
+| `npm run start`                | Start production server                                                              |
+| `npm run lint`                 | Run ESLint                                                                           |
+| `npm run format`               | Format code with Prettier                                                            |
+| `npm run format:check`         | Check formatting without writing                                                     |
+| `npm test`                     | Run the Vitest suites                                                                |
+| `npm run seed`                 | Seed positions, dev fixtures and (local only) the Primary Admin                      |
+| `npm run positions:sync`       | Dry-run the curated position sync; add `-- --apply` to write. Allowed in production. |
+| `npm run prisma:migrate-dev`   | Guarded `prisma migrate dev`                                                         |
+| `npm run prisma:migrate-reset` | Guarded `prisma migrate reset`                                                       |
+| `npm run prisma:db-push`       | Guarded `prisma db push`                                                             |
 
 ## Tests
 

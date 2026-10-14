@@ -59,7 +59,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/sso-stub.test.mjs
+      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/sso-stub.test.mjs scripts/prisma-guard.test.mjs
 
   audit:
     runs-on: ubuntu-latest
@@ -114,7 +114,7 @@ jobs:
           code=$?
           set -e
           if [ "$code" -eq 2 ]; then
-            echo '::error file=prisma/schema.prisma::prisma/schema.prisma and prisma/migrations/ are out of sync. Run "npx prisma migrate dev --name <change>" locally and commit the new prisma/migrations/ directory.'
+            echo '::error file=prisma/schema.prisma::prisma/schema.prisma and prisma/migrations/ are out of sync. Run "npm run prisma:migrate-dev -- --name <change>" on a personal Neon branch and commit the new prisma/migrations/ directory.'
             echo "Missing migration SQL:"
             cat "$RUNNER_TEMP/drift.sql"
             exit 1

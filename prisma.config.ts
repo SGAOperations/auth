@@ -3,6 +3,11 @@
 import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
+import { checkPrismaCommand } from "./scripts/prisma-guard.mjs";
+
+// Backstop for a bare `npx prisma migrate dev`; see docs/MIGRATIONS.md.
+checkPrismaCommand(process.argv.slice(2), process.env);
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
