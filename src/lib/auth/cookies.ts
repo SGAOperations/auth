@@ -29,7 +29,7 @@ export function resolveCookiePolicy(env: SgauthEnv): CookiePolicy {
     case "preview":
       return { prefix: "sgauth-preview", domain: null, secure: true };
     case "local":
-      // Placeholder: #46 (AUTH-T34) owns this row and sets Domain=sga.localhost.
+      // Placeholder row, host-only.
       return { prefix: "sgauth-local", domain: null, secure: false };
   }
 }

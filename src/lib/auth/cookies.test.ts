@@ -121,8 +121,8 @@ describe("Better Auth's view of the cookies", () => {
   });
 });
 
-async function signUpSetCookies(env: SgauthEnv) {
-  const auth = betterAuth({
+function testAuth(env: SgauthEnv) {
+  return betterAuth({
     ...optionsFor(env),
     database: memoryAdapter({
       user: [],
@@ -132,6 +132,9 @@ async function signUpSetCookies(env: SgauthEnv) {
     }),
     emailAndPassword: { enabled: true },
   });
+}
+
+async function signUp(auth: ReturnType<typeof testAuth>) {
   const response = await auth.api.signUpEmail({
     body: {
       email: "cookie-test@example.com",
@@ -141,6 +144,24 @@ async function signUpSetCookies(env: SgauthEnv) {
     asResponse: true,
   });
   return parseSetCookieHeader(response.headers.get("set-cookie") ?? "");
+}
+
+async function signUpSetCookies(env: SgauthEnv) {
+  return signUp(testAuth(env));
+}
+
+async function signOutSetCookies(env: SgauthEnv) {
+  const auth = testAuth(env);
+  const name = sessionCookieName(resolveCookiePolicy(env));
+  const set = (await signUp(auth)).get(name);
+  const response = await auth.api.signOut({
+    headers: new Headers({ cookie: `${name}=${set?.value}` }),
+    asResponse: true,
+  });
+  return {
+    set,
+    cleared: parseSetCookieHeader(response.headers.get("set-cookie") ?? ""),
+  };
 }
 
 describe("Set-Cookie from a real sign-up", () => {
@@ -163,5 +184,34 @@ describe("Set-Cookie from a real sign-up", () => {
     expect([...cookies.keys()]).toEqual([name]);
     expect(cookies.get(name)).toMatchObject({ secure: true, httponly: true });
     expect(cookies.get(name)).not.toHaveProperty("domain");
+  });
+});
+
+describe("Set-Cookie from a real sign-out", () => {
+  it.each(SHARED_ENVS)(
+    "clears the session cookie it set, same scope (%s)",
+    async (env) => {
+      const { set, cleared } = await signOutSetCookies(env);
+      const name = sessionCookieName(resolveCookiePolicy(env));
+      const clearing = cleared.get(name);
+      expect(set).toBeDefined();
+      expect(clearing).toBeDefined();
+      expect(clearing?.["max-age"]).toBe(0);
+      expect(clearing?.domain).toBe("northeasternsga.com");
+      expect(clearing?.domain).toBe(set?.domain);
+      expect(clearing?.secure).toBe(true);
+      expect(clearing?.secure).toBe(set?.secure);
+      expect(clearing?.path).toBe("/");
+      expect(clearing?.path).toBe(set?.path);
+    },
+  );
+
+  it("clears the preview cookie host-only", async () => {
+    const { set, cleared } = await signOutSetCookies("preview");
+    const clearing = cleared.get("__Secure-sgauth-preview.session_token");
+    expect(clearing?.["max-age"]).toBe(0);
+    expect(clearing?.secure).toBe(true);
+    expect(clearing).not.toHaveProperty("domain");
+    expect(set).not.toHaveProperty("domain");
   });
 });

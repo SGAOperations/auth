@@ -19,8 +19,7 @@ export const auth = betterAuth({
     database: { generateId: false },
     ...buildCookieOptions(resolveCookiePolicy(settings.sgauthEnv)),
   },
-  // No session_data cookie: every request hits the DB, so revocation is
-  // immediate (#38). #39 adds expiresIn/updateAge here. Mirrored in
+  // No session_data cookie: revocation must be immediate. Mirrored in
   // cookies.test.ts.
   session: { cookieCache: { enabled: false } },
   // nextCookies must stay the last plugin.
