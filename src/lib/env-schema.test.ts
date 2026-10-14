@@ -91,7 +91,7 @@ describe("parseServerEnv", () => {
     expect(env).not.toHaveProperty("SOMETHING_ELSE");
   });
 
-  it("accepts the gate and allowlist variables from #134", () => {
+  it("accepts the preview gate and signup allowlist variables", () => {
     const env = parseServerEnv({
       ...valid,
       SGAUTH_ENV: "dev",
