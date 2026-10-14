@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Daily Neon branch hygiene (#20). Lists the project's branches through the
-// Neon API and deletes stray ones (for example leftover `tmp-*` throwaways) so
-// the project stays under the free plan's 10-branch cap.
+// Daily Neon branch hygiene. Deletes stray throwaway branches (for example
+// leftover `tmp-*`) through the Neon API to stay under the free plan's
+// 10-branch cap.
 //
 // Deletion is fail-closed: a branch is deleted only when its name matches the
 // throwaway allowlist (`tmp-*`) AND it is older than 7 days. Kept, always: the
