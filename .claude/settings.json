@@ -2,19 +2,6 @@
   "env": {
     "DIRECT_URL": "postgresql://placeholder"
   },
-  "extraKnownMarketplaces": {
-    "port": {
-      "source": {
-        "source": "github",
-        "repo": "b-at-neu/port",
-        "ref": "v0.4.0"
-      },
-      "autoUpdate": true
-    }
-  },
-  "enabledPlugins": {
-    "port@port": true
-  },
   "permissions": {
     "allow": [
       "Bash(gh *)",
@@ -66,5 +53,31 @@
       "Bash(find -ok *)",
       "Bash(find -okdir *)"
     ]
+  },
+  "enabledPlugins": {
+    "port@port": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "neon@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "auth-skills@better-auth-agent-skills": true,
+    "context7@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "port": {
+      "source": {
+        "source": "github",
+        "repo": "b-at-neu/port",
+        "ref": "v0.4.0"
+      },
+      "autoUpdate": true
+    },
+    "better-auth-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "better-auth/skills"
+      }
+    }
   }
 }
