@@ -1,24 +1,38 @@
 import "server-only";
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { toAuthSettings } from "@/lib/auth/settings";
 import { signupAllowlist } from "@/lib/auth/signup-allowlist-plugin";
-import { buildCookieOptions, resolveCookiePolicy } from "@/lib/auth/cookies";
+import {
+  assertSecureCookieConfig,
+  buildCookieOptions,
+} from "@/lib/auth/cookies";
 
 const settings = toAuthSettings(env);
+
+const advanced: NonNullable<BetterAuthOptions["advanced"]> = {
+  database: { generateId: false },
+  ...buildCookieOptions(settings.cookies),
+};
+
+// Checks the exact object Better Auth receives, so it runs at boot and stops
+// `next start` and the Vercel cold start on an insecure cookie setting.
+assertSecureCookieConfig({
+  sgauthEnv: settings.sgauthEnv,
+  baseURL: settings.baseURL,
+  vercelEnv: settings.vercelEnv,
+  advanced,
+});
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   baseURL: settings.baseURL,
   secret: settings.secret,
   trustedOrigins: settings.trustedOrigins,
-  advanced: {
-    database: { generateId: false },
-    ...buildCookieOptions(resolveCookiePolicy(settings.sgauthEnv)),
-  },
+  advanced,
   // No session_data cookie: revocation must be immediate. Mirrored in
   // cookies.test.ts.
   session: { cookieCache: { enabled: false } },

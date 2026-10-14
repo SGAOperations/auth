@@ -21,6 +21,7 @@ export const serverShape = z.object({
     .default("development"),
   DATABASE_URL: postgresUrl,
   BETTER_AUTH_SECRET: z.string().min(32),
+  VERCEL_ENV: z.string().optional(),
   VERCEL_BRANCH_URL: z.string().optional(),
   VERCEL_URL: z.string().optional(),
   SGAUTH_SIGNUP_ALLOWLIST: z.string().optional(),
@@ -39,6 +40,7 @@ export const serverShape = z.object({
 export const authEnvSchema = serverShape.pick({
   SGAUTH_ENV: true,
   BETTER_AUTH_SECRET: true,
+  VERCEL_ENV: true,
   VERCEL_BRANCH_URL: true,
   VERCEL_URL: true,
   SGAUTH_SIGNUP_ALLOWLIST: true,

@@ -40,11 +40,15 @@ Internal authentication service
    npx prisma migrate dev
    ```
 
-4. Start the dev server:
+4. Start the dev server, then open `http://auth.sga.localhost:3000` (not `localhost`; see [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md#local-development)):
 
    ```sh
    npm run dev
    ```
+
+## Environments
+
+Which URL, cookie name and database each environment uses, and how to run SGAuth and a product side by side locally, is in [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md).
 
 ## Database connections
 
