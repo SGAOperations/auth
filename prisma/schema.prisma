@@ -43,6 +43,7 @@ model User {
   positionsUpdated  Position[]     @relation("PositionUpdatedBy")
   positions         UserPosition[] @relation("UserPositionHolder")
   positionsAssigned UserPosition[] @relation("UserPositionAssignedBy")
+  productsCreated   Product[]
 }
 
 model Session {
@@ -151,4 +152,26 @@ model RetiredPositionKey {
   retiredAt  DateTime @default(now())
 
   @@index([key, retiredAt])
+}
+
+model Product {
+  id                    String   @id @default(uuid(7))
+  /// immutable kebab-case key; product roles are prefixed with it (`<slug>-<role>`)
+  slug                  String   @unique
+  name                  String
+  description           String   @default("")
+  /// canonical origin: https://<labels>.northeasternsga.com, no path/port/trailing slash
+  baseUrl               String
+  iconUrl               String?
+  isActive              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  /// position keys; empty = visible to everyone
+  visibleToPositionKeys String[] @default([])
+  loginRedirectPath     String?
+  createdById           String?
+  createdBy             User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
 }
