@@ -1,0 +1,43 @@
+# Daily Neon branch hygiene. Deletes throwaway branches in the Neon project to
+# stay under the free plan's 10-branch cap.
+#
+# Fail-closed: only branches named tmp-* are deleted, and only once they are
+# older than 7 days. Kept, always: the default branch, anything Neon marks
+# protected, main, dev, test, and personal dev-* branches. Every other branch
+# (for example the restore runbook's main_old_* evidence branches) is kept
+# with a warning in the log. No branch is tied to a pull request.
+#
+# This job is not a required check. Scheduled workflows run only from the
+# default branch.
+name: Neon branch hygiene
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log what would be deleted without deleting anything
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-branch-hygiene
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/neon-branch-hygiene.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}

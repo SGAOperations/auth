@@ -12,44 +12,143 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+  DELETED
+}
+
 model User {
-  id             String        @id @default(uuid())
-  supabaseUserId String        @unique  // FK to auth.users(id)
-  isAdmin        Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  sessions       Session[]
-  projects       UserProject[]
-}
-
-model Project {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  apiKey      String        @unique @default(uuid())
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  sessions    Session[]
-  users       UserProject[]
-}
-
-model UserProject {
-  userId    String
-  projectId String
-  user      User     @relation(fields: [userId], references: [id])
-  project   Project  @relation(fields: [projectId], references: [id])
-  createdAt DateTime @default(now())
-  deletedAt DateTime?
-  @@id([userId, projectId])
+  id                String         @id @default(uuid(7))
+  email             String         @unique @db.Citext
+  emailVerified     Boolean        @default(false)
+  name              String
+  image             String?
+  preferredName     String?
+  isAdmin           Boolean        @default(false)
+  isPrimaryAdmin    Boolean        @default(false)
+  status            UserStatus     @default(ACTIVE)
+  deactivatedAt     DateTime?
+  deletedAt         DateTime?
+  legacyEmail       Boolean        @default(false)
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  twoFactorEnabled  Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  sessions          Session[]
+  accounts          Account[]
+  knownDevices      KnownDevice[]
+  positionsCreated  Position[]     @relation("PositionCreatedBy")
+  positionsUpdated  Position[]     @relation("PositionUpdatedBy")
+  positions         UserPosition[] @relation("UserPositionHolder")
+  positionsAssigned UserPosition[] @relation("UserPositionAssignedBy")
 }
 
 model Session {
-  id        String   @id @default(uuid())
-  userId    String
-  projectId String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-  project   Project  @relation(fields: [projectId], references: [id])
+  id                String    @id @default(uuid(7))
+  token             String    @unique
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt         DateTime
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  absoluteExpiresAt DateTime  @default(dbgenerated("(CURRENT_TIMESTAMP + '90 days'::interval)"))
+  lastReauthAt      DateTime?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                    String    @id @default(uuid(7))
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  /// scrypt hash, or an imported `bcrypt$...` hash re-hashed on first login (AUTH-T21)
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(uuid(7))
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model KnownDevice {
+  id         String   @id @default(uuid(7))
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// `key` has no `@unique` on purpose: uniqueness among active rows comes from the
+/// partial index `Position_key_active_key` in the positions migration, so a key
+/// can be reused once its retirement window has passed.
+model Position {
+  id          String    @id @default(uuid(7))
+  key         String
+  name        String
+  category    String?
+  description String?
+  deletedAt   DateTime?
+  createdById String?
+  createdBy   User?     @relation("PositionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById String?
+  updatedBy   User?     @relation("PositionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  holders UserPosition[]
+  retired RetiredPositionKey?
+
+  @@index([deletedAt])
+}
+
+model UserPosition {
+  userId       String
+  user         User     @relation("UserPositionHolder", fields: [userId], references: [id], onDelete: Restrict)
+  positionId   String
+  position     Position @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  assignedById String?
+  assignedBy   User?    @relation("UserPositionAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  assignedAt   DateTime @default(now())
+
+  @@id([userId, positionId])
+  @@index([positionId])
+}
+
+/// Written when a position is soft-deleted. The PK is `positionId`, not `key`: a
+/// key can be retired, reused after 365 days, then retired again.
+model RetiredPositionKey {
+  positionId String   @id
+  position   Position @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  key        String
+  retiredAt  DateTime @default(now())
+
+  @@index([key, retiredAt])
 }

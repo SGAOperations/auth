@@ -2,62 +2,62 @@ import "dotenv/config";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
+import { env } from "../src/lib/env";
+import {
+  applySync,
+  formatSummary,
+  loadCuratedPositions,
+  planSync,
+  readExistingPositions,
+} from "./seed/positions.js";
 
 // Connect to whatever database is specified by DATABASE_URL
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
 
 const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({ adapter });
 
+// Both users are password-less (no Account row): passwords are set lazily.
+// Addresses use the reserved .invalid TLD so no real mailbox can ever receive
+// a reset link for a seeded account, and neither email is marked verified.
 async function main() {
-  // Fake Supabase user IDs
-  const adminSupabaseId = "00000000-0000-0000-0000-000000000001";
-  const userSupabaseId = "00000000-0000-0000-0000-000000000002";
+  if (env.SGAUTH_ENV === "production") {
+    throw new Error("Refusing to seed dev fixtures when SGAUTH_ENV=production");
+  }
 
-  const admin = await prisma.user.upsert({
-    where: { supabaseUserId: adminSupabaseId },
+  const curated = await loadCuratedPositions();
+  const planned = planSync(curated, await readExistingPositions(prisma));
+  const { plan } = await applySync(prisma, planned);
+  console.log(formatSummary(plan));
+
+  await prisma.user.upsert({
+    where: { email: "dev-admin@example.invalid" },
     update: {},
-    create: { supabaseUserId: adminSupabaseId, isAdmin: true },
-  });
-
-  const user = await prisma.user.upsert({
-    where: { supabaseUserId: userSupabaseId },
-    update: {},
-    create: { supabaseUserId: userSupabaseId, isAdmin: false },
-  });
-
-  const project1 = await prisma.project.create({
-    data: { name: "Attendance Manager", description: "Cool project" },
-  });
-
-  const project2 = await prisma.project.create({
-    data: { name: "Website Creation", description: "Less project" },
-  });
-
-  await prisma.userProject.createMany({
-    data: [
-      { userId: admin.id, projectId: project1.id },
-      { userId: admin.id, projectId: project2.id },
-      { userId: user.id, projectId: project1.id },
-    ],
-    skipDuplicates: true,
-  });
-
-  await prisma.session.create({
-    data: {
-      userId: admin.id,
-      projectId: project1.id,
-      token: "admin-session-token",
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24h
+    create: {
+      email: "dev-admin@example.invalid",
+      name: "Dev Admin",
+      isAdmin: true,
     },
   });
 
-  console.log("data seeded!");
+  await prisma.user.upsert({
+    where: { email: "dev-user@example.invalid" },
+    update: {},
+    create: {
+      email: "dev-user@example.invalid",
+      name: "Dev User",
+    },
+  });
+
+  console.log("seeded dev-admin@ and dev-user@example.invalid");
 }
 
 main()
-  .catch(console.error)
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
   .finally(async () => {
     await prisma.$disconnect();
   });

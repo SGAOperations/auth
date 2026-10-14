@@ -26,7 +26,10 @@
       "Bash(npx tsc *)",
       "Bash(node scripts/port-artifacts.mjs *)",
       "Bash(node scripts/port-worktrees.mjs *)",
-      "Bash(node scripts/port-budget.mjs *)"
+      "Bash(node scripts/port-budget.mjs *)",
+      "Bash(node --test scripts/*.test.mjs)",
+      "Bash(npx --no-install prisma generate)",
+      "Bash(npx --no-install prisma migrate diff *)"
     ],
     "deny": [
       "Bash(gh pr merge *)",
