@@ -167,9 +167,7 @@ function commitViolations(text, { issue } = {}) {
   if (ls.length > 1 && ls[1].trim() !== '') {
     violations.push(fail('line 2 must be blank when a body follows the subject', 'a blank line 2'));
   }
-  if (!/^Co-Authored-By:/im.test(text)) {
-    violations.push(fail("message carries no 'Co-Authored-By:' trailer", "a 'Co-Authored-By: <name> <email>' trailer"));
-  }
+  // No Co-Authored-By requirement: this repository does not attribute commits to a model.
   return violations;
 }
 
