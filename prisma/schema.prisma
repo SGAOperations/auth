@@ -42,7 +42,7 @@ model User {
   accountLock       AccountLock?
   unlockTokens      UnlockToken[]
   twoFactors        TwoFactor[]
-  positionsCreated Position[]     @relation("PositionCreatedBy")
+  positionsCreated  Position[]     @relation("PositionCreatedBy")
   positionsUpdated  Position[]     @relation("PositionUpdatedBy")
   positions         UserPosition[] @relation("UserPositionHolder")
   positionsAssigned UserPosition[] @relation("UserPositionAssignedBy")
