@@ -10,7 +10,6 @@ import {
   PASSWORD_MIN_LENGTH,
   isAllowedSignupEmail,
   normalizeEmail,
-  passwordSchema,
 } from "@/lib/auth/policy";
 
 /**
@@ -32,11 +31,7 @@ interface AuthOptionsInput {
 
 // Lenient on purpose: anything that does not parse is left to the endpoint's
 // own validation.
-const credentialsBody = z.looseObject({
-  email: z.string(),
-  password: z.string().optional(),
-  name: z.string().optional(),
-});
+const credentialsBody = z.looseObject({ email: z.string() });
 
 const sessionResult = z.looseObject({
   user: z.looseObject({ id: z.string(), status: z.string() }),
@@ -58,44 +53,6 @@ export function buildAuthOptions({
   trustedOrigins,
   advanced,
 }: AuthOptionsInput) {
-  // An unverified account's owner is whoever verifies the address, so a
-  // sign-up against it replaces the password and name. Verified accounts are
-  // never touched.
-  async function overwriteUnverifiedAccount(
-    email: string,
-    password: string,
-    name: string,
-    hash: (password: string) => Promise<string>,
-  ) {
-    const existing = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        emailVerified: true,
-        status: true,
-        accounts: { where: { providerId: "credential" }, select: { id: true } },
-      },
-    });
-    const credential = existing?.accounts[0];
-    if (
-      !existing ||
-      !credential ||
-      existing.emailVerified ||
-      existing.status !== "ACTIVE"
-    ) {
-      return;
-    }
-    const passwordHash = await hash(password);
-    await prisma.$transaction([
-      prisma.account.update({
-        where: { id: credential.id },
-        data: { password: passwordHash },
-      }),
-      prisma.user.update({ where: { id: existing.id }, data: { name } }),
-      prisma.session.deleteMany({ where: { userId: existing.id } }),
-    ]);
-  }
-
   return {
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     baseURL,
@@ -126,24 +83,13 @@ export function buildAuthOptions({
       before: createAuthMiddleware(async (ctx) => {
         const parsed = credentialsBody.safeParse(ctx.body);
         if (!parsed.success) return;
-        const { email, password, name } = parsed.data;
-        const normalized = normalizeEmail(email);
+        const normalized = normalizeEmail(parsed.data.email);
 
-        if (ctx.path === "/sign-up/email") {
-          // Before any DB read, so existing and unknown addresses answer alike.
-          if (!isAllowedSignupEmail(normalized)) throw domainNotAllowed();
-          if (
-            password !== undefined &&
-            name !== undefined &&
-            passwordSchema.safeParse(password).success
-          ) {
-            await overwriteUnverifiedAccount(
-              normalized,
-              password,
-              name,
-              (plain) => ctx.context.password.hash(plain),
-            );
-          }
+        if (
+          ctx.path === "/sign-up/email" &&
+          !isAllowedSignupEmail(normalized)
+        ) {
+          throw domainNotAllowed();
         }
 
         return {

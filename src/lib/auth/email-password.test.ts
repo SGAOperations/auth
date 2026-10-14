@@ -150,21 +150,6 @@ describe.skipIf(!url)("email and password sign-in", () => {
     expect(await prisma.user.count({ where: { email: long } })).toBe(0);
   });
 
-  it("does not overwrite an unverified account with an invalid password", async () => {
-    const email = freshEmail();
-    await signUp(email, STRONG, "Original");
-    const user = await userByEmail(email);
-    const before = await credentialHash(user.id);
-
-    await expectApiError(
-      signUp(email, "short", "Attacker"),
-      400,
-      "PASSWORD_TOO_SHORT",
-    );
-    expect(await credentialHash(user.id)).toBe(before);
-    expect((await userByEmail(email)).name).toBe("Original");
-  });
-
   it("gives a wrong password and an unknown email the same error", async () => {
     const email = freshEmail();
     await signUp(email, STRONG);
@@ -223,45 +208,50 @@ describe.skipIf(!url)("email and password sign-in", () => {
     );
   });
 
-  it("lets only the address owner who verifies keep the account", async () => {
+  it("never changes an existing account through a repeat sign-up", async () => {
     const email = freshEmail();
-    const passwordA = "attacker-password-A1";
-    const passwordB = "victim-password-B2!";
+    const original = "original-password-A1";
+    const other = "other-password-B2!!";
 
-    const fresh = await signUp(email, passwordA, "Attacker");
+    const fresh = await signUp(email, original, "Original");
     const user = await userByEmail(email);
-    await addSession(user.id);
+    const hash = await credentialHash(user.id);
 
-    const takeover = await signUp(email, passwordB, "Victim");
-    expect(takeover.token).toBeNull();
-    expect(Object.keys(takeover).sort()).toEqual(Object.keys(fresh).sort());
-    expect(Object.keys(takeover.user).sort()).toEqual(
+    const repeat = await signUp(email, other, "Someone Else");
+    expect(repeat.token).toBeNull();
+    expect(Object.keys(repeat).sort()).toEqual(Object.keys(fresh).sort());
+    expect(Object.keys(repeat.user).sort()).toEqual(
       Object.keys(fresh.user).sort(),
     );
 
-    // A session opened after the overwrite is also revoked by verification.
+    expect(await credentialHash(user.id)).toBe(hash);
+    expect((await userByEmail(email)).name).toBe("Original");
+
+    await verify(email);
+    expect((await signIn(email, original)).user.id).toBe(user.id);
+    await expectApiError(
+      signIn(email, other),
+      401,
+      "INVALID_EMAIL_OR_PASSWORD",
+    );
+
+    // Verified now: a further sign-up still changes nothing.
+    await signUp(email, "third-password-C3!!", "Third");
+    expect((await userByEmail(email)).name).toBe("Original");
+    expect(await credentialHash(user.id)).toBe(hash);
+  });
+
+  it("revokes every existing session when the address is verified", async () => {
+    const email = freshEmail();
+    await signUp(email, STRONG);
+    const user = await userByEmail(email);
+    await addSession(user.id);
     const lateSession = await addSession(user.id);
+
     await verify(email);
     expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
     expect(
       await prisma.session.findUnique({ where: { id: lateSession.id } }),
     ).toBeNull();
-
-    await expectApiError(
-      signIn(email, passwordA),
-      401,
-      "INVALID_EMAIL_OR_PASSWORD",
-    );
-    expect((await signIn(email, passwordB)).user.id).toBe(user.id);
-
-    // The account is verified now: a further sign-up changes nothing.
-    await signUp(email, "third-password-C3!!", "Third");
-    expect((await userByEmail(email)).name).toBe("Victim");
-    await expectApiError(
-      signIn(email, "third-password-C3!!"),
-      401,
-      "INVALID_EMAIL_OR_PASSWORD",
-    );
-    expect((await signIn(email, passwordB)).user.id).toBe(user.id);
   });
 });
