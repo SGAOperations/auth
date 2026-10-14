@@ -73,8 +73,8 @@ Neon exposes two hosts per branch, so the app needs two connection strings.
   | `DIRECT_URL`   | Direct (no `-pooler`)       | The Prisma CLI via `prisma.config.ts`: `migrate dev`, `migrate deploy`, `migrate reset`, `db push`, `studio` |
 
 - **Driver adapter.** The runtime client uses `@prisma/adapter-pg` (TCP) with a pool of `max: 5`, a 10 s idle timeout and a 5 s connect timeout per function instance. `@prisma/adapter-neon` was not chosen because SGAuth runs on the Vercel Node runtime, not Edge, so no WebSocket transport is needed.
-- **`pgbouncer=true` is not used.** It is a flag for Prisma's Rust query engine. With a driver adapter, `pg` talks to the pooler directly, and Neon's pooler supports protocol-level prepared statements.
-- **`sslmode=verify-full`** is set on both URLs. Neon console strings may append `&channel_binding=require`, which is optional.
+- **`pgbouncer=true` is not used.** It is a flag for Prisma's Rust query engine. With a driver adapter, `pg` is expected to talk to the pooler directly, and Neon's pooler is expected to support protocol-level prepared statements. Not yet verified against a live Neon branch.
+- **`sslmode=verify-full`** is expected on both URLs. Neon console strings may append `&channel_binding=require`, which is optional. Not yet verified against a live Neon branch.
 
 ## Scripts
 

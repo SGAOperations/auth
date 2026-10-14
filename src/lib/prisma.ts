@@ -6,18 +6,13 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-// Pool sizing per Vercel function instance. The Neon pooler absorbs fan-out
-// across instances, so each one needs only a few connections. The short idle
-// timeout releases connections so an idle compute can suspend, and the connect
-// timeout fails fast instead of waiting forever (pg's default) on a stuck
-// connect.
+// Per function instance: pooler absorbs fan-out, idle frees compute, connect fails fast.
 const POOL_MAX = 5;
 const POOL_IDLE_TIMEOUT_MS = 10_000;
 const POOL_CONNECTION_TIMEOUT_MS = 5_000;
 
 function createPrismaClient() {
-  // adapter-pg (TCP) rather than adapter-neon: SGAuth runs on the Vercel Node
-  // runtime, not Edge, so no WebSocket transport is needed.
+  // adapter-pg (TCP), not adapter-neon: Node runtime, no WebSocket needed.
   const adapter = new PrismaPg(
     {
       connectionString: process.env.DATABASE_URL,
@@ -26,9 +21,7 @@ function createPrismaClient() {
       connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
     },
     {
-      // Idle sockets can be dropped by the pooler or a suspending compute. An
-      // unhandled pool error event would crash the function. Log the error
-      // only, never the connection string.
+      // Unhandled pool errors crash the function; log the error, never the URL.
       onPoolError: (err) => console.error("[prisma] pg pool error", err),
     },
   );
