@@ -98,8 +98,8 @@ session. So the exposure window runs from the restore until the whole
 re-apply list below is done, and SGAuth stays in maintenance mode for all of it.
 
 > Table and column names in this runbook ("the session table", "the key
-> table", and so on) are provisional. The schema is still Supabase-shaped, and
-> the real names are not settled until AUTH-T10 lands the Neon schema. Re-check
+> table", and so on) are provisional. The schema is still the initial scaffold,
+> and the real names are not settled until AUTH-T10 lands the Neon schema. Re-check
 > them against the live schema rather than assuming they were verified.
 
 Do these in order, with SGAuth offline throughout:

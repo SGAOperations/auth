@@ -2,22 +2,15 @@
 
 Internal authentication service
 
-> **Setup below is the old Supabase scaffold, being removed in #13 (AUTH-T02). Do
-> not run it.** For the target database setup, see [Database — Neon](#database--neon).
-
 ## Stack
 
 - [React 19](https://react.dev/)
 - [Next.js 16](https://nextjs.org/)
 - [Prisma v7](https://www.prisma.io/)
-- [Supabase](https://supabase.com/)
-  - Authentication
-  - Managed PostgreSQL instance
 - [Tailwind CSS 4](https://tailwindcss.com/)
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/)
 - [Node.js & npm](https://nodejs.org/en/download/)
 
 ## Setup
@@ -28,37 +21,26 @@ Internal authentication service
    npm install
    ```
 
-2. Start the local Supabase stack:
-
-   ```sh
-   npx supabase start
-   ```
-
-   After starting, credentials will be printed to the console.
-
-3. Copy `.env.example` to `.env` and fill in your Supabase credentials from the previous step:
+2. Copy `.env.example` to `.env` and fill in the connection strings for your personal Neon branch:
 
    ```sh
    cp .env.example .env
    ```
 
-   | Variable                        | Purpose                                                                             |
-   | ------------------------------- | ----------------------------------------------------------------------------------- |
-   | `DATABASE_URL`                  | Pooled (`-pooler`) Neon connection used at runtime                                  |
-   | `DIRECT_URL`                    | Direct Neon connection used by the Prisma CLI                                       |
-   | `NEXT_PUBLIC_SUPABASE_URL`      | Supabase project URL (public)                                                       |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key — "Publishable" in CLI output (public)                            |
-   | `SUPABASE_SERVICE_ROLE_KEY`     | Supabase service role key — "Secret" in CLI output (**never expose to the client**) |
+   | Variable       | Purpose                                            |
+   | -------------- | -------------------------------------------------- |
+   | `DATABASE_URL` | Pooled (`-pooler`) Neon connection used at runtime |
+   | `DIRECT_URL`   | Direct Neon connection used by the Prisma CLI      |
 
    > A personal Neon branch has both a pooled and a direct host, so `DATABASE_URL` and `DIRECT_URL` always differ. `DATABASE_URL` is pooled and uses the `runtime` role, `DIRECT_URL` is direct and uses the `migration` role. See [Database connections](#database-connections) and [Database — Neon](#database--neon).
 
-4. Run Prisma migrations:
+3. Run Prisma migrations:
 
    ```sh
    npx prisma migrate dev
    ```
 
-5. Start the dev server:
+4. Start the dev server:
 
    ```sh
    npm run dev
@@ -96,10 +78,6 @@ SGAuth is built on [Neon](https://neon.com/) serverless Postgres and **does not
 use Supabase for anything**: no Supabase Auth, no Supabase database, and no
 Supabase client libraries, anywhere in SGAuth. This section describes the
 target state.
-
-> The Supabase stack entry, the Docker prerequisite, the `npx supabase start`
-> step, and the Supabase variables above are the old scaffold. They are being
-> removed in #13 (AUTH-T02). Do not run them or follow them.
 
 The Neon project is `sgauth` (`aws-us-east-1`) with three permanent branches:
 
