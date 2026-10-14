@@ -11,33 +11,40 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 // Both users are password-less (no Account row): passwords are set lazily.
+// Addresses use the reserved .invalid TLD so no real mailbox can ever receive
+// a reset link for a seeded account, and neither email is marked verified.
 async function main() {
+  if (process.env.SGAUTH_ENV === "production") {
+    throw new Error("Refusing to seed dev fixtures when SGAUTH_ENV=production");
+  }
+
   await prisma.user.upsert({
-    where: { email: "dev-admin@northeastern.edu" },
+    where: { email: "dev-admin@example.invalid" },
     update: {},
     create: {
-      email: "dev-admin@northeastern.edu",
+      email: "dev-admin@example.invalid",
       name: "Dev Admin",
-      emailVerified: true,
       isAdmin: true,
     },
   });
 
   await prisma.user.upsert({
-    where: { email: "dev-user@northeastern.edu" },
+    where: { email: "dev-user@example.invalid" },
     update: {},
     create: {
-      email: "dev-user@northeastern.edu",
+      email: "dev-user@example.invalid",
       name: "Dev User",
-      emailVerified: true,
     },
   });
 
-  console.log("seeded dev-admin@ and dev-user@northeastern.edu");
+  console.log("seeded dev-admin@ and dev-user@example.invalid");
 }
 
 main()
-  .catch(console.error)
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
   .finally(async () => {
     await prisma.$disconnect();
   });
