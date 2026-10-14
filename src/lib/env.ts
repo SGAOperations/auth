@@ -6,9 +6,9 @@ import {
   parseServerEnv,
   type PublicEnv,
   type ServerEnv,
-} from "./env-schema.js";
+} from "./env-schema";
 
-export type { PublicEnv, ServerEnv, SgauthEnv } from "./env-schema.js";
+export type { PublicEnv, ServerEnv, SgauthEnv } from "./env-schema";
 
 function clientGuard(): ServerEnv {
   return new Proxy({} as ServerEnv, {
