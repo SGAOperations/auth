@@ -1,4 +1,4 @@
--- AUTH-T11: Position, UserPosition and RetiredPositionKey.
+-- Adds Position, UserPosition and RetiredPositionKey.
 -- The DDL for the three tables below is written by hand to match what
 -- `prisma migrate diff` generates for prisma/schema.prisma. Everything after the
 -- "Backstops" marker cannot be expressed in the Prisma schema.
@@ -97,6 +97,10 @@ FOR EACH ROW EXECUTE FUNCTION position_key_immutable();
 -- A user holds at most 50 active positions. A CHECK cannot count other rows, so
 -- a trigger does it. The advisory lock serialises concurrent assignments for the
 -- same user so two inserts cannot both pass the count.
+-- The trigger fires only when a UserPosition row is inserted or re-pointed.
+-- Clearing Position."deletedAt" re-activates every held assignment without a
+-- count, so restoring a soft-deleted position is unsupported here: whatever adds
+-- restore must first re-check the limit for each holder.
 CREATE FUNCTION enforce_user_position_limit() RETURNS trigger AS $$
 DECLARE
     active_count integer;

@@ -13,6 +13,7 @@ export type PositionErrorCode =
   | "INVALID_KEY"
   | "KEY_TAKEN"
   | "KEY_RETIRED"
+  | "KEY_IMMUTABLE"
   | "POSITION_LIMIT";
 
 export class PositionError extends Error {
@@ -80,8 +81,40 @@ export async function assertPositionKeyAvailable(
   }
 }
 
-function describeConstraintTarget(meta: unknown): string {
-  return JSON.stringify(meta ?? null);
+const ACTIVE_KEY_INDEX = "Position_key_active_key";
+const MAX_CAUSE_DEPTH = 3;
+
+// Under @prisma/client 7.6.0 with adapter-pg, database rejections carry no
+// `code` or `meta`: check and trigger violations name themselves in `message`,
+// so that is what gets matched. Messages from `cause` are included in case a
+// later Prisma version wraps the driver error.
+function collectMessages(err: unknown): string {
+  const messages: string[] = [];
+  let current: unknown = err;
+  for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
+    if (!(current instanceof Error)) break;
+    messages.push(current.message);
+    current = current.cause;
+  }
+  return messages.join("\n");
+}
+
+function isActiveKeyUniqueViolation(err: unknown, message: string): boolean {
+  if (message.includes(ACTIVE_KEY_INDEX)) {
+    return true;
+  }
+  // A proper P2002 names the index or the field list; match those exactly.
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === "P2002"
+  ) {
+    const target: unknown = err.meta?.target;
+    return (
+      target === ACTIVE_KEY_INDEX ||
+      (Array.isArray(target) && target.length === 1 && target[0] === "key")
+    );
+  }
+  return false;
 }
 
 /**
@@ -93,25 +126,40 @@ export function toPositionError(err: unknown): PositionError | null {
     return err;
   }
 
-  if (
-    err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2002" &&
-    describeConstraintTarget(err.meta).includes("key")
-  ) {
+  const message = collectMessages(err);
+
+  if (isActiveKeyUniqueViolation(err, message)) {
     return new PositionError("KEY_TAKEN", "Position key is in use");
   }
-
-  const message = err instanceof Error ? err.message : "";
   if (message.includes("POSITION_LIMIT")) {
     return new PositionError(
       "POSITION_LIMIT",
       "User already holds the maximum number of active positions",
     );
   }
+  if (message.includes("KEY_IMMUTABLE")) {
+    return new PositionError("KEY_IMMUTABLE", "Position key cannot be changed");
+  }
   if (message.includes("Position_key_format_check")) {
     return new PositionError("INVALID_KEY", "Position key format is invalid");
   }
+  if (message.includes("Position_name_length_check")) {
+    return new PositionError(
+      "INVALID_INPUT",
+      "Position name length is invalid",
+    );
+  }
   return null;
+}
+
+// Prisma 7.6.0 throws this ReferenceError while building a unique-violation
+// error, so a lost race on the active-key index never reaches toPositionError
+// as a recognisable error.
+function isBrokenPrismaErrorConstruction(err: unknown): boolean {
+  return (
+    err instanceof ReferenceError &&
+    err.message.includes("Must call super constructor")
+  );
 }
 
 /**
@@ -154,6 +202,16 @@ export async function createPosition(
       ? await db.$transaction((tx) => run(tx))
       : await run(db);
   } catch (err) {
-    throw toPositionError(err) ?? err;
+    const mapped = toPositionError(err);
+    if (mapped) {
+      throw mapped;
+    }
+    // The availability check ran inside the transaction, so a failure with
+    // Prisma's broken error construction means a concurrent create won the
+    // race. Re-check outside the failed transaction to report it as KEY_TAKEN.
+    if (isBrokenPrismaErrorConstruction(err) && "$transaction" in db) {
+      await assertPositionKeyAvailable(key, { db, now });
+    }
+    throw err;
   }
 }
