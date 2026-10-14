@@ -3,10 +3,12 @@
 // Neon API and deletes stray ones (for example leftover `tmp-*` throwaways) so
 // the project stays under the free plan's 10-branch cap.
 //
-// A branch is deleted only when it is older than 7 days AND is not kept.
-// Kept, always: the default branch, anything Neon marks `protected`, `main`,
-// `dev`, `test`, and personal `dev-*` branches. A branch with no readable
-// creation date is kept too — nothing is ever deleted on a guess.
+// Deletion is fail-closed: a branch is deleted only when its name matches the
+// throwaway allowlist (`tmp-*`) AND it is older than 7 days. Kept, always: the
+// default branch, anything Neon marks `protected`, `main`, `dev`, `test`, and
+// personal `dev-*` branches. Any other branch, such as the restore runbook's
+// `main_old_*` evidence branches, is kept with a warning. A branch with no
+// readable creation date is kept too — nothing is ever deleted on a guess.
 //
 // This is CI tooling, so it reads `process.env` directly. The `src/lib/env.ts`
 // rule in docs/ENGINEERING.md section 2 covers application code only.
@@ -17,6 +19,10 @@ import { pathToFileURL } from "node:url";
 
 export const KEEP_NAMES = ["main", "dev", "test"];
 export const PERSONAL_PREFIX = "dev-";
+// The only names the job may delete. Extend deliberately: restore evidence
+// branches such as `main_old_*` (docs/runbooks/neon-restore.md) must never match.
+export const THROWAWAY_PATTERNS = [/^tmp-/];
+export const NOT_ALLOWLISTED = "not on throwaway allowlist";
 export const MAX_AGE_DAYS = 7;
 export const WARN_AT = 8;
 export const PLAN_CAP = 10;
@@ -25,8 +31,11 @@ const DAY_MS = 86_400_000;
 const API_BASE = "https://console.neon.tech/api/v2";
 
 /**
- * Decide what to do with one branch. The first matching rule wins.
- * @returns {{ action: "keep" | "delete", reason: string }}
+ * Decide what to do with one branch. The first matching rule wins. Deletion is
+ * fail-closed: only an allowlisted throwaway name older than 7 days is
+ * deleted; any other branch is kept, and `warn` flags the ones kept only
+ * because they are not on the allowlist.
+ * @returns {{ action: "keep" | "delete", reason: string, warn?: boolean }}
  */
 export function classifyBranch(branch, now) {
   if (branch.default === true || branch.primary === true) {
@@ -43,6 +52,9 @@ export function classifyBranch(branch, now) {
     branch.name.startsWith(PERSONAL_PREFIX)
   ) {
     return { action: "keep", reason: "personal" };
+  }
+  if (!THROWAWAY_PATTERNS.some((p) => p.test(branch.name))) {
+    return { action: "keep", reason: NOT_ALLOWLISTED, warn: true };
   }
   const created = branch.created_at
     ? new Date(branch.created_at).getTime()
@@ -94,7 +106,12 @@ export function planCleanup(branches, now) {
   };
 
   const verdicts = new Map(branches.map((b) => [b.id, classifyBranch(b, now)]));
-  const item = (b, reason) => ({ id: b.id, name: b.name, reason });
+  const item = (b, reason, warn) => ({
+    id: b.id,
+    name: b.name,
+    reason,
+    ...(warn ? { warn: true } : {}),
+  });
   const toDelete = [];
   const kept = [];
   const skipped = [];
@@ -106,7 +123,7 @@ export function planCleanup(branches, now) {
     const verdict = verdicts.get(b.id);
     if (verdict.action === "keep") {
       outcome.set(b.id, "kept");
-      kept.push(item(b, verdict.reason));
+      kept.push(item(b, verdict.reason, verdict.warn));
       continue;
     }
     const blocker = (children.get(b.id) ?? []).find(
@@ -232,8 +249,11 @@ async function main() {
 
   console.log(`Neon branch hygiene${dryRun ? " (dry run)" : ""}`);
   for (const row of rows) {
+    const line = `${row.name} · ${ageDays(byId.get(row.id), now)}d · ${row.action} (${row.reason})`;
     console.log(
-      `${row.name} · ${ageDays(byId.get(row.id), now)}d · ${row.action} (${row.reason})`,
+      row.warn
+        ? `::warning::${line} — kept, never auto-deleted; remove by hand if unneeded`
+        : line,
     );
   }
   console.log(

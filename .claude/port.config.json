@@ -60,6 +60,9 @@
     "Bash(npx tsc *)",
     "Bash(node scripts/port-artifacts.mjs *)",
     "Bash(node scripts/port-worktrees.mjs *)",
-    "Bash(node scripts/port-budget.mjs *)"
+    "Bash(node scripts/port-budget.mjs *)",
+    "Bash(node --test *)",
+    "Bash(npx prisma migrate diff *)",
+    "Bash(npx prisma generate *)"
   ]
 }

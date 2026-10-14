@@ -1,10 +1,12 @@
-# Daily Neon branch hygiene (#20). Deletes stray branches in the Neon project
-# so it stays under the free plan's 10-branch cap.
+# Daily Neon branch hygiene (#20). Deletes throwaway branches in the Neon
+# project so it stays under the free plan's 10-branch cap.
 #
-# Kept, always: the default branch, anything Neon marks protected, main, dev,
-# test, and personal dev-* branches. Everything else is deleted once it is
-# older than 7 days. #16 removed per-PR Neon branches, so no branch is tied to
-# a pull request any more.
+# Fail-closed: only branches named tmp-* are deleted, and only once they are
+# older than 7 days. Kept, always: the default branch, anything Neon marks
+# protected, main, dev, test, and personal dev-* branches. Every other branch
+# (for example the restore runbook's main_old_* evidence branches) is kept
+# with a warning in the log. #16 removed per-PR Neon branches, so no branch is
+# tied to a pull request any more.
 #
 # This job is not a required check. Scheduled workflows run only from the
 # default branch.

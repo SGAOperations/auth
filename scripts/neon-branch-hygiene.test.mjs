@@ -29,10 +29,46 @@ test("every keep rule wins even for a 30 day old branch", () => {
   }
 });
 
-test("name matching is exact and case-sensitive", () => {
-  for (const name of ["main-old", "Dev", "devops", "tmp-check"]) {
-    assert.equal(classifyBranch(branch(name), NOW).action, "delete", name);
+test("only allowlisted tmp-* names older than 7 days are deleted", () => {
+  assert.deepEqual(classifyBranch(branch("tmp-old"), NOW), {
+    action: "delete",
+    reason: "older than 7 days",
+  });
+});
+
+test("non-allowlisted branches are kept with a warning, however old", () => {
+  for (const name of [
+    "main_old_2026-10-01",
+    "restore-x",
+    "main-old",
+    "Dev",
+    "devops",
+    "TMP-old",
+  ]) {
+    assert.deepEqual(
+      classifyBranch(branch(name), NOW),
+      { action: "keep", reason: "not on throwaway allowlist", warn: true },
+      name,
+    );
   }
+});
+
+test("planCleanup flags non-allowlisted branches and deletes only tmp-*", () => {
+  const listing = [
+    branch("main", { default: true }),
+    branch("main_old_2026-10-01", { parent_id: "br-main" }),
+    branch("restore-x", { parent_id: "br-main" }),
+    branch("tmp-old", { parent_id: "br-main" }),
+  ];
+  const { toDelete, kept } = planCleanup(listing, NOW);
+  assert.deepEqual(
+    toDelete.map((d) => d.name),
+    ["tmp-old"],
+  );
+  assert.deepEqual(
+    kept.filter((k) => k.warn).map((k) => k.name),
+    ["main_old_2026-10-01", "restore-x"],
+  );
 });
 
 test("age boundary: exactly 7 days is kept, 7 days + 1 ms is deleted", () => {
