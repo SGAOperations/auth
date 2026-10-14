@@ -16,6 +16,7 @@ CREATE TABLE "User" (
     "email" CITEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "name" TEXT NOT NULL,
+    "image" TEXT,
     "preferredName" TEXT,
     "isAdmin" BOOLEAN NOT NULL DEFAULT false,
     "isPrimaryAdmin" BOOLEAN NOT NULL DEFAULT false,
