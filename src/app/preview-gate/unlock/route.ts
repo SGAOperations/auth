@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { parseAuthEnv } from "@/lib/auth/settings";
+import { toAuthSettings } from "@/lib/auth/settings";
+import { env } from "@/lib/env";
 import {
   GATE_COOKIE,
   GATE_MAX_AGE,
@@ -46,8 +47,7 @@ function backToGate(
 }
 
 export async function POST(request: NextRequest) {
-  // Second process.env read for auth until src/lib/env.ts (AUTH-T07) exists.
-  const settings = parseAuthEnv(process.env);
+  const settings = toAuthSettings(env);
   if (!settings.previewGate) {
     return new NextResponse(null, { status: 404, headers: NO_STORE });
   }

@@ -86,7 +86,7 @@ Pre-production data is shared and disposable. Never copy production data into it
 
 ## Pre-production gates
 
-Two gates keep SGAuth's non-production deployments useless to strangers. Both are keyed off `SGAUTH_ENV` and validated at boot by `parseAuthEnv`, so a bad value stops the server from starting.
+Two gates keep SGAuth's non-production deployments useless to strangers. Both are keyed off `SGAUTH_ENV` and validated at boot through `src/lib/env.ts` and `toAuthSettings`, so a bad value stops the server from starting.
 
 | `SGAUTH_ENV` | Sign-up allowlist                   | Preview password gate                         |
 | ------------ | ----------------------------------- | --------------------------------------------- |
