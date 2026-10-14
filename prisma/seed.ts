@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import { env } from "../src/lib/env";
 import { SeedRefusedError, assertSeedAllowed } from "./seed/guard.js";
+import { productCreateSchema } from "../src/lib/product-input";
 import {
   PrimaryAdminSeedError,
   applyPrimaryAdmin,
@@ -18,6 +19,41 @@ import {
   planSync,
   readExistingPositions,
 } from "./seed/positions.js";
+
+const DEV_PRODUCTS = [
+  {
+    slug: "sgauth",
+    name: "SGAuth",
+    baseUrl: "https://auth-dev.northeasternsga.com",
+    isActive: true,
+    sortOrder: 0,
+    description: "Your SGA account: profile, sessions and security.",
+  },
+  {
+    slug: "vaultz",
+    name: "VaultZ",
+    baseUrl: "https://vaultz-dev.northeasternsga.com",
+    isActive: false,
+    sortOrder: 10,
+    description: "Placeholder until VaultZ is onboarded.",
+  },
+  {
+    slug: "chambers",
+    name: "Chambers",
+    baseUrl: "https://chambers-dev.northeasternsga.com",
+    isActive: false,
+    sortOrder: 20,
+    description: "Placeholder until Chambers is onboarded.",
+  },
+  {
+    slug: "aplio",
+    name: "Aplio",
+    baseUrl: "https://aplio-dev.northeasternsga.com",
+    isActive: false,
+    sortOrder: 30,
+    description: "Placeholder until Aplio is onboarded.",
+  },
+];
 
 async function main(): Promise<void> {
   // Before any client exists: a refused run makes no connection.
@@ -53,6 +89,19 @@ async function main(): Promise<void> {
         ? `Dev fixtures: ${fixtures.count} created`
         : "Dev fixtures already present; nothing changed.",
     );
+
+    // Placeholders stay inactive: the registry loader trusts every active
+    // product's origin, and these subdomains are not deployed yet. `update: {}`
+    // keeps admin edits on dev from being clobbered by a re-seed.
+    for (const product of DEV_PRODUCTS) {
+      const data = productCreateSchema.parse(product);
+      await prisma.product.upsert({
+        where: { slug: data.slug },
+        update: {},
+        create: data,
+      });
+    }
+    console.log(`Dev products: ${DEV_PRODUCTS.length} ensured.`);
 
     if (env.SGAUTH_ENV === "local") {
       if (
