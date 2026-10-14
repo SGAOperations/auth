@@ -12,6 +12,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "seed": "prisma db seed",
+    "prisma:migrate-dev": "node scripts/prisma-guard.mjs migrate dev && prisma migrate dev",
+    "prisma:migrate-reset": "node scripts/prisma-guard.mjs migrate reset && prisma migrate reset",
+    "prisma:db-push": "node scripts/prisma-guard.mjs db push && prisma db push",
     "positions:sync": "tsx scripts/positions-sync.ts",
     "postinstall": "prisma generate"
   },

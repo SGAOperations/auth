@@ -102,7 +102,7 @@ Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cooki
 4. Logs `SGAUTH_ENV`, `VERCEL_ENV`, the ref and the database host name. Nothing else about the connection is logged.
 5. Runs `prisma generate`, `prisma migrate deploy`, then `next build`, stopping at the first failure.
 
-Migrations apply while the previous deployment is still serving, so every migration follows expand/contract (AUTH-T16). Nothing in the build log may contain a credential or connection string. There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
+Migrations apply while the previous deployment is still serving, so every migration follows expand/contract ([MIGRATIONS.md](MIGRATIONS.md#expandcontract)). Nothing in the build log may contain a credential or connection string. There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
 
 ## Shared pre-production database
 
@@ -117,7 +117,7 @@ Consequences:
 
 The rule: **PR migrations must be additive (expand only).** Contract steps land on `dev` only after merge.
 
-Recovery: `prisma migrate resolve` for a failed or stray migration, or reset the Neon `dev` branch from `main` before launch (AUTH-T16).
+Recovery: `prisma migrate resolve` for a failed or stray migration, or reset the Neon `dev` branch from `main` before launch (see [MIGRATIONS.md](MIGRATIONS.md#recovery)).
 
 Pre-production data is shared and disposable. Never copy production data into it.
 
