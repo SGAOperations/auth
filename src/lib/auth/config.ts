@@ -1,9 +1,9 @@
 import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
-import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
+import { buildAuthOptions } from "@/lib/auth/options";
 import { toAuthSettings } from "@/lib/auth/settings";
 import { signupAllowlist } from "@/lib/auth/signup-allowlist-plugin";
 import {
@@ -28,14 +28,18 @@ assertSecureCookieConfig({
 });
 
 export const auth = betterAuth({
-  database: prismaAdapter(prisma, { provider: "postgresql" }),
-  baseURL: settings.baseURL,
-  secret: settings.secret,
-  trustedOrigins: settings.trustedOrigins,
-  advanced,
+  ...buildAuthOptions({
+    prisma,
+    baseURL: settings.baseURL,
+    secret: settings.secret,
+    trustedOrigins: settings.trustedOrigins,
+    advanced,
+  }),
   // No session_data cookie: revocation must be immediate. Mirrored in
   // cookies.test.ts.
   session: { cookieCache: { enabled: false } },
+  // No DB-backed limiter table (AUTH-T15); AUTH-T63 replaces this with Upstash and disables the built-in limiter.
+  rateLimit: { storage: "memory" },
   // nextCookies must stay the last plugin.
   plugins: [
     ...(settings.signupAllowlist
