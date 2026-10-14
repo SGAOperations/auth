@@ -1,19 +1,8 @@
 #!/usr/bin/env node
-// Refuses the Prisma commands that change a database by hand (`migrate dev`,
-// `migrate reset`, `db push`) when they would reach a shared or production
-// database. Used two ways: the `prisma:*` npm scripts run this file before
-// Prisma, and `prisma.config.ts` calls `checkPrismaCommand` so a bare
-// `npx prisma migrate dev` is refused too. See docs/MIGRATIONS.md.
-//
-// This is tooling, so it reads `process.env` directly. The `src/lib/env.ts`
-// rule in docs/ENGINEERING.md section 2 covers application code only, as
-// scripts/vercel-build.mjs already notes.
-//
-// The repository is public, so the protected Neon endpoint IDs are never
-// committed. `PROTECTED_ENDPOINTS` holds SHA-256 hashes of them instead.
-//
-// Nothing here may print a URL: refusals name the protected branch at most,
-// never a host name, user, password or query string.
+// Guard for `migrate dev`, `migrate reset` and `db push`. See docs/MIGRATIONS.md.
+// - Tooling: reads process.env directly.
+// - Public repo: protected endpoints are SHA-256 hashes, not IDs.
+// - Never prints a URL; at most the protected branch name.
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 
