@@ -84,10 +84,11 @@ export async function assertPositionKeyAvailable(
 const ACTIVE_KEY_INDEX = "Position_key_active_key";
 const MAX_CAUSE_DEPTH = 3;
 
-// Under @prisma/client 7.6.0 with adapter-pg, database rejections carry no
-// `code` or `meta`: check and trigger violations name themselves in `message`,
-// so that is what gets matched. Messages from `cause` are included in case a
-// later Prisma version wraps the driver error.
+// Under @prisma/client 7.10 with adapter-pg, database rejections are
+// PrismaClientKnownRequestErrors: a duplicate active key is P2002, and check
+// and trigger violations are P2039. The constraint or trigger name is in
+// `message`, which is what gets matched. Messages from `cause` are included in
+// case a later Prisma version wraps the driver error.
 function collectMessages(err: unknown): string {
   const messages: string[] = [];
   let current: unknown = err;
@@ -99,22 +100,28 @@ function collectMessages(err: unknown): string {
   return messages.join("\n");
 }
 
+// The driver adapter reports the violated index at
+// meta.driverAdapterError.cause.constraint.index; P2002 carries no meta.target.
+function driverConstraintIndex(err: Prisma.PrismaClientKnownRequestError) {
+  const adapterError: unknown = err.meta?.driverAdapterError;
+  if (typeof adapterError !== "object" || adapterError === null) return null;
+  const cause: unknown = (adapterError as { cause?: unknown }).cause;
+  if (typeof cause !== "object" || cause === null) return null;
+  const constraint: unknown = (cause as { constraint?: unknown }).constraint;
+  if (typeof constraint !== "object" || constraint === null) return null;
+  const index: unknown = (constraint as { index?: unknown }).index;
+  return typeof index === "string" ? index : null;
+}
+
 function isActiveKeyUniqueViolation(err: unknown, message: string): boolean {
-  if (message.includes(ACTIVE_KEY_INDEX)) {
-    return true;
-  }
-  // A proper P2002 names the index or the field list; match those exactly.
   if (
     err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2002"
+    err.code === "P2002" &&
+    driverConstraintIndex(err) === ACTIVE_KEY_INDEX
   ) {
-    const target: unknown = err.meta?.target;
-    return (
-      target === ACTIVE_KEY_INDEX ||
-      (Array.isArray(target) && target.length === 1 && target[0] === "key")
-    );
+    return true;
   }
-  return false;
+  return message.includes(ACTIVE_KEY_INDEX);
 }
 
 /**
@@ -150,16 +157,6 @@ export function toPositionError(err: unknown): PositionError | null {
     );
   }
   return null;
-}
-
-// Prisma 7.6.0 throws this ReferenceError while building a unique-violation
-// error, so a lost race on the active-key index never reaches toPositionError
-// as a recognisable error.
-function isBrokenPrismaErrorConstruction(err: unknown): boolean {
-  return (
-    err instanceof ReferenceError &&
-    err.message.includes("Must call super constructor")
-  );
 }
 
 /**
@@ -202,15 +199,19 @@ export async function createPosition(
       ? await db.$transaction((tx) => run(tx))
       : await run(db);
   } catch (err) {
+    // The availability check ran inside the transaction, so a unique violation
+    // on the active-key index means a concurrent create won the race. Re-check
+    // outside the failed transaction so the reported reason reflects committed
+    // state; when it still passes, the violation maps to KEY_TAKEN below.
+    if (
+      "$transaction" in db &&
+      isActiveKeyUniqueViolation(err, collectMessages(err))
+    ) {
+      await assertPositionKeyAvailable(key, { db, now });
+    }
     const mapped = toPositionError(err);
     if (mapped) {
       throw mapped;
-    }
-    // The availability check ran inside the transaction, so a failure with
-    // Prisma's broken error construction means a concurrent create won the
-    // race. Re-check outside the failed transaction to report it as KEY_TAKEN.
-    if (isBrokenPrismaErrorConstruction(err) && "$transaction" in db) {
-      await assertPositionKeyAvailable(key, { db, now });
     }
     throw err;
   }
