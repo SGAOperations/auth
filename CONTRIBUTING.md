@@ -34,9 +34,10 @@ The `test` job runs in the `neon-test-branch` concurrency group so two PRs never
 
 Changes to `main` and `dev` go through a pull request, and the six checks above must pass. No approving review is required: the checks are the gate, and every change also goes through the pipeline's own review. Job names in `ci.yml` are the required check names, so renaming a job strands its check.
 
-The rules live in `.github/branch-protection.json`. A repository admin applies them with:
+The rules live in the repository's `main/dev` ruleset (Settings → Rules → Rulesets), not in classic branch protection. A repository admin maintains it there:
 
-```bash
-gh api --method PUT repos/SGAOperations/auth/branches/dev/protection --input .github/branch-protection.json
-gh api --method PUT repos/SGAOperations/auth/branches/main/protection --input .github/branch-protection.json
-```
+- Require a pull request, with 0 required approvals and all review threads resolved.
+- Require status checks to pass: `typecheck`, `lint`, `format`, `audit`, `migrations`, `test`. "Require branches to be up to date" is off.
+- Block force pushes.
+
+When a job is added, renamed or removed in `ci.yml`, update the ruleset's required checks in the same change. `.github/branch-protection.json` records the same check list for reference; it is not applied by any command.
