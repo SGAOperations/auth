@@ -2,8 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 
-// Starter catalog. AUTH-T73 (#85) completes it with the PA_TRANSFER_* and MFA_*
-// families and per-type metadata.
+// Starter catalog; PA_TRANSFER_* and MFA_* families to follow.
 export const AUDIT_EVENT_TYPES = [
   "LOGIN_SUCCESS",
   "LOGIN_FAILED",
@@ -90,7 +89,7 @@ export async function writeAuditEvent(
 
 export const AUDIT_ANONYMIZE_SETTING = "sgauth.audit_anonymize";
 
-// Opens the anonymization gate for one transaction (AUTH-T78). SET LOCAL is
+// Opens the anonymization gate for one transaction. SET LOCAL is
 // transaction-scoped, so it is safe behind Neon's transaction-mode pooler.
 export async function withAuditAnonymization<T>(
   client: PrismaClient,
