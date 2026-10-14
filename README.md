@@ -21,7 +21,7 @@ Internal authentication service
    npm install
    ```
 
-2. Copy `.env.example` to `.env` and fill in the connection strings for your personal Neon branch:
+2. Copy `.env.example` to `.env` and fill in every variable `.env.example` marks as required, starting with the connection strings for your personal Neon branch. Generate `BETTER_AUTH_SECRET` with `npx @better-auth/cli secret`. The app refuses to start with a missing or invalid variable and names each one.
 
    ```sh
    cp .env.example .env

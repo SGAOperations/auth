@@ -2,6 +2,7 @@ import "dotenv/config";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
+import { env } from "../src/lib/env";
 import {
   applySync,
   formatSummary,
@@ -11,7 +12,7 @@ import {
 } from "./seed/positions.js";
 
 // Connect to whatever database is specified by DATABASE_URL
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
 
 const adapter = new PrismaPg(pool);
 
@@ -21,7 +22,7 @@ const prisma = new PrismaClient({ adapter });
 // Addresses use the reserved .invalid TLD so no real mailbox can ever receive
 // a reset link for a seeded account, and neither email is marked verified.
 async function main() {
-  if (process.env.SGAUTH_ENV === "production") {
+  if (env.SGAUTH_ENV === "production") {
     throw new Error("Refusing to seed dev fixtures when SGAUTH_ENV=production");
   }
 

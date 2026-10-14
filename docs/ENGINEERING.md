@@ -26,14 +26,14 @@ Every pipeline agent reads this document before working. It defines the quality 
 - **Schema changes go through `prisma migrate`.** Each change lands as a new directory under `prisma/migrations/`, and committed migrations are never edited (`prisma/migrations/20260330032232_init/`).
 - **The generated client in `src/generated/prisma/` is build output.** It is gitignored and ESLint-ignored (`.gitignore`, `eslint.config.mjs`), and is never committed or edited.
 - **Request input is parsed with zod before use** in every route handler and server action. Never read raw request JSON, form data or search params into business logic unparsed. _(proposed, approved)_
-- **Environment variables are read only through `src/lib/env.ts`** (zod-parsed, as planned in the ticket set). Once that module exists, no other file reads `process.env` directly. Until then, add new variables to `.env.example` with a comment saying what they are for. _(proposed, approved)_
+- **Environment variables are read only through `src/lib/env.ts`** (zod-parsed). No other file under `src/` or `prisma/` reads `process.env` directly, and an ESLint rule enforces it. `env` is server-only at runtime, `publicEnv` holds `NEXT_PUBLIC_*` variables only, and every variable's shape lives in `src/lib/env-schema.ts`. Add a new variable there and to `.env.example` with a comment saying what it is for. _(proposed, approved)_
 - **Products key on the SGAuth user id (UUID v7)**; email and name come from the session _(design)_.
 - **Users are never hard-deleted.** Removal is deactivation (soft) or a tombstone (status `DELETED`, PII scrubbed, id kept) _(design)_.
 - **Admin invariants are enforced in two places:** the pure `authz.ts` module, and Postgres constraints or triggers as a backstop, for example the partial unique index on the single Primary Admin _(design)_.
 
 ## 3. Security
 
-- **Any `src/lib` module that touches the database, secrets or environment variables begins with `import "server-only"`**, as `src/lib/prisma.ts` does. _(proposed, approved)_
+- **Any `src/lib` module that touches the database, secrets or environment variables begins with `import "server-only"`**, as `src/lib/prisma.ts` does, except `src/lib/env.ts`, which is guarded at runtime instead. _(proposed, approved)_
 - **Secrets never get a `NEXT_PUBLIC_` prefix and never reach client components** (`.env.example`: service-role key "never expose to the client").
 - **Authorization decisions are made by pure functions in `src/lib/authz.ts`**, called server-side by every handler that needs them. The UI may hide controls, but it never enforces anything _(design)_. Admins grant or revoke admin for others only: never for themselves, and never on the Primary Admin.
 - **Every mutation enforces Origin/Referer** against the product registry. SameSite=Lax still sends the shared cookie on sibling-subdomain POSTs _(design)_.
@@ -63,6 +63,6 @@ Each item comes from something that has already gone wrong in this repository's 
 - [ ] Nothing under `src/generated/` or `docs/sgauth-design/out/` was hand-edited or committed outside its generator.
 - [ ] No new Supabase import, dependency, env var or API call.
 - [ ] Every new route handler or server action parses input with zod, runs `authz.ts` checks server-side, and enforces Origin on mutations.
-- [ ] Every new `src/lib` module that touches the DB, secrets or env starts with `import "server-only"`, and reads env through `src/lib/env.ts` once it exists.
+- [ ] Every new `src/lib` module that touches the DB, secrets or env starts with `import "server-only"`, and reads env through `src/lib/env.ts`.
 - [ ] New env vars are added to `.env.example`, and none that hold secrets are `NEXT_PUBLIC_`.
 - [ ] Security-relevant actions emit an `AuditEvent`, and security logic changes ship with tests.

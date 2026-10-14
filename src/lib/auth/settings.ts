@@ -4,20 +4,9 @@ import {
   parseSignupAllowlist,
   type SignupAllowlist,
 } from "@/lib/auth/signup-allowlist";
+import { authEnvSchema, normalizeEnv, type SgauthEnv } from "@/lib/env-schema";
 
-const SGAUTH_ENVS = ["production", "dev", "preview", "local"] as const;
-
-export type SgauthEnv = (typeof SGAUTH_ENVS)[number];
-
-export const authEnvSchema = z.object({
-  SGAUTH_ENV: z.enum(SGAUTH_ENVS),
-  BETTER_AUTH_SECRET: z.string().min(32),
-  VERCEL_BRANCH_URL: z.string().optional(),
-  VERCEL_URL: z.string().optional(),
-  SGAUTH_SIGNUP_ALLOWLIST: z.string().optional(),
-  SGAUTH_PREVIEW_GATE_PASSWORD: z.string().min(16).optional(),
-  SGAUTH_PREVIEW_GATE: z.enum(["on", "off"]).optional(),
-});
+export type { SgauthEnv };
 
 interface BaseURLInput {
   sgauthEnv: SgauthEnv;
@@ -54,22 +43,12 @@ function invalidEnv(lines: string[]): Error {
   return new Error(`Invalid auth environment:\n${lines.join("\n")}`);
 }
 
-// `.env.example` ships the optional gate variables as empty strings, which
-// mean "unset".
-function withoutEmptyGateVars(raw: Record<string, string | undefined>) {
-  const cleaned = { ...raw };
-  for (const key of [
-    "SGAUTH_SIGNUP_ALLOWLIST",
-    "SGAUTH_PREVIEW_GATE_PASSWORD",
-    "SGAUTH_PREVIEW_GATE",
-  ]) {
-    if (cleaned[key] === "") delete cleaned[key];
-  }
-  return cleaned;
-}
-
+// `.env.example` ships the optional variables as empty strings, which mean
+// "unset"; normalizeEnv maps them to undefined.
 export function parseAuthEnv(raw: Record<string, string | undefined>) {
-  const result = authEnvSchema.safeParse(withoutEmptyGateVars(raw));
+  const result = authEnvSchema.safeParse(
+    normalizeEnv(raw, Object.keys(authEnvSchema.shape)),
+  );
   if (!result.success) {
     throw invalidEnv(
       result.error.issues.map(
@@ -77,7 +56,10 @@ export function parseAuthEnv(raw: Record<string, string | undefined>) {
       ),
     );
   }
-  const env = result.data;
+  return toAuthSettings(result.data);
+}
+
+export function toAuthSettings(env: z.infer<typeof authEnvSchema>) {
   const baseURL = resolveBaseURL({
     sgauthEnv: env.SGAUTH_ENV,
     vercelBranchUrl: env.VERCEL_BRANCH_URL,

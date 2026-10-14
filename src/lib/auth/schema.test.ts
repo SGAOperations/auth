@@ -4,6 +4,7 @@ import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Prisma, PrismaClient } from "@/generated/prisma/client";
 
+// eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
 const url = process.env.TEST_DATABASE_URL;
 
 const DAY_MS = 24 * 60 * 60 * 1000;

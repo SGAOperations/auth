@@ -230,6 +230,7 @@ describe("formatSummary", () => {
   });
 });
 
+// eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
 const url = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!url)("applySync against the database", () => {

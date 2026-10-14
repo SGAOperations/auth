@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { parseAuthEnv } from "@/lib/auth/settings";
+import { toAuthSettings } from "@/lib/auth/settings";
+import { env } from "@/lib/env";
 import {
   GATE_COOKIE,
   GATE_PATH,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/preview-gate";
 
 // A bad environment throws at import, so every request fails closed.
-const settings = parseAuthEnv(process.env);
+const settings = toAuthSettings(env);
 const key = settings.previewGate
   ? deriveGateKey(settings.secret, settings.previewGate.password)
   : null;

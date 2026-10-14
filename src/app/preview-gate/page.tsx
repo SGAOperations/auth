@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { parseAuthEnv } from "@/lib/auth/settings";
+import { toAuthSettings } from "@/lib/auth/settings";
+import { env } from "@/lib/env";
 import {
   GATE_COOKIE,
   UNLOCK_PATH,
@@ -44,8 +45,7 @@ export default async function PreviewGatePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // Second process.env read for auth until src/lib/env.ts (AUTH-T07) exists.
-  const settings = parseAuthEnv(process.env);
+  const settings = toAuthSettings(env);
   if (!settings.previewGate) notFound();
 
   const parsed = searchParamsSchema.safeParse(await searchParams);

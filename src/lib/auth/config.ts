@@ -3,12 +3,12 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/prisma";
-import { parseAuthEnv } from "@/lib/auth/settings";
+import { env } from "@/lib/env";
+import { toAuthSettings } from "@/lib/auth/settings";
 import { signupAllowlist } from "@/lib/auth/signup-allowlist-plugin";
 import { buildCookieOptions, resolveCookiePolicy } from "@/lib/auth/cookies";
 
-// Single process.env read for auth until src/lib/env.ts (AUTH-T07) exists.
-const settings = parseAuthEnv(process.env);
+const settings = toAuthSettings(env);
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),

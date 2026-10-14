@@ -1,6 +1,7 @@
 import "server-only";
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { env } from "@/lib/env";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -15,7 +16,7 @@ function createPrismaClient() {
   // adapter-pg (TCP), not adapter-neon: Node runtime, no WebSocket needed.
   const adapter = new PrismaPg(
     {
-      connectionString: process.env.DATABASE_URL,
+      connectionString: env.DATABASE_URL,
       max: POOL_MAX,
       idleTimeoutMillis: POOL_IDLE_TIMEOUT_MS,
       connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
@@ -30,6 +31,6 @@ function createPrismaClient() {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
+if (env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
