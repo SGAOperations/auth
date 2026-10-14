@@ -34,6 +34,14 @@ export const serverShape = z.object({
   POSTHOG_KEY: z.string().optional(),
   POSTHOG_HOST: z.url().optional(),
   CRON_SECRET: z.string().min(32).optional(),
+  SEED_PRIMARY_ADMIN_EMAIL: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.email())
+    .optional(),
+  SEED_PRIMARY_ADMIN_PASSWORD: z.string().min(12).max(128).optional(),
+  SEED_PRIMARY_ADMIN_NAME: z.string().trim().min(1).max(100).optional(),
 });
 
 // Picked from the unrefined shape: zod refuses `.pick()` on refined objects.
@@ -54,9 +62,30 @@ const SERVICE_GROUPS = [
   ["RESEND_API_KEY", "RESEND_FROM_EMAIL"],
   ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
   ["POSTHOG_KEY", "POSTHOG_HOST"],
+  // Not a service: the local seed's Primary Admin credentials.
+  ["SEED_PRIMARY_ADMIN_EMAIL", "SEED_PRIMARY_ADMIN_PASSWORD"],
+] as const;
+
+// A seed password must never sit in the env of a deployed or shared app.
+const LOCAL_ONLY_KEYS = [
+  "SEED_PRIMARY_ADMIN_EMAIL",
+  "SEED_PRIMARY_ADMIN_PASSWORD",
+  "SEED_PRIMARY_ADMIN_NAME",
 ] as const;
 
 export const serverSchema = serverShape.superRefine((env, ctx) => {
+  if (env.SGAUTH_ENV !== "local") {
+    for (const key of LOCAL_ONLY_KEYS) {
+      if (env[key] !== undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: "only allowed when SGAUTH_ENV=local",
+        });
+      }
+    }
+  }
+
   for (const group of SERVICE_GROUPS) {
     const isSet = group.some((key) => env[key] !== undefined);
     if (!isSet) continue;
