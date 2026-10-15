@@ -23,7 +23,7 @@ export const SESSION_OPTIONS = {
   cookieCache: { enabled: false },
   // Lets the adapter write the cap on insert and return it on the session
   // object. `freshAge` is deliberately unset: it gates Better Auth's own fresh
-  // session endpoints, and re-auth is `lastReauthAt` (#44).
+  // session endpoints, and re-auth is tracked by `lastReauthAt` instead.
   additionalFields: {
     absoluteExpiresAt: { type: "date", required: false, input: false },
   },
