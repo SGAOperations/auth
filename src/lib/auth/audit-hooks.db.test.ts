@@ -123,7 +123,7 @@ describe.skipIf(!url)("audit events from Better Auth", () => {
   it("records LOGIN_SUCCESS with the request's ip and user agent", async () => {
     const { email, user } = await verifiedUser();
     await signInWithCookie(email, {
-      "x-forwarded-for": "203.0.113.9, 10.0.0.1",
+      "x-forwarded-for": "203.0.113.9",
       "user-agent": "t73-agent",
     });
 

@@ -177,7 +177,7 @@ Neon exposes two hosts per branch, so the app needs two connection strings.
 
 ## Tests
 
-Run `npm test`. The database-backed suites run only when `TEST_DATABASE_URL` is set. It must be the pooled URL of a throwaway, already migrated branch, never `main` or `dev`.
+Run `npm run test:unit` for the suites that need no database. `npm test` also runs the database-backed suites (`*.db.test.ts`) and needs `TEST_DATABASE_URL` and `TEST_DIRECT_URL` pointing at your personal `dev-*` Neon branch, never `main`, `dev` or `test`. Rows are deleted from every table before each database suite (append-only tables and the Primary Admin row are left alone). See [CONTRIBUTING.md](CONTRIBUTING.md#running-tests).
 
 ## Troubleshooting
 

@@ -26,6 +26,8 @@ const eslintConfig = defineConfig([
     },
   },
   { files: ["src/lib/env.ts"], rules: { "no-restricted-syntax": "off" } },
+  // The test harness reads TEST_* variables that are deliberately outside the app env schema.
+  { files: ["src/test/**/*.ts"], rules: { "no-restricted-syntax": "off" } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -33,6 +35,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Coverage reports:
+    "coverage/**",
     // Generated files:
     "src/generated/**",
   ]),

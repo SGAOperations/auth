@@ -1,3 +1,4 @@
+import { Client } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
@@ -67,15 +68,32 @@ describe.skipIf(!url)("audit event append-only", () => {
     expect(await prisma.auditEvent.count({ where: { targetId } })).toBe(1);
   });
 
-  it("rejects TRUNCATE", async () => {
-    // The transaction throws afterwards anyway, so a missing trigger can never
-    // wipe the table.
-    await expect(
-      prisma.$transaction(async (tx) => {
-        await tx.$executeRaw`TRUNCATE "AuditEvent"`;
-        throw new Error("rolled back on purpose");
-      }),
-    ).rejects.toThrow(APPEND_ONLY);
+  // Which layer refuses TRUNCATE depends on the role: the runtime role holds no
+  // TRUNCATE privilege (permission denied, the trigger is never reached), while
+  // a role that does hold it hits the append-only trigger. Both are rejections
+  // and both are accepted deliberately; what matters is that no role can
+  // truncate the table. Each attempt is rolled back and the rows are counted
+  // afterwards, so a missing guard can never wipe the table.
+  it.each([
+    ["runtime", url],
+    // eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
+    ["migration", process.env.TEST_DIRECT_URL],
+  ])("rejects TRUNCATE as the %s role", async (role, connectionString) => {
+    // One event per role: rows cannot be deleted, so a shared targetId would
+    // make the second role's count 2.
+    const { targetId } = await createEvent(`truncate-${role}`);
+    const client = new Client({ connectionString });
+    await client.connect();
+    try {
+      await client.query("BEGIN");
+      await expect(client.query(`TRUNCATE "AuditEvent"`)).rejects.toThrow(
+        new RegExp(`${APPEND_ONLY}|permission denied for table AuditEvent`),
+      );
+    } finally {
+      await client.query("ROLLBACK");
+      await client.end();
+    }
+    expect(await prisma.auditEvent.count({ where: { targetId } })).toBe(1);
   });
 
   it("lets the anonymization path null ip/userAgent and rewrite metadata", async () => {
