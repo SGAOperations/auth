@@ -1,7 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
-import { parseAuditEvent, writeAuditEvent } from "@/lib/audit";
+import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import {
+  audit,
+  auditRequestInfo,
+  parseAuditEvent,
+  withAuditContext,
+  withAuditTransaction,
+  writeAuditEvent,
+} from "@/lib/audit";
+
+const requestHeaders = vi.hoisted(() => vi.fn());
+vi.mock("next/headers", () => ({ headers: requestHeaders }));
+
+afterEach(() => {
+  requestHeaders.mockReset();
+});
 
 function fakeDb() {
   const create = vi.fn();
@@ -10,6 +24,10 @@ function fakeDb() {
     "auditEvent"
   >;
   return { db, create };
+}
+
+function lastData(create: ReturnType<typeof vi.fn>) {
+  return create.mock.calls.at(-1)?.[0].data;
 }
 
 describe("parseAuditEvent", () => {
@@ -30,6 +48,7 @@ describe("parseAuditEvent", () => {
         type: "LOGIN_SUCCESS",
         actorType: "USER",
         actorUserId: "u1",
+        metadata: { method: "password" },
       }),
     ).not.toThrow();
     expect(() =>
@@ -45,7 +64,11 @@ describe("parseAuditEvent", () => {
 
   it("rejects a USER actor without an id and a SYSTEM actor with one", () => {
     expect(() =>
-      parseAuditEvent({ type: "LOGIN_SUCCESS", actorType: "USER" }),
+      parseAuditEvent({
+        type: "LOGIN_SUCCESS",
+        actorType: "USER",
+        metadata: { method: "password" },
+      }),
     ).toThrow(ZodError);
     expect(() =>
       parseAuditEvent({
@@ -57,7 +80,11 @@ describe("parseAuditEvent", () => {
   });
 
   it("requires targetType and targetId together", () => {
-    const base = { type: "USER_CREATED", actorType: "SYSTEM" };
+    const base = {
+      type: "USER_CREATED",
+      actorType: "SYSTEM",
+      metadata: { source: "system" },
+    };
     expect(() => parseAuditEvent({ ...base, targetType: "USER" })).toThrow(
       ZodError,
     );
@@ -94,6 +121,59 @@ describe("parseAuditEvent", () => {
       }),
     ).toThrow(ZodError);
   });
+
+  it("rejects a metadata key the catalog does not define", () => {
+    let error: unknown;
+    try {
+      parseAuditEvent({
+        type: "JWKS_ROTATED",
+        actorType: "SYSTEM",
+        metadata: { email: "x@northeastern.edu" },
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(ZodError);
+    expect((error as ZodError).issues[0]?.path[0]).toBe("metadata");
+  });
+
+  it("requires the metadata a type defines and checks its values", () => {
+    const base = { type: "LOGIN_SUCCESS", actorType: "SYSTEM" };
+    expect(() => parseAuditEvent(base)).toThrow(ZodError);
+    expect(() =>
+      parseAuditEvent({ ...base, metadata: { method: "carrier_pigeon" } }),
+    ).toThrow(ZodError);
+  });
+
+  it("rejects a targetType other than the one the type targets", () => {
+    const base = { type: "LOGOUT", actorType: "SYSTEM", targetId: "s1" };
+    let error: unknown;
+    try {
+      parseAuditEvent({ ...base, targetType: "USER" });
+    } catch (caught) {
+      error = caught;
+    }
+    expect((error as ZodError).issues[0]?.path).toEqual(["targetType"]);
+    expect(() =>
+      parseAuditEvent({ ...base, targetType: "SESSION" }),
+    ).not.toThrow();
+  });
+
+  it("allows the BREAK_GLASS actor only on BREAK_GLASS_PA_RECOVERY", () => {
+    expect(() =>
+      parseAuditEvent({
+        type: "LOGIN_SUCCESS",
+        actorType: "BREAK_GLASS",
+        metadata: { method: "password" },
+      }),
+    ).toThrow(ZodError);
+    expect(() =>
+      parseAuditEvent({
+        type: "BREAK_GLASS_PA_RECOVERY",
+        actorType: "SYSTEM",
+      }),
+    ).toThrow(ZodError);
+  });
 });
 
 describe("writeAuditEvent", () => {
@@ -111,6 +191,7 @@ describe("writeAuditEvent", () => {
       type: "LOGIN_SUCCESS",
       actorType: "USER",
       actorUserId: "u1",
+      metadata: { method: "password" },
       ip: "203.0.113.7",
     });
     expect(create).toHaveBeenCalledTimes(1);
@@ -120,8 +201,151 @@ describe("writeAuditEvent", () => {
         actorType: "USER",
         actorUserId: "u1",
         ip: "203.0.113.7",
-        metadata: {},
+        metadata: { method: "password" },
       }),
     });
+  });
+});
+
+describe("auditRequestInfo", () => {
+  const info = (init: Record<string, string>) =>
+    auditRequestInfo(new Headers(init));
+
+  it("prefers x-real-ip over the first x-forwarded-for hop", () => {
+    expect(
+      info({ "x-real-ip": "203.0.113.1", "x-forwarded-for": "203.0.113.2" }).ip,
+    ).toBe("203.0.113.1");
+    expect(info({ "x-forwarded-for": " 203.0.113.2 , 10.0.0.1" }).ip).toBe(
+      "203.0.113.2",
+    );
+  });
+
+  it("returns null, never a placeholder, for a missing or malformed ip", () => {
+    expect(info({}).ip).toBeNull();
+    expect(info({ "x-forwarded-for": "unknown, 1.2.3.4" }).ip).toBeNull();
+    expect(info({ "x-real-ip": "not-an-ip" }).ip).toBeNull();
+  });
+
+  it("reads the user agent", () => {
+    expect(info({ "user-agent": "vitest" }).userAgent).toBe("vitest");
+    expect(info({}).userAgent).toBeNull();
+  });
+});
+
+describe("audit", () => {
+  const system = { actorType: "SYSTEM" } as const;
+
+  it("writes through options.db over the context's db", async () => {
+    const option = fakeDb();
+    const ambient = fakeDb();
+    await withAuditContext({ db: ambient.db }, () =>
+      audit({ type: "JWKS_ROTATED", ...system }, { db: option.db }),
+    );
+    expect(option.create).toHaveBeenCalledTimes(1);
+    expect(ambient.create).not.toHaveBeenCalled();
+  });
+
+  it("writes through the transaction inside withAuditTransaction", async () => {
+    const tx = fakeDb();
+    const client = {
+      $transaction: (fn: (tx: unknown) => unknown) => fn(tx.db),
+    } as unknown as PrismaClient;
+
+    await withAuditTransaction(client, async () => {
+      await audit({ type: "JWKS_ROTATED", ...system });
+    });
+    expect(tx.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws without an actor and writes nothing", async () => {
+    const { db, create } = fakeDb();
+    await expect(audit({ type: "JWKS_ROTATED" }, { db })).rejects.toThrow(
+      "no actor for JWKS_ROTATED",
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the context actor, and the event's own actor wins", async () => {
+    const { db, create } = fakeDb();
+    await withAuditContext(
+      { actor: { actorType: "USER", actorUserId: "ctx-user" } },
+      async () => {
+        await audit({ type: "PASSWORD_REHASHED" }, { db });
+        expect(lastData(create)).toMatchObject({
+          actorType: "USER",
+          actorUserId: "ctx-user",
+        });
+        await audit({ type: "PASSWORD_REHASHED", ...system }, { db });
+        expect(lastData(create)).toMatchObject({ actorType: "SYSTEM" });
+        expect(lastData(create).actorUserId).toBeUndefined();
+      },
+    );
+  });
+
+  it("takes ip and user agent from options.headers, truncating the agent", async () => {
+    const { db, create } = fakeDb();
+    await audit(
+      { type: "JWKS_ROTATED", ...system },
+      {
+        db,
+        headers: new Headers({
+          "x-real-ip": "203.0.113.1",
+          "x-forwarded-for": "203.0.113.2",
+          "user-agent": "a".repeat(600),
+        }),
+      },
+    );
+    const data = lastData(create);
+    expect(data.ip).toBe("203.0.113.1");
+    expect(data.userAgent).toHaveLength(512);
+  });
+
+  it("records a null ip for an unusable forwarded header", async () => {
+    const { db, create } = fakeDb();
+    await audit(
+      { type: "JWKS_ROTATED", ...system },
+      {
+        db,
+        headers: new Headers({ "x-forwarded-for": "unknown, 1.2.3.4" }),
+      },
+    );
+    expect(lastData(create).ip).toBeNull();
+  });
+
+  it("uses next/headers as the last fallback", async () => {
+    const { db, create } = fakeDb();
+    requestHeaders.mockResolvedValue(
+      new Headers({ "x-real-ip": "198.51.100.4", "user-agent": "next-ua" }),
+    );
+    await audit({ type: "JWKS_ROTATED", ...system }, { db });
+    expect(lastData(create)).toMatchObject({
+      ip: "198.51.100.4",
+      userAgent: "next-ua",
+    });
+  });
+
+  it("records nulls when there is no request scope", async () => {
+    const { db, create } = fakeDb();
+    requestHeaders.mockRejectedValue(new Error("outside a request scope"));
+    await audit({ type: "JWKS_ROTATED", ...system }, { db });
+    const data = lastData(create);
+    expect(data.ip).toBeNull();
+    expect(data.userAgent).toBeUndefined();
+  });
+
+  it("rejects wrong metadata before touching the database", async () => {
+    const { db, create } = fakeDb();
+    await expect(
+      audit(
+        {
+          type: "LOGIN_SUCCESS",
+          ...system,
+          // @ts-expect-error -- method must be one of the catalog's values
+          metadata: { method: "carrier_pigeon" },
+        },
+        { db },
+      ),
+    ).rejects.toBeInstanceOf(ZodError);
+    expect(create).not.toHaveBeenCalled();
   });
 });

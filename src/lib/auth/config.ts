@@ -1,12 +1,11 @@
 import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
-import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { buildAuthPlugins } from "@/lib/auth/plugins";
 import { logger, logLevel } from "@/lib/log";
 import { toAuthSettings } from "@/lib/auth/settings";
-import { signupAllowlist } from "@/lib/auth/signup-allowlist-plugin";
 import {
   assertSecureCookieConfig,
   buildCookieOptions,
@@ -50,11 +49,5 @@ export const auth = betterAuth({
   session: { cookieCache: { enabled: false } },
   // No DB-backed limiter table (AUTH-T15); AUTH-T63 replaces this with Upstash and disables the built-in limiter.
   rateLimit: { storage: "memory" },
-  // nextCookies must stay the last plugin.
-  plugins: [
-    ...(settings.signupAllowlist
-      ? [signupAllowlist(settings.signupAllowlist)]
-      : []),
-    nextCookies(),
-  ],
+  plugins: buildAuthPlugins(settings.signupAllowlist),
 });

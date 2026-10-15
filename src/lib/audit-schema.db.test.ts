@@ -31,7 +31,7 @@ describe.skipIf(!url)("audit event append-only", () => {
       actorType: "SYSTEM",
       targetType: "USER",
       targetId,
-      metadata: { email: "x@northeastern.edu" },
+      metadata: { source: "system" },
       ip: "203.0.113.7",
       userAgent: "vitest",
     });
