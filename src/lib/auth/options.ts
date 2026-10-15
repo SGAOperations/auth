@@ -15,6 +15,7 @@ import {
   SESSION_OPTIONS,
   initialSessionWindow,
 } from "@/lib/auth/session-lifetime";
+import { createAuthAuditHooks } from "@/lib/auth/audit-hooks";
 import { setRequestUserId } from "@/lib/log/context";
 
 /**
@@ -58,6 +59,8 @@ export function buildAuthOptions({
   trustedOrigins,
   advanced,
 }: AuthOptionsInput) {
+  const auditHooks = createAuthAuditHooks(prisma);
+
   return {
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     baseURL,
@@ -79,6 +82,7 @@ export function buildAuthOptions({
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       requireEmailVerification: true,
       autoSignIn: false,
+      onPasswordReset: auditHooks.passwordReset,
     },
     // Puts `status` on session.user. Clients can never set it.
     user: {
@@ -92,6 +96,7 @@ export function buildAuthOptions({
       beforeEmailVerification: async (user) => {
         await prisma.session.deleteMany({ where: { userId: user.id } });
       },
+      afterEmailVerification: auditHooks.emailVerified,
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
@@ -111,6 +116,7 @@ export function buildAuthOptions({
         };
       }),
       after: createAuthMiddleware(async (ctx) => {
+        await auditHooks.afterEndpoint(ctx);
         if (ctx.path !== "/get-session") return;
         const parsed = sessionResult.safeParse(ctx.context.returned);
         if (!parsed.success || parsed.data.user.status === "ACTIVE") return;
@@ -137,6 +143,7 @@ export function buildAuthOptions({
             }
             return { data: { ...user, email: normalizeEmail(user.email) } };
           },
+          after: auditHooks.userCreated,
         },
       },
       session: {
@@ -176,7 +183,11 @@ export function buildAuthOptions({
             } catch (error) {
               ctx?.context.logger.error("Failed to record lastLoginAt", error);
             }
+            await auditHooks.sessionCreated(session, ctx);
           },
+        },
+        delete: {
+          after: auditHooks.sessionDeleted,
         },
       },
     },
