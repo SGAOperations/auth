@@ -9,8 +9,30 @@ const ACCEPTED_TYPES = [
 ];
 const MAX_BYTES = 16 * 1024;
 
+// Reads the body as a stream and gives up once it passes MAX_BYTES, so a
+// chunked request with no Content-Length cannot be buffered whole.
+async function readBounded(request: Request): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let received = 0;
+  let text = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > MAX_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
 // Unauthenticated on purpose: browsers send reports without credentials and
-// no reliable Origin. The only effect is a redacted log line.
+// no reliable Origin. This is the sanctioned exception to the Origin rule in
+// docs/ENGINEERING.md section 3. The only effect is a redacted log line.
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   const mediaType = contentType.split(";")[0].trim().toLowerCase();
@@ -23,10 +45,8 @@ export async function POST(request: Request) {
     return new Response(null, { status: 413 });
   }
 
-  const text = await request.text();
-  if (new TextEncoder().encode(text).length > MAX_BYTES) {
-    return new Response(null, { status: 413 });
-  }
+  const text = await readBounded(request);
+  if (text === null) return new Response(null, { status: 413 });
 
   let json: unknown;
   try {
