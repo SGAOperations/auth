@@ -21,6 +21,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     reason:
       "preview-environment password gate; 404 outside preview; no identity or account state",
   },
+  "src/app/api/csp-report/route.ts": {
+    kind: "exempt",
+    reason:
+      "browser CSP violation reports; writes only an advisory log line, no account or session state",
+  },
 };
 
 const NO_SOCIAL = "no social providers are configured";

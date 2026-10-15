@@ -7,6 +7,10 @@ export const SGAUTH_ENVS = ["production", "dev", "preview", "local"] as const;
 
 export type SgauthEnv = (typeof SGAUTH_ENVS)[number];
 
+export const CSP_MODES = ["report-only", "enforce"] as const;
+
+export type CspMode = (typeof CSP_MODES)[number];
+
 const postgresUrl = z
   .url()
   .refine(
@@ -21,12 +25,14 @@ export const serverShape = z.object({
     .default("development"),
   DATABASE_URL: postgresUrl,
   BETTER_AUTH_SECRET: z.string().min(32),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).optional(),
   VERCEL_ENV: z.string().optional(),
   VERCEL_BRANCH_URL: z.string().optional(),
   VERCEL_URL: z.string().optional(),
   SGAUTH_SIGNUP_ALLOWLIST: z.string().optional(),
   SGAUTH_PREVIEW_GATE_PASSWORD: z.string().min(16).optional(),
   SGAUTH_PREVIEW_GATE: z.enum(["on", "off"]).optional(),
+  SGAUTH_CSP_MODE: z.enum(CSP_MODES).default("report-only"),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.email().optional(),
   UPSTASH_REDIS_REST_URL: z.url().optional(),

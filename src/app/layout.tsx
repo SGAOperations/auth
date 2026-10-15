@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { connection } from "next/server";
 import { EnvironmentBanner } from "@/components/environment-banner";
 import { env } from "@/lib/env";
 import "./globals.css";
@@ -22,11 +23,14 @@ export const metadata: Metadata = {
   }),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Every page must render per request to carry the CSP nonce; doing it in the
+  // root layout covers future pages.
+  await connection();
   return (
     <html
       lang="en"
