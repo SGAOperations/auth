@@ -1,21 +1,10 @@
 #!/usr/bin/env node
-// Daily Neon Free-plan quota monitor (AUTH-T101). Reads the project's compute
-// usage for the current monthly period from the Neon API and emails the alert
-// recipients through Resend when usage crosses 50%, 70%, 85% or 100% of the
-// Free plan's 100 CU-hour quota, with a projected exhaustion date.
-//
-// At 100% Neon suspends the compute until the period resets, which takes every
-// SGA login down at once. 85% is the upgrade trigger in
-// docs/runbooks/neon-upgrade.md.
-//
-// Each threshold is emailed once per period. The state file (the workflow keeps
-// it in the Actions cache) records which thresholds were already sent, and it
-// is written only after a successful send and never in test mode, so a test run
-// cannot suppress a real alert. Usage that cannot be read or validated fails
-// the run rather than alerting on a guess.
-//
-// This is CI tooling, so it reads `process.env` directly. The `src/lib/env.ts`
-// rule in docs/ENGINEERING.md section 2 covers application code only.
+// Neon Free-plan quota monitor: emails (Resend) at 50/70/85/100% of the 100
+// CU-hour monthly quota, with a projected exhaustion date. 85% is the upgrade
+// trigger in docs/runbooks/neon-upgrade.md.
+// State file (Actions cache) records sent thresholds; written only after a
+// successful send, never in test mode. Unreadable usage fails the run.
+// CI tooling, so it reads process.env directly (the env.ts rule is app-only).
 //
 // Usage: NEON_API_KEY=... NEON_PROJECT_ID=... RESEND_API_KEY=... NEON_QUOTA_ALERT_TO=a@x,b@x \
 //   node scripts/neon-quota-monitor.mjs [--dry-run] [--quota-cu-hours <n>] [--state <path>]

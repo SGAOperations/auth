@@ -1,19 +1,10 @@
-# Daily Neon Free-plan quota monitor (AUTH-T101). Reads the project's compute
-# usage from the Neon API and emails the alert recipients through Resend at
-# 50%, 70%, 85% and 100% of the monthly 100 CU-hour quota, with a projected
-# exhaustion date. 85% or any suspension is the upgrade trigger in
-# docs/runbooks/neon-upgrade.md.
+# Daily Neon quota alerts at 50/70/85/100% (85% is the upgrade trigger in
+# docs/runbooks/neon-upgrade.md). A workflow because no Vercel cron or jobs
+# route exists yet.
 #
-# This is a GitHub Actions job rather than a Vercel cron (AUTH-T05) or an
-# /api/jobs route (AUTH-T38) because neither exists yet; AUTH-T38 may move it
-# behind its runner later with the same thresholds, deduplication and copy.
-#
-# Which thresholds were already sent lives in the Actions cache. A lost cache
-# can only re-send an alert, never skip one. Test runs (dry_run or a lowered
-# quota) never save that state.
-#
-# This job is not a required check. Scheduled workflows run only from the
-# default branch.
+# Sent thresholds live in the Actions cache: a lost cache can re-send an alert,
+# never skip one. Test runs (dry_run or lowered quota) never save state.
+# Scheduled runs happen only from the default branch.
 name: Neon quota monitor
 
 on:
@@ -52,8 +43,14 @@ jobs:
           key: neon-quota-state-${{ github.run_id }}
           restore-keys: neon-quota-state-
       - id: monitor
-        run: node scripts/neon-quota-monitor.mjs --state .neon-quota/state.json ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.quota_cu_hours != '' && format('--quota-cu-hours {0}', inputs.quota_cu_hours) || '' }}
+        run: |
+          args=(--state .neon-quota/state.json)
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$QUOTA_CU_HOURS" ]; then args+=(--quota-cu-hours "$QUOTA_CU_HOURS"); fi
+          node scripts/neon-quota-monitor.mjs "${args[@]}"
         env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          QUOTA_CU_HOURS: ${{ inputs.quota_cu_hours }}
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
