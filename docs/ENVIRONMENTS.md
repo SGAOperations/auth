@@ -33,7 +33,7 @@ Every variable set in Vercel, by scope. "Preview (`dev`)" is the branch-specific
 Notes:
 
 - The `VERCEL_*` variables require "Automatically expose System Environment Variables" to stay on.
-- `TEST_DATABASE_URL` and `TEST_DIRECT_URL` are local and CI only. It is never set in Vercel.
+- `TEST_DATABASE_URL` and `TEST_DIRECT_URL` are local and CI only. They are never set in Vercel.
 - The Development scope is either filled as shown or left empty. Local development uses `.env`.
 - Later tickets add their own rows (Resend, Upstash, PostHog, `CRON_SECRET`).
 

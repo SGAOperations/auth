@@ -158,6 +158,8 @@ jobs:
           path: ~/.cache/prisma
           key: prisma-engines-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx prisma generate
+        env:
+          DIRECT_URL: "postgresql://placeholder"
       - name: Reset Neon test branch
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
