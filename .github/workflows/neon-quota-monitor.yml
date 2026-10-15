@@ -1,0 +1,66 @@
+# Daily Neon Free-plan quota monitor (AUTH-T101). Reads the project's compute
+# usage from the Neon API and emails the alert recipients through Resend at
+# 50%, 70%, 85% and 100% of the monthly 100 CU-hour quota, with a projected
+# exhaustion date. 85% or any suspension is the upgrade trigger in
+# docs/runbooks/neon-upgrade.md.
+#
+# This is a GitHub Actions job rather than a Vercel cron (AUTH-T05) or an
+# /api/jobs route (AUTH-T38) because neither exists yet; AUTH-T38 may move it
+# behind its runner later with the same thresholds, deduplication and copy.
+#
+# Which thresholds were already sent lives in the Actions cache. A lost cache
+# can only re-send an alert, never skip one. Test runs (dry_run or a lowered
+# quota) never save that state.
+#
+# This job is not a required check. Scheduled workflows run only from the
+# default branch.
+name: Neon quota monitor
+
+on:
+  schedule:
+    - cron: "41 13 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log what would be sent without emailing or saving state
+        type: boolean
+        default: false
+      quota_cu_hours:
+        description: "Test only: lower the quota to force alerts; alert state is not saved"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-quota-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache/restore@v4
+        with:
+          path: .neon-quota/state.json
+          key: neon-quota-state-${{ github.run_id }}
+          restore-keys: neon-quota-state-
+      - id: monitor
+        run: node scripts/neon-quota-monitor.mjs --state .neon-quota/state.json ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.quota_cu_hours != '' && format('--quota-cu-hours {0}', inputs.quota_cu_hours) || '' }}
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NEON_QUOTA_ALERT_TO: ${{ secrets.NEON_QUOTA_ALERT_TO }}
+          NEON_QUOTA_ALERT_FROM: ${{ vars.NEON_QUOTA_ALERT_FROM }}
+      - uses: actions/cache/save@v4
+        if: always() && !inputs.dry_run && inputs.quota_cu_hours == '' && hashFiles('.neon-quota/state.json') != ''
+        with:
+          path: .neon-quota/state.json
+          key: neon-quota-state-${{ github.run_id }}
