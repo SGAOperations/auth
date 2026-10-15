@@ -24,6 +24,7 @@ const EXEMPT = [
   "/api/auth/get-session",
   "/api/sgauth/session",
   "/api/health",
+  "/api/csp-report",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ];
