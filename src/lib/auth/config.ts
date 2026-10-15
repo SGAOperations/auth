@@ -4,6 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { logger, logLevel } from "@/lib/log";
 import { toAuthSettings } from "@/lib/auth/settings";
 import { signupAllowlist } from "@/lib/auth/signup-allowlist-plugin";
 import {
@@ -35,6 +36,15 @@ export const auth = betterAuth({
     trustedOrigins: settings.trustedOrigins,
     advanced,
   }),
+  // Better Auth's own lines go through the structured, redacting logger.
+  logger:
+    logLevel === "silent"
+      ? { disabled: true }
+      : {
+          level: logLevel,
+          log: (level, message, ...args: unknown[]) =>
+            logger[level](message, args.length > 0 ? { args } : undefined),
+        },
   // No session_data cookie: revocation must be immediate. Mirrored in
   // cookies.test.ts.
   session: { cookieCache: { enabled: false } },
