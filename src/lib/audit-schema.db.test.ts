@@ -78,8 +78,10 @@ describe.skipIf(!url)("audit event append-only", () => {
     ["runtime", url],
     // eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
     ["migration", process.env.TEST_DIRECT_URL],
-  ])("rejects TRUNCATE as the %s role", async (_role, connectionString) => {
-    const { targetId } = await createEvent("truncate");
+  ])("rejects TRUNCATE as the %s role", async (role, connectionString) => {
+    // One event per role: rows cannot be deleted, so a shared targetId would
+    // make the second role's count 2.
+    const { targetId } = await createEvent(`truncate-${role}`);
     const client = new Client({ connectionString });
     await client.connect();
     try {
