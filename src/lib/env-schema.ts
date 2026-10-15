@@ -79,7 +79,27 @@ const LOCAL_ONLY_KEYS = [
   "SEED_PRIMARY_ADMIN_NAME",
 ] as const;
 
+// Keys a deployed environment cannot run without. Later service tickets extend
+// this table. The service groups above still apply on top of it.
+const REQUIRED_IN: Partial<
+  Record<keyof typeof serverShape.shape, readonly SgauthEnv[]>
+> = {
+  UPSTASH_REDIS_REST_URL: ["production", "dev"],
+  UPSTASH_REDIS_REST_TOKEN: ["production", "dev"],
+};
+
 export const serverSchema = serverShape.superRefine((env, ctx) => {
+  for (const [key, envs] of Object.entries(REQUIRED_IN)) {
+    const name = key as keyof typeof REQUIRED_IN;
+    if (env[name] === undefined && envs.includes(env.SGAUTH_ENV)) {
+      ctx.addIssue({
+        code: "custom",
+        path: [name],
+        message: `required when SGAUTH_ENV=${env.SGAUTH_ENV}`,
+      });
+    }
+  }
+
   if (env.SGAUTH_ENV !== "local") {
     for (const key of LOCAL_ONLY_KEYS) {
       if (env[key] !== undefined) {
