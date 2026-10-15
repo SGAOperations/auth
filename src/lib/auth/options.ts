@@ -11,6 +11,10 @@ import {
   isAllowedSignupEmail,
   normalizeEmail,
 } from "@/lib/auth/policy";
+import {
+  SESSION_OPTIONS,
+  initialSessionWindow,
+} from "@/lib/auth/session-lifetime";
 import { setRequestUserId } from "@/lib/log/context";
 
 /**
@@ -59,7 +63,16 @@ export function buildAuthOptions({
     baseURL,
     secret,
     trustedOrigins,
-    advanced: { ...advanced, database: { generateId: false } },
+    session: SESSION_OPTIONS,
+    advanced: {
+      ...advanced,
+      database: { generateId: false },
+      // Vercel overwrites x-forwarded-for with the client IP, so it is a single
+      // value. Better Auth trusts only a single value and stores "" for a
+      // chain, whose leftmost hop is spoofable. This is its default, written
+      // out to record the decision. The rate limiter keys on the same header.
+      ipAddress: { ipAddressHeaders: ["x-forwarded-for"] },
+    },
     emailAndPassword: {
       enabled: true,
       minPasswordLength: PASSWORD_MIN_LENGTH,
@@ -141,6 +154,15 @@ export function buildAuthOptions({
                 AUTH_ERROR_CODES.ACCOUNT_DEACTIVATED,
               );
             }
+            return {
+              data: {
+                ...session,
+                ...initialSessionWindow({
+                  createdAt: session.createdAt,
+                  expiresAt: session.expiresAt,
+                }),
+              },
+            };
           },
           // Covers every login path, including auto sign-in after verification.
           after: async (session, ctx) => {
