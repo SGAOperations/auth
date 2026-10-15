@@ -13,8 +13,8 @@ to the Free maximum, **6 hours**. That means:
 - A problem noticed the next morning is probably already outside the window.
   Act fast, and do not wait on a second opinion before starting the restore if
   the damage is clearly recent and ongoing.
-- AUTH-T101 revisits this: the Launch plan extends the window and is part of
-  that ticket's upgrade runbook.
+- The Launch plan extends the window to 7 days; see
+  [neon-upgrade.md](neon-upgrade.md).
 
 ## Who is authorized
 
