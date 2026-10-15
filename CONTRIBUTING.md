@@ -6,13 +6,13 @@ Tests run in two Vitest projects: `unit` (`*.test.ts`, parallel, no database) an
 
 ### Setup
 
-The `db` project truncates every table before each test file, so it must never point at a shared branch. Create a personal branch and use its URLs:
+The `db` project empties every table before each test file (append-only tables such as `AuditEvent` are left as they are), so it must never point at a shared branch. Create a personal branch and use its URLs:
 
 ```bash
 npx neonctl branches create --name dev-<you> --parent dev
 ```
 
-Personal `dev-*` branches are kept by the branch hygiene job and count toward Neon's 10-branch cap. Copy the branch's pooled URL into `TEST_DATABASE_URL` and its direct URL into `TEST_DIRECT_URL` in `.env`. Use the migration-role URL for `TEST_DIRECT_URL`: the runtime role cannot truncate tables. The harness reads only the `TEST_*` variables, refuses a value equal to `DATABASE_URL` or `DIRECT_URL`, and applies migrations itself, so there is no separate `migrate deploy` step.
+Personal `dev-*` branches are kept by the branch hygiene job and count toward Neon's 10-branch cap. Copy the branch's pooled URL into `TEST_DATABASE_URL` and its direct URL into `TEST_DIRECT_URL` in `.env`. Use the migration-role URL for `TEST_DIRECT_URL`: the runtime role cannot delete everything. The harness reads only the `TEST_*` variables, refuses a value equal to `DATABASE_URL` or `DIRECT_URL`, and applies migrations itself, so there is no separate `migrate deploy` step.
 
 ### Commands
 

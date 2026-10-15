@@ -16,11 +16,11 @@ const UUID_V7 =
 
 describe("db harness", () => {
   // Must stay first: other db files create users, so a non-zero count means
-  // the truncation before this file did not run.
+  // the reset before this file did not run. AuditEvent is append-only and is
+  // not reset, so it is deliberately not asserted here.
   it("starts every file with empty tables", async () => {
     expect(await prisma.user.count()).toBe(0);
     expect(await prisma.session.count()).toBe(0);
-    expect(await prisma.auditEvent.count()).toBe(0);
   });
 });
 
