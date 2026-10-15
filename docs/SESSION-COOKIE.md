@@ -15,8 +15,17 @@ The policy comes from `SGAUTH_ENV`, not from separate environment variables, so 
 
 - Better Auth's other cookies share the same prefix and attributes: `dont_remember`, and `session_data` and `account_data`, which are never set here.
 - There is no cookie cache, so no `session_data` cookie. Every request reads the session from the database, and revocation and sign-out take effect on the next request.
-- `Max-Age` follows `session.expiresIn` (#39).
+- `Max-Age` follows `session.expiresIn`: 30 days, see [Session lifetime](#session-lifetime).
 - No cookie name is overridden per cookie. Every name is `<__Secure->?<prefix>.<cookie>`.
+
+## Session lifetime
+
+The source of truth is `src/lib/auth/session-lifetime.ts`.
+
+- A 30-day sliding window, refreshed at most once a day (`updateAge`). Each refresh resets the cookie's `Max-Age` to 30 days.
+- A 90-day absolute cap from `createdAt`. It is enforced by clamping `expiresAt` to `absoluteExpiresAt` in `session.create.before` and in the `clamp_session_expiry` trigger, so every Better Auth endpoint honours it, `/token` included. The daily purge (#90) deletes the expired rows.
+- The cookie can outlive the cap by up to 30 days. That is harmless, because the database row is authoritative.
+- `freshAge` is Better Auth's default. Re-auth uses `lastReauthAt` (#44).
 
 ## Why not `__Host-`
 
