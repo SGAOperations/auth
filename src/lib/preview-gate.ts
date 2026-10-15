@@ -148,9 +148,4 @@ export const unlockLimiter = createAttemptLimiter({
   maxKeys: 10_000,
 });
 
-export function clientIp(headers: Headers): string {
-  const real = headers.get("x-real-ip")?.trim();
-  if (real) return real;
-  const first = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return first || "unknown";
-}
+export { clientIp } from "@/lib/client-ip";

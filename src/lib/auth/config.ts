@@ -47,7 +47,7 @@ export const auth = betterAuth({
   // No session_data cookie: revocation must be immediate. Mirrored in
   // cookies.test.ts.
   session: { cookieCache: { enabled: false } },
-  // No DB-backed limiter table (AUTH-T15); AUTH-T63 replaces this with Upstash and disables the built-in limiter.
-  rateLimit: { storage: "memory" },
+  // Upstash limits in src/lib/rate-limit (AUTH-T63); the built-in limiter stays off (docs/ENGINEERING.md §3).
+  rateLimit: { enabled: false },
   plugins: buildAuthPlugins(settings.signupAllowlist),
 });
