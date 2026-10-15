@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createLogger } from "@/lib/log/logger";
-import { resolveRequestId, withRequestLogging } from "@/lib/log/request";
+import {
+  resolveRequestId,
+  scrubPath,
+  withRequestLogging,
+} from "@/lib/log/request";
 import { logLineSchema, type LogLevel } from "@/lib/log/schema";
 
 function setup(handler: (req: Request) => Promise<Response>) {
@@ -131,5 +135,31 @@ describe("withRequestLogging", () => {
     ]) {
       expect(entry.raw).not.toContain(secret);
     }
+  });
+
+  it.each([
+    "/api/auth/reset-password/PATHTOKENsentinel",
+    "/api/auth/verify-email/PATHTOKENsentinel",
+    "/api/auth/magic-link/verify/PATHTOKENsentinel",
+    "/api/auth/callback/PATHTOKENsentinel",
+    "/api/auth/anything/PATHTOKENsentinel",
+    "/api/auth/x/abc123PATHTOKENsentinel",
+  ])("never logs a token placed in the path %s", async (path) => {
+    const { wrapped, parsed } = setup(respond(200));
+    await wrapped(new Request(`http://x.test${path}`));
+
+    const [entry] = parsed();
+    expect(entry.raw).not.toContain("PATHTOKENsentinel");
+    expect(entry.body.path).toContain("[REDACTED]");
+    expect(() => logLineSchema.parse(entry.body)).not.toThrow();
+  });
+});
+
+describe("scrubPath", () => {
+  it("keeps plain route names", () => {
+    expect(scrubPath("/api/auth/sign-in/email")).toBe(
+      "/api/auth/sign-in/email",
+    );
+    expect(scrubPath("/api/auth/ok")).toBe("/api/auth/ok");
   });
 });
