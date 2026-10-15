@@ -9,7 +9,7 @@ import { Prisma, PrismaClient } from "@/generated/prisma/client";
 const url = process.env.TEST_DATABASE_URL;
 
 describe.skipIf(!url)("security tables", () => {
-  // Own client and auth instance, as in schema.test.ts. The plugins are only
+  // Own client and auth instance, as in schema.db.test.ts. The plugins are only
   // declared here to prove the tables fit; config.ts wires them in AUTH-T29
   // (jwt) and AUTH-T67 (twoFactor).
   const prisma = new PrismaClient({

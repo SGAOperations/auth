@@ -1,4 +1,4 @@
-// Shared by product-input.test.ts (zod) and product-registry.schema.test.ts (DB
+// Shared by product-input.test.ts (zod) and product-registry.schema.db.test.ts (DB
 // CHECKs): one table proves the JS regexes and the SQL constraints agree.
 export const PRODUCT_CASES = {
   baseUrl: {

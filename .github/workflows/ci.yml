@@ -128,8 +128,8 @@ jobs:
       group: neon-test-branch
       cancel-in-progress: false
     env:
-      DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.NEON_TEST_DIRECT_URL }}
+      TEST_DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
+      TEST_DIRECT_URL: ${{ secrets.NEON_TEST_DIRECT_URL }}
       SGAUTH_ENV: local
       BETTER_AUTH_SECRET: ci-only-not-a-secret-0123456789abcdef
     steps:
@@ -139,7 +139,7 @@ jobs:
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
         run: |
           missing=0
-          for name in NEON_API_KEY NEON_PROJECT_ID DATABASE_URL DIRECT_URL; do
+          for name in NEON_API_KEY NEON_PROJECT_ID TEST_DATABASE_URL TEST_DIRECT_URL; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is not set. The test job needs the Neon secrets described in CONTRIBUTING.md (fork PRs do not receive them)."
               missing=1

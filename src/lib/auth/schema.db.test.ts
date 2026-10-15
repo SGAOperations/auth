@@ -1,22 +1,16 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Prisma, PrismaClient } from "@/generated/prisma/client";
-
-// eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
-const url = process.env.TEST_DATABASE_URL;
+import { Prisma } from "@/generated/prisma/client";
+import { prisma } from "@/lib/prisma";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const UUID_V7 =
   /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-describe.skipIf(!url)("core identity schema", () => {
-  // Own client and auth instance: @/lib/prisma reads DATABASE_URL, and
-  // config.ts parses the app environment. Options mirror config.ts.
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: url }),
-  });
+describe("core identity schema", () => {
+  // Own auth instance: config.ts adds nextCookies, which needs a Next request
+  // scope. Options mirror config.ts.
   const auth = betterAuth({
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     advanced: { database: { generateId: false } },
@@ -25,16 +19,10 @@ describe.skipIf(!url)("core identity schema", () => {
     baseURL: "http://localhost:3000",
   });
 
+  // Truncation empties the tables before this file; the suffix keeps it safe
+  // to re-run without one.
   const rand = Math.random().toString(36).slice(2, 10);
   const verificationIdentifier = `t10-verification-${rand}`;
-
-  afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { contains: rand } } });
-    await prisma.verification.deleteMany({
-      where: { identifier: verificationIdentifier },
-    });
-    await prisma.$disconnect();
-  });
 
   it("round-trips User, Account and Session through Better Auth", async () => {
     const email = `T10-RoundTrip-${rand}@Northeastern.edu`;
