@@ -10,6 +10,11 @@ const valid = {
   BETTER_AUTH_SECRET: SECRET,
 };
 
+const upstash = {
+  UPSTASH_REDIS_REST_URL: "https://example-12345.upstash.io",
+  UPSTASH_REDIS_REST_TOKEN: "upstash-test-token",
+};
+
 function messageOf(raw: Record<string, string | undefined>): string {
   try {
     parseServerEnv(raw);
@@ -79,6 +84,43 @@ describe("parseServerEnv", () => {
     expect(env.RESEND_FROM_EMAIL).toBe("auth@example.com");
   });
 
+  describe("Upstash rate-limit store", () => {
+    it.each(["production", "dev"])(
+      "is required when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const message = messageOf({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(message).toContain("UPSTASH_REDIS_REST_URL: missing");
+        expect(message).toContain("UPSTASH_REDIS_REST_TOKEN: missing");
+      },
+    );
+
+    it.each(["production", "dev"])("parses on %s when set", (sgauthEnv) => {
+      const env = parseServerEnv({
+        ...valid,
+        ...upstash,
+        SGAUTH_ENV: sgauthEnv,
+      });
+      expect(env.UPSTASH_REDIS_REST_URL).toBe(upstash.UPSTASH_REDIS_REST_URL);
+    });
+
+    it.each(["preview", "local"])(
+      "is optional when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const env = parseServerEnv({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(env.UPSTASH_REDIS_REST_URL).toBeUndefined();
+      },
+    );
+
+    it("still rejects the URL without the token on local", () => {
+      expect(
+        messageOf({
+          ...valid,
+          UPSTASH_REDIS_REST_URL: upstash.UPSTASH_REDIS_REST_URL,
+        }),
+      ).toContain("UPSTASH_REDIS_REST_TOKEN: missing");
+    });
+  });
+
   it("strips undeclared keys, including the retired cookie variables", () => {
     const env = parseServerEnv({
       ...valid,
@@ -94,6 +136,7 @@ describe("parseServerEnv", () => {
   it("accepts the preview gate and signup allowlist variables", () => {
     const env = parseServerEnv({
       ...valid,
+      ...upstash,
       SGAUTH_ENV: "dev",
       SGAUTH_SIGNUP_ALLOWLIST: "@example.edu",
       SGAUTH_PREVIEW_GATE_PASSWORD: "p".repeat(16),
