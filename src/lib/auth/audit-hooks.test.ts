@@ -210,6 +210,32 @@ describe.skipIf(!url)("audit events from Better Auth", () => {
     });
   });
 
+  it("records SESSION_REVOKED targeting the revoked session", async () => {
+    const { email, user } = await verifiedUser();
+    await signInWithCookie(email);
+    const cookie = await signInWithCookie(email);
+    const sessions = await prisma.session.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "asc" },
+    });
+    const revoked = sessions[0];
+
+    const response = await post(
+      "/revoke-session",
+      { token: revoked.token },
+      { cookie },
+    );
+    expect(response.status).toBe(200);
+
+    const events = await eventsFor(user.id, "SESSION_REVOKED");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actorUserId: user.id,
+      targetType: "SESSION",
+      targetId: revoked.id,
+    });
+  });
+
   it("records SESSIONS_REVOKED when other sessions are revoked", async () => {
     const { email, user } = await verifiedUser();
     await signInWithCookie(email);

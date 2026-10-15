@@ -22,23 +22,29 @@ const exportsMutatingMethod = new RegExp(
     `export\\s+(?:async\\s+)?function\\s+${MUTATING_METHOD}\\b`,
     `export\\s+(?:const|let|var)\\s+${MUTATING_METHOD}\\b`,
     `export\\s+(?:const|let|var)\\s*\\{[^}]*\\b${MUTATING_METHOD}\\b[^}]*\\}\\s*=`,
+    // Specifier lists, including `{ handler as POST }` and `{ POST } from "…"`.
+    `export\\s*\\{[^}]*\\b${MUTATING_METHOD}\\b[^}]*\\}`,
   ].join("|"),
 );
 // A directive is the first statement, so only comments may precede it.
 const serverActionFile =
   /^(?:\s*\/\/[^\n]*\n|\s*\/\*[\s\S]*?\*\/)*\s*["']use server["']/;
+// A function-level directive opens a function body.
+const inlineServerAction = /\{\s*["']use server["']/;
+
+function isMutating(path: string, source: string): boolean {
+  return (
+    (path.endsWith("/route.ts") && exportsMutatingMethod.test(source)) ||
+    serverActionFile.test(source) ||
+    inlineServerAction.test(source)
+  );
+}
 
 function mutatingAppFiles(): string[] {
   return readdirSync(join(process.cwd(), APP_DIR), { recursive: true })
     .map((entry) => `${APP_DIR}/${String(entry).replaceAll("\\", "/")}`)
     .filter((path) => /\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path))
-    .filter((path) => {
-      const source = read(path);
-      return (
-        (path.endsWith("/route.ts") && exportsMutatingMethod.test(source)) ||
-        serverActionFile.test(source)
-      );
-    })
+    .filter((path) => isMutating(path, read(path)))
     .sort();
 }
 
@@ -67,6 +73,27 @@ function authEndpoints() {
 function missingLiterals(source: string, events: readonly string[]) {
   return events.filter((event) => !source.includes(`"${event}"`));
 }
+
+describe("audit coverage: mutation detector", () => {
+  it.each([
+    ["src/app/a/route.ts", "export async function POST() {}"],
+    ["src/app/a/route.ts", "export const DELETE = handler;"],
+    ["src/app/a/route.ts", "export { handler as POST };"],
+    ["src/app/a/route.ts", 'export { PUT, GET } from "./other";'],
+    ["src/app/a/actions.ts", '"use server";\nexport async function f() {}'],
+    ["src/app/a/page.tsx", 'async function f() {\n  "use server";\n}'],
+  ])("flags %s: %s", (path, source) => {
+    expect(isMutating(path, source)).toBe(true);
+  });
+
+  it.each([
+    ["src/app/a/route.ts", "export async function GET() {}"],
+    ["src/app/a/route.ts", "export { handler as GET };"],
+    ["src/app/a/page.tsx", "export default function Page() {}"],
+  ])("ignores %s: %s", (path, source) => {
+    expect(isMutating(path, source)).toBe(false);
+  });
+});
 
 describe("audit coverage: App Router files", () => {
   const files = mutatingAppFiles();

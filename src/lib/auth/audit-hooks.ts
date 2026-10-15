@@ -49,12 +49,9 @@ const LOGIN_METHODS: Record<string, "password" | "email_verification"> = {
 };
 
 /**
- * Adapters from Better Auth hooks to catalog events. Better Auth does not run
- * its endpoints in a transaction, so by the time a hook fires the auth state
- * has committed. Throwing would turn a completed sign-in into a 500, and a
- * failed-login audit into an error oracle, so each adapter logs and continues.
- * App-owned handlers are the atomic path: they audit inside
- * `withAuditTransaction`.
+ * Adapters from Better Auth hooks to catalog events. Auth state has already
+ * committed when a hook fires, and throwing would turn a completed sign-in
+ * into a 500 (or an error oracle), so each adapter logs and continues.
  */
 export function createAuthAuditHooks(prisma: PrismaClient) {
   async function emit<T extends AuditEventType>(
