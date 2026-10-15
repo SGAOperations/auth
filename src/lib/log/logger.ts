@@ -63,34 +63,48 @@ export function createLogger({
   function emit(level: LogLevel, msg: string, fields: LogFields = {}): void {
     if (RANK[level] < RANK[threshold]) return;
 
-    const { err, ...rest } = fields;
-    const promoted: LogFields = {};
-    for (const key of PROMOTED_KEYS) {
-      if (key in rest) {
-        promoted[key] = rest[key];
-        delete rest[key];
+    write(serialize(level, msg, fields), level);
+  }
+
+  // Logging must never be able to stop the server. Anything caller-supplied can
+  // throw while it is read (a throwing getter, for one), so the whole build,
+  // redact and stringify step falls back to a minimal line.
+  function serialize(level: LogLevel, msg: string, fields: LogFields): string {
+    try {
+      const { err, ...rest } = fields;
+      const promoted: LogFields = {};
+      for (const key of PROMOTED_KEYS) {
+        if (key in rest) {
+          promoted[key] = rest[key];
+          delete rest[key];
+        }
       }
+      const hasErr = err instanceof Error;
+      if (err !== undefined && !hasErr) rest.err = err;
+
+      const context = getRequestContext();
+      const line = redact({
+        time: new Date().toISOString(),
+        level,
+        msg,
+        service: "sgauth",
+        env,
+        ...promoted,
+        ...(hasErr ? { err } : {}),
+        ...(Object.keys(rest).length > 0 ? { data: rest } : {}),
+        // Last, so a caller can never override the request identity.
+        ...(context ?? {}),
+      });
+      return JSON.stringify(line);
+    } catch {
+      return JSON.stringify({
+        time: new Date().toISOString(),
+        level: "error",
+        msg: "log serialization failed",
+        service: "sgauth",
+        env,
+      });
     }
-    const hasErr = err instanceof Error;
-    if (err !== undefined && !hasErr) rest.err = err;
-
-    const context = getRequestContext();
-    const line = redact({
-      time: new Date().toISOString(),
-      level,
-      msg,
-      service: "sgauth",
-      env,
-      ...promoted,
-      ...(hasErr ? { err } : {}),
-      ...(Object.keys(rest).length > 0 ? { data: rest } : {}),
-      // Last, so a caller can never override the request identity.
-      ...(context ?? {}),
-    });
-
-    // `redact` leaves only JSON-safe values (cycles, bigints and functions are
-    // already handled), so serialization cannot throw here.
-    write(JSON.stringify(line), level);
   }
 
   return {

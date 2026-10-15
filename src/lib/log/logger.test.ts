@@ -86,6 +86,27 @@ describe("createLogger", () => {
     });
   });
 
+  it("writes a minimal line instead of throwing on a throwing getter", () => {
+    const { lines, logger } = capture("info");
+    const hostile = {
+      get boom(): string {
+        throw new Error("getter exploded");
+      },
+    };
+    expect(() => logger.info("x", { hostile })).not.toThrow();
+    expect(() => logger.info("y", hostile)).not.toThrow();
+    expect(lines).toHaveLength(2);
+    for (const { line, level } of lines) {
+      expect(level).toBe("info");
+      expect(JSON.parse(line)).toMatchObject({
+        level: "error",
+        msg: "log serialization failed",
+        service: "sgauth",
+        env: "production",
+      });
+    }
+  });
+
   it("validates a production sample line and keeps secrets out of it", () => {
     const { lines, logger } = capture("info");
     const userId = "0192f0c1-7a5e-7c3b-8f2d-1a2b3c4d5e6f";
