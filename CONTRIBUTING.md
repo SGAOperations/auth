@@ -6,13 +6,13 @@ Tests run in two Vitest projects: `unit` (`*.test.ts`, parallel, no database) an
 
 ### Setup
 
-The `db` project empties every table before each test file (append-only tables such as `AuditEvent` are left as they are), so it must never point at a shared branch. Create a personal branch and use its URLs:
+The `db` project deletes the rows of every table before each test file, so it must never point at a shared branch. Append-only tables such as `AuditEvent` and the Primary Admin row are left as they are (see [Files](#files)). Create a personal branch and use its URLs:
 
 ```bash
 npx neonctl branches create --name dev-<you> --parent dev
 ```
 
-Personal `dev-*` branches are kept by the branch hygiene job and count toward Neon's 10-branch cap. Copy the branch's pooled URL into `TEST_DATABASE_URL` and its direct URL into `TEST_DIRECT_URL` in `.env`. Use the migration-role URL for `TEST_DIRECT_URL`: the runtime role cannot delete everything. The harness reads only the `TEST_*` variables, refuses a value equal to `DATABASE_URL` or `DIRECT_URL`, and applies migrations itself, so there is no separate `migrate deploy` step.
+Personal `dev-*` branches are kept by the branch hygiene job and count toward Neon's 10-branch cap. Copy the branch's pooled URL into `TEST_DATABASE_URL` and its direct URL into `TEST_DIRECT_URL` in `.env`. Use the migration-role URL for `TEST_DIRECT_URL`: the runtime role cannot delete everything, and the tests that run `down.sql` need the role that owns the tables. The harness reads only the `TEST_*` variables, refuses a value equal to `DATABASE_URL` or `DIRECT_URL`, and applies migrations itself, so there is no separate `migrate deploy` step.
 
 ### Commands
 
@@ -22,7 +22,7 @@ Personal `dev-*` branches are kept by the branch hygiene job and count toward Ne
 
 ### Files
 
-Name tests that need no database `*.test.ts`, and database tests `*.db.test.ts`. Each `db` file starts from empty tables, and `db` files run serially because they share one branch. Tables that reject `TRUNCATE` on purpose, such as the append-only `AuditEvent`, are cleared with their guard trigger switched off for that one transaction.
+Name tests that need no database `*.test.ts`, and database tests `*.db.test.ts`. `db` files run serially because they share one branch. Before each file the harness runs `DELETE` on every table through the migration role (`TEST_DIRECT_URL`); it never uses `TRUNCATE` and never disables a trigger. Two things survive the reset: tables guarded by a `TRUNCATE` trigger, such as the append-only `AuditEvent`, are skipped, so filter by your own ids instead of assuming an empty table; and a Primary Admin row cannot be deleted, so never commit one. Create it inside a transaction that rolls back, as `src/test/factories.db.test.ts` does.
 
 ### Coverage
 

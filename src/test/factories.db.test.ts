@@ -16,10 +16,12 @@ const UUID_V7 =
 
 describe("db harness", () => {
   // Must stay first: other db files create users, so a non-zero count means
-  // the reset before this file did not run. AuditEvent is append-only and is
-  // not reset, so it is deliberately not asserted here.
+  // the reset before this file did not run. AuditEvent is append-only and a
+  // Primary Admin cannot be deleted, so neither is reset or asserted here.
   it("starts every file with empty tables", async () => {
-    expect(await prisma.user.count()).toBe(0);
+    expect(await prisma.user.count({ where: { isPrimaryAdmin: false } })).toBe(
+      0,
+    );
     expect(await prisma.session.count()).toBe(0);
   });
 });
@@ -70,8 +72,22 @@ describe("factories", () => {
     const admin = await createAdmin();
     expect(admin).toMatchObject({ isAdmin: true, isPrimaryAdmin: false });
 
-    const primary = await createPrimaryAdmin();
+    // A committed Primary Admin could never be cleared again, so it is created
+    // in a transaction that rolls back.
+    class Rollback extends Error {}
+    let primary: Awaited<ReturnType<typeof createPrimaryAdmin>> | undefined;
+    await prisma
+      .$transaction(async (tx) => {
+        primary = await createPrimaryAdmin({}, tx);
+        throw new Rollback();
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof Rollback)) throw error;
+      });
     expect(primary).toMatchObject({ isAdmin: true, isPrimaryAdmin: true });
+    expect(await prisma.user.count({ where: { isPrimaryAdmin: true } })).toBe(
+      0,
+    );
   });
 
   it("createSession measures expiry from the fake clock", async () => {

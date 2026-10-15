@@ -4,7 +4,7 @@ import { configDefaults, defineConfig } from "vitest/config";
 
 // The db project reads only TEST_* variables, never DATABASE_URL/DIRECT_URL:
 // a contributor's .env points those at the shared dev branch, and the db
-// project truncates every table. The values are mapped onto DATABASE_URL and
+// project deletes rows from every table. The values are mapped onto DATABASE_URL and
 // DIRECT_URL inside the workers only. A missing one is left out, and global
 // setup raises the error.
 const dbEnv: Record<string, string> = {};

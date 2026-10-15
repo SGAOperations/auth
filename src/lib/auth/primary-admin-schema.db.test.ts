@@ -6,6 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
 const url = process.env.TEST_DATABASE_URL;
+// eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
+const directUrl = process.env.TEST_DIRECT_URL;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DOWN_SQL = resolve(
@@ -19,7 +21,7 @@ type Status = "ACTIVE" | "DEACTIVATED" | "DELETED";
 // and the deferred trigger never reaches a commit. They also never collide with
 // a Primary Admin that already exists in the shared test database.
 describe.skipIf(!url)("primary admin database invariants", () => {
-  const client = new Client({ connectionString: url });
+  let client = new Client({ connectionString: url });
   const rand = Math.random().toString(36).slice(2, 10);
 
   beforeAll(async () => {
@@ -305,8 +307,25 @@ describe.skipIf(!url)("primary admin database invariants", () => {
     });
   });
 
-  it("is fully reversed by down.sql", async () => {
+  // down.sql drops triggers, functions and tables, which only their owner may
+  // do. The runtime role behind TEST_DATABASE_URL is not the owner, so this one
+  // test runs on the migration role behind TEST_DIRECT_URL. That role must own
+  // the tables (it ran `migrate deploy`); if the test branch was migrated by a
+  // different role, reset the branch so the migration role owns everything.
+  it.skipIf(!directUrl)("is fully reversed by down.sql", async () => {
     const down = readFileSync(DOWN_SQL, "utf8");
+    const runtime = client;
+    client = new Client({ connectionString: directUrl });
+    await client.connect();
+    try {
+      await runDownSql(down);
+    } finally {
+      await client.end();
+      client = runtime;
+    }
+  });
+
+  async function runDownSql(down: string) {
     await inRollback(async () => {
       await client.query(down);
 
@@ -331,5 +350,5 @@ describe.skipIf(!url)("primary admin database invariants", () => {
       await insertUser({ isAdmin: true, isPrimaryAdmin: true });
       expect(await primaryAdminIds()).toHaveLength(2);
     });
-  });
+  }
 });

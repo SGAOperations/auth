@@ -19,7 +19,7 @@ describe("core identity schema", () => {
     baseURL: "http://localhost:3000",
   });
 
-  // Truncation empties the tables before this file; the suffix keeps it safe
+  // The harness reset empties the tables before this file; the suffix keeps it safe
   // to re-run without one.
   const rand = Math.random().toString(36).slice(2, 10);
   const verificationIdentifier = `t10-verification-${rand}`;

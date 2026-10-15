@@ -21,10 +21,13 @@ type CreateUserOverrides = Partial<Prisma.UserUncheckedCreateInput> & {
  * ACTIVE, email-verified, non-admin user with a unique @northeastern.edu email.
  * Passing `password` also creates the credential Account Better Auth signs in with.
  */
-export async function createUser(overrides: CreateUserOverrides = {}) {
+export async function createUser(
+  overrides: CreateUserOverrides = {},
+  db: Prisma.TransactionClient = prisma,
+) {
   const { password, ...data } = overrides;
   const n = next();
-  const user = await prisma.user.create({
+  const user = await db.user.create({
     data: {
       email: `user-${n}-${suffix}@northeastern.edu`,
       name: `Test User ${n}`,
@@ -34,7 +37,7 @@ export async function createUser(overrides: CreateUserOverrides = {}) {
     },
   });
   if (password !== undefined) {
-    await prisma.account.create({
+    await db.account.create({
       data: {
         userId: user.id,
         providerId: "credential",
@@ -47,16 +50,26 @@ export async function createUser(overrides: CreateUserOverrides = {}) {
 }
 
 /** createUser with `isAdmin: true`. */
-export function createAdmin(overrides: CreateUserOverrides = {}) {
-  return createUser({ isAdmin: true, ...overrides });
+export function createAdmin(
+  overrides: CreateUserOverrides = {},
+  db: Prisma.TransactionClient = prisma,
+) {
+  return createUser({ isAdmin: true, ...overrides }, db);
 }
 
 /**
  * createUser with `isAdmin` and `isPrimaryAdmin`. Does not guard against a
  * second Primary Admin: the database rejects that, and tests may assert it.
+ *
+ * A Primary Admin can never be deleted, and the harness reset leaves it in
+ * place, so pass the client of a transaction that rolls back (`db`) instead of
+ * committing one.
  */
-export function createPrimaryAdmin(overrides: CreateUserOverrides = {}) {
-  return createUser({ isAdmin: true, isPrimaryAdmin: true, ...overrides });
+export function createPrimaryAdmin(
+  overrides: CreateUserOverrides = {},
+  db: Prisma.TransactionClient = prisma,
+) {
+  return createUser({ isAdmin: true, isPrimaryAdmin: true, ...overrides }, db);
 }
 
 /**

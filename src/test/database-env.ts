@@ -3,7 +3,7 @@ export type TestDatabase = { databaseUrl: string; directUrl: string };
 const MISSING =
   'TEST_DATABASE_URL and TEST_DIRECT_URL must point at a personal Neon branch (see CONTRIBUTING.md "Running tests"), or run npm run test:unit';
 const SAME_AS_APP =
-  "TEST_* must not equal the app's DATABASE_URL/DIRECT_URL: the test run truncates every table";
+  "TEST_* must not equal the app's DATABASE_URL/DIRECT_URL: the test run deletes rows from every table";
 const DIFFERENT_ENDPOINTS =
   "TEST_DATABASE_URL and TEST_DIRECT_URL point at different endpoints";
 

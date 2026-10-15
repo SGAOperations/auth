@@ -35,12 +35,17 @@ function childrenFirst(
 }
 
 // Empties every table the harness is able to reset. The role behind
-// TEST_DIRECT_URL does not own the tables (the migration role does) and holds
-// no TRUNCATE privilege, so this uses DELETE, which it does have.
+// TEST_DIRECT_URL may not own the tables and holds no TRUNCATE privilege, so
+// this uses DELETE and never disables a trigger (that needs ownership).
 //
-// Tables guarded by a TRUNCATE trigger are append-only by design (AuditEvent)
-// and reject DELETE as well, so they are left alone. Tests that write to them
-// must filter by their own ids rather than assume an empty table.
+// Two kinds of row are deliberately left alone:
+// - Tables guarded by a TRUNCATE trigger are append-only by design
+//   (AuditEvent) and reject DELETE as well. Tests that write to them must
+//   filter by their own ids rather than assume an empty table.
+// - The Primary Admin row cannot be deleted or demoted outside a transfer, and
+//   a transfer cannot commit without a Primary Admin. Tests must therefore
+//   never commit one: create it inside a transaction that rolls back, as
+//   factories.db.test.ts does.
 async function resetTables(client: Client) {
   const tables = await client.query<{ tablename: string }>(
     `SELECT tablename FROM pg_tables
@@ -72,7 +77,8 @@ async function resetTables(client: Client) {
   await client.query("BEGIN");
   try {
     for (const table of childrenFirst(resettable, foreignKeys.rows)) {
-      await client.query(`DELETE FROM ${quote(table)}`);
+      const keep = table === "User" ? ` WHERE NOT "isPrimaryAdmin"` : "";
+      await client.query(`DELETE FROM ${quote(table)}${keep}`);
     }
     await client.query("COMMIT");
   } catch (error) {
