@@ -11,6 +11,7 @@ import {
   isAllowedSignupEmail,
   normalizeEmail,
 } from "@/lib/auth/policy";
+import { setRequestUserId } from "@/lib/log/context";
 
 /**
  * Endpoint paths allowed to create a user outside the sign-up domain rule.
@@ -143,6 +144,8 @@ export function buildAuthOptions({
           },
           // Covers every login path, including auto sign-in after verification.
           after: async (session, ctx) => {
+            // Request log lines for sign-in and sign-up carry the user id.
+            setRequestUserId(session.userId);
             try {
               await prisma.user.update({
                 where: { id: session.userId },
