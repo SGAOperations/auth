@@ -1,0 +1,874 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rendering > renders account-locked with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your account was locked</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Sign-in to your account is locked for now.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Your account was locked</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">We locked sign-in to your account after repeated failed attempts. It unlocks automatically at October 17, 2026 at 3:00 PM ET, or use the unlock link we sent separately. If this wasn&#39;t you, reset your password.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Your SGA account was locked",
+  "text": "SGA Auth
+
+Your account was locked
+
+Hi Avery,
+
+We locked sign-in to your account after repeated failed attempts. It unlocks automatically at October 17, 2026 at 3:00 PM ET, or use the unlock link we sent separately. If this wasn't you, reset your password.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders account-unlock with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unlock your account</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Use this link to unlock your account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Unlock your account</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Use this link to unlock your SGA account. The link works once and expires in 1 hour.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/unlock?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Unlock account</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/unlock?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/unlock?token=sample</a></p>
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Unlock your SGA account",
+  "text": "SGA Auth
+
+Unlock your account
+
+Hi Avery,
+
+Use this link to unlock your SGA account. The link works once and expires in 1 hour.
+
+Unlock account:
+https://auth.northeasternsga.com/unlock?token=sample
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders inactivity-notice with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in to keep your account</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Your account will be deleted if you don&#39;t sign in.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Sign in to keep your account</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You haven&#39;t signed in since April 16, 2026 at 3:00 PM ET. If you don&#39;t sign in before October 23, 2026 at 3:00 PM ET, your account will be deleted.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/sign-in" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Sign in</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/sign-in" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/sign-in</a></p>
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Sign in to keep your SGA account",
+  "text": "SGA Auth
+
+Sign in to keep your account
+
+Hi Avery,
+
+You haven't signed in since April 16, 2026 at 3:00 PM ET. If you don't sign in before October 23, 2026 at 3:00 PM ET, your account will be deleted.
+
+Sign in:
+https://auth.northeasternsga.com/sign-in
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-accepted-initiator with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer accepted</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Sam Rivera accepted the transfer.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer accepted</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Sam Rivera accepted. The transfer completes at October 17, 2026 at 3:00 PM ET.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You can cancel until then.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Cancel transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer</a></p>
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer accepted",
+  "text": "SGA Auth
+
+Primary Admin transfer accepted
+
+Hi,
+
+Sam Rivera accepted. The transfer completes at October 17, 2026 at 3:00 PM ET.
+
+You can cancel until then.
+
+Cancel transfer:
+https://auth.northeasternsga.com/admin/transfer
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-accepted-recipient with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer accepted</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">You are about to become Primary Admin.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer accepted</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You&#39;ll become Primary Admin at October 17, 2026 at 3:00 PM ET.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Jordan Lee can cancel the transfer until then.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer accepted",
+  "text": "SGA Auth
+
+Primary Admin transfer accepted
+
+Hi,
+
+You'll become Primary Admin at October 17, 2026 at 3:00 PM ET.
+
+Jordan Lee can cancel the transfer until then.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-cancelled-initiator with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer was cancelled.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer was cancelled.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-cancelled-recipient with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer was cancelled.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer was cancelled.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-declined-initiator with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer was declined by Sam Rivera.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer was declined by Sam Rivera.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-declined-recipient with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer was declined by Sam Rivera.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer was declined by Sam Rivera.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-expired-initiator with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer expired before it was accepted.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer expired before it was accepted.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-expired-recipient with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer expired before it was accepted.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer expired before it was accepted.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-recipient-ineligible-initiator with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer was cancelled because Sam Rivera is no longer an eligible admin.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer was cancelled because Sam Rivera is no longer an eligible admin.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-cancelled-recipient-ineligible-recipient with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer cancelled</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">A Primary Admin transfer will not go ahead.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer cancelled</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The Primary Admin transfer was cancelled because Sam Rivera is no longer an eligible admin.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Nothing changed: the current Primary Admin keeps the role.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Primary Admin transfer cancelled",
+  "text": "SGA Auth
+
+Primary Admin transfer cancelled
+
+Hi,
+
+The Primary Admin transfer was cancelled because Sam Rivera is no longer an eligible admin.
+
+Nothing changed: the current Primary Admin keeps the role.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-completed-admin with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer complete</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Sam Rivera is now Primary Admin.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer complete</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Jordan Lee transferred the Primary Admin role to Sam Rivera at October 17, 2026 at 3:00 PM ET.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Sam Rivera is now Primary Admin of SGA Auth",
+  "text": "SGA Auth
+
+Primary Admin transfer complete
+
+Hi,
+
+Jordan Lee transferred the Primary Admin role to Sam Rivera at October 17, 2026 at 3:00 PM ET.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-completed-initiator with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer complete</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Sam Rivera is now Primary Admin.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer complete</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Jordan Lee transferred the Primary Admin role to Sam Rivera at October 17, 2026 at 3:00 PM ET.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You&#39;ll need to sign in again.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Sam Rivera is now Primary Admin of SGA Auth",
+  "text": "SGA Auth
+
+Primary Admin transfer complete
+
+Hi,
+
+Jordan Lee transferred the Primary Admin role to Sam Rivera at October 17, 2026 at 3:00 PM ET.
+
+You'll need to sign in again.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-completed-recipient with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer complete</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Sam Rivera is now Primary Admin.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer complete</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Jordan Lee transferred the Primary Admin role to Sam Rivera at October 17, 2026 at 3:00 PM ET.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You&#39;ll need to sign in again.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Sam Rivera is now Primary Admin of SGA Auth",
+  "text": "SGA Auth
+
+Primary Admin transfer complete
+
+Hi,
+
+Jordan Lee transferred the Primary Admin role to Sam Rivera at October 17, 2026 at 3:00 PM ET.
+
+You'll need to sign in again.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-initiated-initiator with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer started</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Your Primary Admin transfer is waiting for a response.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer started</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You started a Primary Admin transfer to Sam Rivera.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">It goes ahead only if they accept by October 23, 2026 at 3:00 PM ET.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "You started a Primary Admin transfer to Sam Rivera",
+  "text": "SGA Auth
+
+Primary Admin transfer started
+
+Hi,
+
+You started a Primary Admin transfer to Sam Rivera.
+
+It goes ahead only if they accept by October 23, 2026 at 3:00 PM ET.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders pa-transfer-initiated-recipient with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Primary Admin transfer request</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Review a Primary Admin transfer.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer request</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Jordan Lee wants to make you Primary Admin of SGA Auth.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Accept by October 23, 2026 at 3:00 PM ET.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Review transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer</a></p>
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Jordan Lee wants to make you Primary Admin of SGA Auth",
+  "text": "SGA Auth
+
+Primary Admin transfer request
+
+Hi,
+
+Jordan Lee wants to make you Primary Admin of SGA Auth.
+
+Accept by October 23, 2026 at 3:00 PM ET.
+
+Review transfer:
+https://auth.northeasternsga.com/admin/transfer
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders reset-password with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reset your password</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Choose a new password for your SGA account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Reset your password</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Someone asked to reset the password for this account. The link works once and expires in 1 hour.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/reset-password?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Choose a new password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/reset-password?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/reset-password?token=sample</a></p>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you didn&#39;t ask for this, ignore this email. Your password won&#39;t change.</p>
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Reset your SGA Auth password",
+  "text": "SGA Auth
+
+Reset your password
+
+Hi Avery,
+
+Someone asked to reset the password for this account. The link works once and expires in 1 hour.
+
+Choose a new password:
+https://auth.northeasternsga.com/reset-password?token=sample
+
+If you didn't ask for this, ignore this email. Your password won't change.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders security-notice-admin-granted with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You now have admin access</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">You now have admin access</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">You now have admin access</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">This happened at October 16, 2026 at 3:00 PM ET. If this wasn&#39;t you, reset your password right away and contact SGA.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "You now have admin access in SGA Auth",
+  "text": "SGA Auth
+
+You now have admin access
+
+Hi,
+
+This happened at October 16, 2026 at 3:00 PM ET. If this wasn't you, reset your password right away and contact SGA.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders security-notice-password-changed with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your password was changed</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Your password was changed</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Your password was changed</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">This happened at October 16, 2026 at 3:00 PM ET. If this wasn&#39;t you, reset your password right away and contact SGA.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Your SGA Auth password was changed",
+  "text": "SGA Auth
+
+Your password was changed
+
+Hi Avery,
+
+This happened at October 16, 2026 at 3:00 PM ET. If this wasn't you, reset your password right away and contact SGA.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders security-notice-password-reset with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your password was reset</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Your password was reset</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Your password was reset</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">This happened at October 16, 2026 at 3:00 PM ET. If this wasn&#39;t you, reset your password right away and contact SGA.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Your SGA Auth password was reset",
+  "text": "SGA Auth
+
+Your password was reset
+
+Hi Avery,
+
+This happened at October 16, 2026 at 3:00 PM ET. If this wasn't you, reset your password right away and contact SGA.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders set-password-admin-invite with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You&#39;ve been invited</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Set a password to finish setting up your account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">You&#39;ve been invited</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">An SGA admin set up an account for you.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Your account is ready, but it has no password yet.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The link expires in 7 days.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/set-password?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Set password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/set-password?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/set-password?token=sample</a></p>
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "You've been invited to SGA Auth",
+  "text": "SGA Auth
+
+You've been invited
+
+Hi Avery,
+
+An SGA admin set up an account for you.
+
+Your account is ready, but it has no password yet.
+
+The link expires in 7 days.
+
+Set password:
+https://auth.northeasternsga.com/set-password?token=sample
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders set-password-first-sign-in with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set your password</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Set a password to finish setting up your account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Set your password</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Your account is ready, but it has no password yet.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">The link expires in 7 days.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/set-password?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Set password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/set-password?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/set-password?token=sample</a></p>
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Set your SGA Auth password",
+  "text": "SGA Auth
+
+Set your password
+
+Hi,
+
+Your account is ready, but it has no password yet.
+
+The link expires in 7 days.
+
+Set password:
+https://auth.northeasternsga.com/set-password?token=sample
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders verify-email with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify your email</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Confirm this address to finish creating your account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Verify your email</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Confirm this address to finish creating your SGA account. The link expires in 24 hours.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/verify?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Verify email</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/verify?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/verify?token=sample</a></p>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you didn&#39;t create an account, you can ignore this email.</p>
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Verify your email for SGA Auth",
+  "text": "SGA Auth
+
+Verify your email
+
+Hi Avery,
+
+Confirm this address to finish creating your SGA account. The link expires in 24 hours.
+
+Verify email:
+https://auth.northeasternsga.com/verify?token=sample
+
+If you didn't create an account, you can ignore this email.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders verify-email-hostile-name with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify your email</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Confirm this address to finish creating your account.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Verify your email</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi &lt;script&gt;alert(1)&lt;/script&gt; &amp; co,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Confirm this address to finish creating your SGA account. The link expires in 24 hours.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/verify?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Verify email</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/verify?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/verify?token=sample</a></p>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you didn&#39;t create an account, you can ignore this email.</p>
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Verify your email for SGA Auth",
+  "text": "SGA Auth
+
+Verify your email
+
+Hi <script>alert(1)</script> & co,
+
+Confirm this address to finish creating your SGA account. The link expires in 24 hours.
+
+Verify email:
+https://auth.northeasternsga.com/verify?token=sample
+
+If you didn't create an account, you can ignore this email.
+
+--
+Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.",
+}
+`;

@@ -64,7 +64,8 @@ The free tier allows 500,000 commands a month. The alert threshold is **80%, whi
 | `token`                | 300 monthly active users, 20 active days, 1.5 h a day, one refresh about every 9 minutes | 60,000           | 1      | 240,000                 |
 | `sign-in`              | 8 sign-ins per user per month                                                            | 2,400            | 2      | 19,200                  |
 | sign-up, reset, resend | new users and the occasional reset                                                       | about 1,000      | 1 to 2 | about 6,000             |
-| **Total**              |                                                                                          |                  |        | **about 265,000 (53%)** |
+| email caps             | about 2,000 sends a month, 6 commands per send (see [EMAIL.md](EMAIL.md))                | about 2,000      | n/a    | about 12,000            |
+| **Total**              |                                                                                          |                  |        | **about 277,000 (55%)** |
 
 The product SDK refreshes the JWT about every 9 minutes per active session (AUTH-T29, AUTH-T60). **The token endpoint dominates.** On these assumptions about 870 commands a month per active user, the 80% threshold is reached at roughly 460 monthly active users, and the free tier at roughly 570. If real usage projects past 80%, raise it on the ticket rather than quietly lowering a policy: the choices are a longer JWT lifetime, an Upstash paid plan, or a different token limit.
 
