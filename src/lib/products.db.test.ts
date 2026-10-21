@@ -29,6 +29,9 @@ describe("product registry through Better Auth's origin check", () => {
       baseURL: BASE_URL,
       secret: SECRET,
       trustedOrigins: registry.getTrustedOrigins,
+      // Better Auth skips the Origin check under Vitest unless this is set
+      // explicitly, which would leave the registry unconsulted.
+      advanced: { disableOriginCheck: false },
     }),
   );
 
