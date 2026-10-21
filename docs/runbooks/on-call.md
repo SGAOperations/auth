@@ -39,6 +39,7 @@ is what keeps SGAuth inside the Free quota.
 - [neon-restore.md](neon-restore.md): restore `main` to an earlier point in time.
 - [neon-upgrade.md](neon-upgrade.md): move the project to the Launch plan.
 - [subdomain-review.md](subdomain-review.md): inventory the DNS zone and remove dangling records.
+- [legacy-bcrypt.md](legacy-bcrypt.md): imported bcrypt hashes still awaiting re-hash, and when to remove the path.
 
 ## Upgrade log
 
