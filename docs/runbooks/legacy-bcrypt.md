@@ -1,7 +1,7 @@
 # Imported bcrypt hashes
 
 Imported Chambers passwords stay bcrypt until each user's first SGAuth sign-in
-re-hashes them to scrypt (AUTH-T21). This runbook tracks how many remain.
+re-hashes them to scrypt. This runbook tracks how many remain.
 
 ## Remaining hashes
 
@@ -27,7 +27,7 @@ ORDER BY 1;
 ## Removal criterion
 
 When `remaining` is zero, or the remaining accounts are deliberately cleared so
-they go through password reset (AUTH-T90's call), delete:
+they go through password reset, delete:
 
 - `src/lib/auth/legacy-password.ts` and its tests
 - the `password.verify` and `rehashAfterSignIn` wiring in

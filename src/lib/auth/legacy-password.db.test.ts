@@ -35,7 +35,7 @@ describe.skipIf(!url)("imported bcrypt hashes", () => {
     await prisma.$disconnect();
   });
 
-  // The shape the import (AUTH-T87) writes.
+  // The shape the import writes.
   async function importedUser({
     emailVerified = true,
     status = "ACTIVE",

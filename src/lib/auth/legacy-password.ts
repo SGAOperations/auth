@@ -4,11 +4,11 @@ import { verifyPassword as verifyScrypt } from "better-auth/crypto";
 import type { PrismaClient } from "@/generated/prisma/client";
 
 // Imported Chambers (Supabase GoTrue) accounts keep their bcrypt hash until the
-// user's first sign-in, when it is re-hashed to scrypt (AUTH-T21). This whole
+// user's first sign-in, when it is re-hashed to scrypt. This whole
 // module and the `bcryptjs` dependency are removed once the count in
 // docs/runbooks/legacy-bcrypt.md stays at zero.
 
-/** Marker the import (AUTH-T87) puts in front of an imported bcrypt hash. */
+/** Marker the import puts in front of an imported bcrypt hash. */
 export const LEGACY_BCRYPT_PREFIX = "bcrypt$";
 
 // GoTrue writes `$2a$`; `$2b$` and `$2y$` are accepted because bcryptjs
