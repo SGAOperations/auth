@@ -18,6 +18,10 @@ const EXEMPT_PATHS = new Set([
   "/api/sgauth/session",
   "/api/health",
   "/api/csp-report",
+  // Bearer-protected by CRON_SECRET, which replaces the gate cookie.
+  "/api/jobs/pa-transfer",
+  "/api/jobs/alerts",
+  "/api/jobs/retention",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ]);

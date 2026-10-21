@@ -86,6 +86,7 @@ const REQUIRED_IN: Partial<
 > = {
   UPSTASH_REDIS_REST_URL: ["production", "dev"],
   UPSTASH_REDIS_REST_TOKEN: ["production", "dev"],
+  CRON_SECRET: ["production", "dev"],
 };
 
 export const serverSchema = serverShape.superRefine((env, ctx) => {

@@ -6,6 +6,12 @@ import type { AuditEventType } from "@/lib/audit";
 
 export type AuditCoverage =
   | { kind: "audited"; events: readonly AuditEventType[] }
+  // A machine route whose audit events are written by `module`, not the route.
+  | {
+      kind: "job";
+      module: string;
+      events: readonly AuditEventType[];
+    }
   | { kind: "exempt"; reason: string }
   | { kind: "read" }
   | { kind: "delegated"; to: "better-auth" };
@@ -25,6 +31,23 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason:
       "browser CSP violation reports; writes only an advisory log line, no account or session state",
+  },
+  "src/app/api/jobs/pa-transfer/route.ts": {
+    kind: "job",
+    module: "src/lib/jobs/pa-transfer.ts",
+    events: [
+      "PA_TRANSFER_COMPLETED",
+      "PA_TRANSFER_EXPIRED",
+      "PA_TRANSFER_CANCELLED",
+    ],
+  },
+  "src/app/api/jobs/alerts/route.ts": {
+    kind: "exempt",
+    reason: "stub until #89/#90; no state change",
+  },
+  "src/app/api/jobs/retention/route.ts": {
+    kind: "exempt",
+    reason: "stub until #89/#90; no state change",
   },
 };
 
