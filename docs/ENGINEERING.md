@@ -42,7 +42,7 @@ Every pipeline agent reads this document before working. It defines the quality 
 - **Auth responses are enumeration-resistant.** Sign-in, sign-up, reset and set-password do not reveal whether an account exists _(design)_.
 - **Redirect targets (`/logout?redirect=` and similar) are validated against the product registry**, never passed through _(design)_.
 - **The session cookie is set on `Domain=northeasternsga.com` with the `__Secure-` prefix, HttpOnly, Secure, SameSite=Lax, and no cookie cache** _(design)_. Do not change these attributes without a design change.
-- **Rate limiting (Upstash) covers sign-in, sign-up, reset, token, re-auth and admin endpoints, and not the session endpoint.** It **fails open with an alert** on an Upstash outage. Better Auth's DB limiter stays disabled _(design)_.
+- **Rate limiting (Upstash) covers sign-in, sign-up, reset, token, re-auth and admin endpoints. The session endpoints make no Redis call and carry only an in-memory per-token bucket.** It **fails open with an alert** on an Upstash outage. Better Auth's DB limiter stays disabled _(design)_.
 - **Every privileged or security-relevant action writes an `AuditEvent` from the typed catalog.** The table is append-only, and audit rows never carry PII beyond what the catalog defines _(design)_.
 
 ## 7. Quality bar
