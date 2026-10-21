@@ -16,6 +16,7 @@ const EXEMPT_PATHS = new Set([
   "/api/auth/token",
   "/api/auth/get-session",
   "/api/sgauth/session",
+  "/api/sgauth/session/minimal",
   "/api/health",
   "/api/csp-report",
   "/.well-known/jwks.json",

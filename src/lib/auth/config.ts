@@ -44,9 +44,6 @@ export const auth = betterAuth({
           log: (level, message, ...args: unknown[]) =>
             logger[level](message, args.length > 0 ? { args } : undefined),
         },
-  // No session_data cookie: revocation must be immediate. Mirrored in
-  // cookies.test.ts.
-  session: { cookieCache: { enabled: false } },
   // Upstash limits in src/lib/rate-limit (AUTH-T63); the built-in limiter stays off (docs/ENGINEERING.md §3).
   rateLimit: { enabled: false },
   plugins: buildAuthPlugins(settings.signupAllowlist),

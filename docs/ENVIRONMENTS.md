@@ -92,7 +92,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 
 ## SDK dev mode
 
-Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70), and the integration guide (AUTH-T80, #92) links back here.
+Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70) on top of the [session endpoint](SESSION-ENDPOINT.md), and the integration guide (AUTH-T80, #92) links back here.
 
 ## Build pipeline
 
@@ -163,6 +163,7 @@ These machine endpoints are exempt, matched exactly and on any method, because p
 - `/api/auth/token`
 - `/api/auth/get-session`
 - `/api/sgauth/session`
+- `/api/sgauth/session/minimal`
 - `/api/health`
 - `/.well-known/jwks.json`
 - `/.well-known/openid-configuration`
