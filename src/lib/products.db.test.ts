@@ -16,12 +16,15 @@ const slugPrefix = `t56-${rand}`;
 
 describe("product registry through Better Auth's origin check", () => {
   // The same registry code and options as production, over this file's own
-  // database client. Date is faked, and the default `now = Date.now` follows.
+  // database client. Date is faked per test, after this registry is built, so
+  // `now` must read the global at call time: the default `now = Date.now`
+  // would hold the real function captured here and never see the fake clock.
   const registry = createProductRegistry({
     loadActiveProducts: () => loadActiveProducts(prisma),
     ownOrigin: BASE_URL,
     sgauthEnv: "dev",
     log: logger,
+    now: () => Date.now(),
   });
   const auth = betterAuth(
     buildAuthOptions({
