@@ -166,6 +166,15 @@ export function expireSessionCookies(
 
 const sessionId = z.uuid();
 
+/** A caller's sessions that are neither idle-expired nor past the absolute cap. */
+function liveSessionWhere(userId: string, now: Date) {
+  return {
+    userId,
+    expiresAt: { gt: now },
+    absoluteExpiresAt: { gt: now },
+  };
+}
+
 function jsonResponse(body: unknown, status: number): Response {
   return Response.json(body, {
     status,
@@ -185,11 +194,7 @@ export function createOwnSessionHandlers(deps: OwnSessionDeps) {
 
       const now = new Date();
       const rows = await deps.db.session.findMany({
-        where: {
-          userId: caller.userId,
-          expiresAt: { gt: now },
-          absoluteExpiresAt: { gt: now },
-        },
+        where: liveSessionWhere(caller.userId, now),
         select: {
           id: true,
           createdAt: true,
@@ -220,7 +225,7 @@ export function createOwnSessionHandlers(deps: OwnSessionDeps) {
 
       if (!sessionId.safeParse(id).success) return notFound();
       const target = await deps.db.session.findFirst({
-        where: { id, userId: caller.userId, expiresAt: { gt: new Date() } },
+        where: { id, ...liveSessionWhere(caller.userId, new Date()) },
         select: { id: true, token: true },
       });
       if (!target) return notFound();

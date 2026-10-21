@@ -194,7 +194,21 @@ describe.skipIf(!url)("own session endpoints", () => {
       },
     });
 
-    const ids = [bRow.id, "0190a000-0000-7000-8000-00000000dead", expired.id];
+    const pastCap = await prisma.session.create({
+      data: {
+        token: `past-cap-${rand}-404`,
+        userId: a.user.id,
+        expiresAt: new Date(Date.now() + 60_000),
+        absoluteExpiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+
+    const ids = [
+      bRow.id,
+      "0190a000-0000-7000-8000-00000000dead",
+      expired.id,
+      pastCap.id,
+    ];
     ids.push("not-a-uuid");
     const results = [];
     for (const id of ids) {
