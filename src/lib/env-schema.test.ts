@@ -84,6 +84,24 @@ describe("parseServerEnv", () => {
     expect(env.RESEND_FROM_EMAIL).toBe("auth@example.com");
   });
 
+  describe("BETTER_AUTH_TRUSTED_ORIGINS", () => {
+    it("is refused, naming the key without echoing the value", () => {
+      const origin = "https://x.vercel.app";
+      const message = messageOf({
+        ...valid,
+        BETTER_AUTH_TRUSTED_ORIGINS: origin,
+      });
+      expect(message).toContain("BETTER_AUTH_TRUSTED_ORIGINS");
+      expect(message).not.toContain(origin);
+    });
+
+    it("is treated as unset when empty", () => {
+      expect(() =>
+        parseServerEnv({ ...valid, BETTER_AUTH_TRUSTED_ORIGINS: "" }),
+      ).not.toThrow();
+    });
+  });
+
   describe("Upstash rate-limit store", () => {
     it.each(["production", "dev"])(
       "is required when SGAUTH_ENV=%s",

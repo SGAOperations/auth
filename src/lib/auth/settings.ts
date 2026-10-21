@@ -93,8 +93,6 @@ export function toAuthSettings(env: z.infer<typeof authEnvSchema>) {
     cookies: resolveCookiePolicy(env.SGAUTH_ENV),
     secret: env.BETTER_AUTH_SECRET,
     baseURL,
-    // AUTH-T56 replaces with the product registry
-    trustedOrigins: [baseURL],
     signupAllowlist,
     previewGate,
   };
