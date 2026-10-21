@@ -36,7 +36,7 @@ const NO_DELETE =
 export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   "/sign-in/email": {
     kind: "audited",
-    events: ["LOGIN_SUCCESS", "LOGIN_FAILED"],
+    events: ["LOGIN_SUCCESS", "LOGIN_FAILED", "PASSWORD_REHASHED"],
   },
   "/sign-up/email": { kind: "audited", events: ["USER_CREATED"] },
   "/sign-out": { kind: "audited", events: ["LOGOUT"] },
