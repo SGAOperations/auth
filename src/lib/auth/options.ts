@@ -1,7 +1,7 @@
 import "server-only";
 import type { BetterAuthOptions } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
@@ -16,6 +16,10 @@ import {
   initialSessionWindow,
 } from "@/lib/auth/session-lifetime";
 import { createAuthAuditHooks } from "@/lib/auth/audit-hooks";
+import {
+  rehashLegacyPassword,
+  verifyPassword,
+} from "@/lib/auth/legacy-password";
 import { setRequestUserId } from "@/lib/log/context";
 
 /**
@@ -38,6 +42,7 @@ interface AuthOptionsInput {
 // Lenient on purpose: anything that does not parse is left to the endpoint's
 // own validation.
 const credentialsBody = z.looseObject({ email: z.string() });
+const passwordBody = z.looseObject({ password: z.string() });
 
 const sessionResult = z.looseObject({
   user: z.looseObject({ id: z.string(), status: z.string() }),
@@ -61,6 +66,39 @@ export function buildAuthOptions({
 }: AuthOptionsInput) {
   const auditHooks = createAuthAuditHooks(prisma);
 
+  // Runs only after a successful sign-in, so a wrong, unverified or
+  // deactivated sign-in never re-hashes. The sign-in has already succeeded:
+  // a failure here is logged without the error and the account stays bcrypt
+  // until the next login retries.
+  async function rehashAfterSignIn(ctx: {
+    body?: unknown;
+    headers?: Headers;
+    request?: Request;
+    context: {
+      logger: { error: (message: string, ...args: unknown[]) => void };
+      newSession?: { user: { id: string } } | null;
+      returned?: unknown;
+      password: { hash: (password: string) => Promise<string> };
+    };
+  }) {
+    if (isAPIError(ctx.context.returned)) return;
+    const userId = ctx.context.newSession?.user.id;
+    const body = passwordBody.safeParse(ctx.body);
+    if (!userId || !body.success) return;
+    try {
+      const rehashed = await rehashLegacyPassword(prisma, {
+        userId,
+        password: body.data.password,
+        hash: ctx.context.password.hash,
+      });
+      if (rehashed) await auditHooks.passwordRehashed(ctx, userId);
+    } catch {
+      ctx.context.logger.error("Failed to re-hash legacy password", {
+        userId,
+      });
+    }
+  }
+
   return {
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     baseURL,
@@ -83,6 +121,8 @@ export function buildAuthOptions({
       requireEmailVerification: true,
       autoSignIn: false,
       onPasswordReset: auditHooks.passwordReset,
+      // `hash` stays unset so new hashes use Better Auth's default scrypt.
+      password: { verify: verifyPassword },
     },
     // Puts `status` on session.user. Clients can never set it.
     user: {
@@ -117,6 +157,7 @@ export function buildAuthOptions({
       }),
       after: createAuthMiddleware(async (ctx) => {
         await auditHooks.afterEndpoint(ctx);
+        if (ctx.path === "/sign-in/email") await rehashAfterSignIn(ctx);
         if (ctx.path !== "/get-session") return;
         const parsed = sessionResult.safeParse(ctx.context.returned);
         if (!parsed.success || parsed.data.user.status === "ACTIVE") return;
