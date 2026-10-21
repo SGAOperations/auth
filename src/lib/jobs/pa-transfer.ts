@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 // Database side of the Primary Admin transfer: executes a COOLING transfer
 // whose window has ended, and expires a PENDING_ACCEPTANCE one nobody accepted.
-// Initiate, accept and cancel belong to the transfer service (#49).
+// Initiate, accept and cancel belong to the transfer service.
 //
 // Concurrency: each transfer is claimed with FOR UPDATE SKIP LOCKED inside its
 // own transaction, and everything is decided while that lock is held. A second
@@ -24,7 +24,7 @@ export type TransferNotice = {
   reason?: string;
 };
 
-/** Called after the state change commits. #49 supplies the email version. */
+/** Called after the state change commits. */
 export type TransferNotifier = (notice: TransferNotice) => Promise<void> | void;
 
 type Tx = Prisma.TransactionClient;
