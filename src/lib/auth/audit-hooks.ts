@@ -167,6 +167,17 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
       }
     },
 
+    /** After a sign-in swapped an imported bcrypt hash for scrypt. */
+    async passwordRehashed(ctx: HookContext, userId: string) {
+      await emit(ctx, {
+        type: "PASSWORD_REHASHED",
+        actorType: "USER",
+        actorUserId: userId,
+        targetType: "USER",
+        targetId: userId,
+      });
+    },
+
     /** `databaseHooks.session.create.after`: every login path. */
     async sessionCreated(session: HookSession, ctx: HookContext | null) {
       await emit(ctx, {

@@ -1,0 +1,49 @@
+# CodeQL code scanning for JavaScript/TypeScript. Runs on every pull request,
+# on pushes to main and dev, and weekly. Results appear as PR annotations and
+# under Security > Code scanning.
+#
+# This job is not a required check. Repository "Default setup" for code
+# scanning must stay off, or it conflicts with this workflow.
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+  schedule:
+    - cron: "23 7 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - src/generated
+              - docs/sgauth-design/out
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:javascript-typescript"

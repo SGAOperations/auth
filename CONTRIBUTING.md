@@ -53,7 +53,7 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `ma
 - `typecheck`: `tsc --noEmit` against the generated Prisma client.
 - `lint`: ESLint.
 - `format`: Prettier `--check`. Run `npm run format` to fix it.
-- `audit`: `npm audit --omit=dev --audit-level=high`; fails on high or critical advisories in production dependencies. The full `npm audit` stays informational.
+- `audit`: `npm audit --omit=dev --audit-level=high`; fails on high or critical advisories in production dependencies. The full `npm audit --audit-level=high` runs as a non-blocking step in the same job and stays informational.
 - `migrations`: applies `prisma/migrations/` to a scratch Postgres and fails if `prisma/schema.prisma` differs from the result.
 - `test`: runs `npm test` (the `unit` and `db` projects, with coverage) against the Neon `test` branch, which is reset to its parent (`dev`) first.
 
@@ -75,6 +75,13 @@ Fork PRs do not receive secrets, so `test` fails on them by design.
 ### Serialized test runs
 
 The `test` job runs in the `neon-test-branch` concurrency group so two PRs never share the branch mid-run. Per-run branches are not used because of Neon's 10-branch cap. GitHub keeps only one waiting run per group, so a third run cancels the waiting one; re-run the cancelled check.
+
+### Dependency and code scanning
+
+- Dependabot (`.github/dependabot.yml`) opens grouped PRs against `dev` every Monday, labelled `chore`. Majors outside the `nextjs`, `react` and `prisma` groups come one per PR.
+- Dependabot PRs run CI with **Dependabot secrets, not Actions secrets**. `test` fails on them until `NEON_API_KEY`, `NEON_TEST_DATABASE_URL` and `NEON_TEST_DIRECT_URL` are also added under Settings → Secrets → Dependabot.
+- Dependabot ignores `package.json` `overrides` (`deepmerge-ts`, `mysql2`). Remove an override by hand once its upstream pin is fixed.
+- CodeQL (`.github/workflows/codeql.yml`) runs the `security-extended` suite on every PR, on every push to `dev` and `main`, and weekly. Alerts are under Security → Code scanning. It is not a required check, and code scanning "Default setup" must stay off.
 
 ### Branch protection
 
