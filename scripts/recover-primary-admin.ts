@@ -39,6 +39,10 @@ const RUNBOOK = "docs/runbooks/break-glass.md";
 // change committed but verification or a notification failed.
 type ExitCode = 0 | 1 | 2;
 
+// Set once the transaction resolves, so a later throw is reported as
+// committed-but-failed (exit 2) rather than as nothing written.
+let committed = false;
+
 async function confirm(phrase: string): Promise<boolean> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
@@ -88,6 +92,7 @@ async function main(): Promise<ExitCode> {
       (tx) => applyRecovery(tx, args, plan),
       { timeout: 30_000, maxWait: 15_000 },
     );
+    committed = true;
     console.log(`Committed. Audit event ${result.auditEventId}.`);
     console.log(`Sessions signed out: ${result.sessionsRevoked}.`);
 
@@ -160,7 +165,14 @@ main().then(
           : "Unexpected error",
       );
     }
-    console.error("Nothing was written.");
-    process.exitCode = 1;
+    if (committed) {
+      console.error(
+        `The change was committed; verify and notify by hand (${RUNBOOK}).`,
+      );
+      process.exitCode = 2;
+    } else {
+      console.error("Nothing was written.");
+      process.exitCode = 1;
+    }
   },
 );
