@@ -10,7 +10,7 @@ import {
 import { EmailTransportError, type Transport } from "./transports";
 
 const ORIGIN = "https://auth.northeasternsga.com";
-const FROM = "SGA Auth <no-reply@mail.northeasternsga.com>";
+const FROM = "SGA Auth <no-reply@auth.northeasternsga.com>";
 
 type VerifyMessage = Extract<EmailMessage, { template: "verify-email" }>;
 

@@ -17,7 +17,7 @@ const upstash = {
 
 const resend = {
   RESEND_API_KEY: "re_test_key",
-  RESEND_FROM_EMAIL: "no-reply@mail.northeasternsga.com",
+  RESEND_FROM_EMAIL: "no-reply@auth.northeasternsga.com",
 };
 
 function messageOf(raw: Record<string, string | undefined>): string {

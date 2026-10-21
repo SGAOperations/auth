@@ -18,7 +18,7 @@ import {
 import { logger } from "@/lib/log";
 import { namespaceFor } from "@/lib/rate-limit/limiter";
 
-const DEFAULT_FROM_ADDRESS = "no-reply@mail.northeasternsga.com";
+const DEFAULT_FROM_ADDRESS = "no-reply@auth.northeasternsga.com";
 
 function buildTransport(): Transport {
   if (env.RESEND_API_KEY && env.RESEND_FROM_EMAIL) {

@@ -14,15 +14,15 @@ The Chambers/Aplio account's usage page must show none of SGAuth's sends.
 
 ## DNS
 
-The sending domain is `mail.northeasternsga.com`, verified only in the SGAuth account. Publish the records the Resend dashboard shows for it:
+The sending domain is `auth.northeasternsga.com`, verified only in the SGAuth account. Publish the records the Resend dashboard shows for it:
 
 | Record  | Name                                         | Purpose                                               |
 | ------- | -------------------------------------------- | ----------------------------------------------------- |
-| MX, TXT | `send.mail.northeasternsga.com`              | SPF and the bounce path (values from Resend)          |
-| TXT     | `resend._domainkey.mail.northeasternsga.com` | DKIM public key (value from Resend)                   |
-| TXT     | `_dmarc.mail.northeasternsga.com`            | `v=DMARC1; p=quarantine; rua=mailto:<shared mailbox>` |
+| MX, TXT | `send.auth.northeasternsga.com`              | SPF and the bounce path (values from Resend)          |
+| TXT     | `resend._domainkey.auth.northeasternsga.com` | DKIM public key (value from Resend)                   |
+| TXT     | `_dmarc.auth.northeasternsga.com`            | `v=DMARC1; p=quarantine; rua=mailto:<shared mailbox>` |
 
-The `from` address is `SGA Auth <no-reply@mail.northeasternsga.com>`. Check deliverability with the steps under "Previewing" below: `dmarc=pass` with `header.from=mail.northeasternsga.com` aligned with the DKIM `d=` domain.
+The `from` address is `SGA Auth <no-reply@auth.northeasternsga.com>`. Check deliverability with the steps under "Previewing" below: `dmarc=pass` with `header.from=auth.northeasternsga.com` aligned with the DKIM `d=` domain.
 
 ## API keys
 

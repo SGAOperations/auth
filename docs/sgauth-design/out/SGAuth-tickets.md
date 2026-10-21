@@ -519,7 +519,7 @@ Forgot-password request (email only; uniform response regardless of existence), 
 
 Password login keeps email volume low (verification, reset, set-password, lock/unlock, security notices, PA transfer steps). Chambers sends almost all of SGA's current email, and Resend's free quota is **per account**, so a separate API key inside the shared account would not isolate anything. Therefore:
 - **Separate Resend account** owned by an SGA shared mailbox (not a student's personal login), credentials in the team vault. Confirm once that Resend's terms permit a distinct account for a distinct sender and record the answer here.
-- Dedicated sending subdomain `mail.northeasternsga.com` verified only in that account, with SPF, DKIM, and DMARC (p=quarantine) records; `from` = `SGA Auth <no-reply@mail.northeasternsga.com>`.
+- Dedicated sending subdomain `auth.northeasternsga.com` verified only in that account, with SPF, DKIM, and DMARC (p=quarantine) records; `from` = `SGA Auth <no-reply@auth.northeasternsga.com>`.
 - `src/lib/email/mailer.ts` provider-agnostic interface (`sendEmail({ to, template, data })`) with a Resend implementation and a console/preview transport for local/test.
 - Templates (React Email or plain HTML+text): verify, reset, invite/set-password, account locked, unlock, security notice (password changed / new admin grant), PA transfer initiated / accepted / cancelled / completed, inactivity notice.
 - Caps: per-recipient 10 emails per hour and 30 per day; global daily cap (env, default 500) with an alert at 80%. Log every send with template and recipient hash to the log stream.
