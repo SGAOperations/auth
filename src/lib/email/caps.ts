@@ -96,6 +96,9 @@ export function createMemoryCapStore({
   return {
     async incr(entries) {
       const nowMs = now();
+      for (const [key, counter] of counters) {
+        if (counter.expiresAt <= nowMs) counters.delete(key);
+      }
       return entries.map(({ key, ttlSeconds }) => {
         const existing = counters.get(key);
         const live = existing && existing.expiresAt > nowMs ? existing : null;

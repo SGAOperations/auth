@@ -11,7 +11,15 @@ export interface EmailContent {
   text: string;
 }
 
-const name = z.string().trim().min(1).max(100).optional();
+// Names reach subject lines, so control characters (CR, LF) are rejected.
+const personName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .regex(/^[^\p{Cc}]+$/u, "must not contain control characters");
+
+const name = personName.optional();
 
 const url = z.url({ protocol: /^https?$/ });
 
@@ -181,12 +189,12 @@ export const TEMPLATES = {
       z.object({
         role: z.literal("recipient"),
         url,
-        fromName: z.string().trim().min(1).max(100),
+        fromName: personName,
         acceptBy: z.date(),
       }),
       z.object({
         role: z.literal("initiator"),
-        toName: z.string().trim().min(1).max(100),
+        toName: personName,
         acceptBy: z.date(),
       }),
     ]),
@@ -219,12 +227,12 @@ export const TEMPLATES = {
       z.object({
         role: z.literal("initiator"),
         cancelUrl: url,
-        toName: z.string().trim().min(1).max(100),
+        toName: personName,
         executesAt: z.date(),
       }),
       z.object({
         role: z.literal("recipient"),
-        fromName: z.string().trim().min(1).max(100),
+        fromName: personName,
         executesAt: z.date(),
       }),
     ]),
@@ -255,7 +263,7 @@ export const TEMPLATES = {
   "pa-transfer-cancelled": defineTemplate({
     schema: z.object({
       role: z.enum(["initiator", "recipient"]),
-      otherName: z.string().trim().min(1).max(100),
+      otherName: personName,
       reason: z.enum([
         "cancelled",
         "declined",
@@ -279,8 +287,8 @@ export const TEMPLATES = {
   "pa-transfer-completed": defineTemplate({
     schema: z.object({
       role: z.enum(["initiator", "recipient", "admin"]),
-      fromName: z.string().trim().min(1).max(100),
-      toName: z.string().trim().min(1).max(100),
+      fromName: personName,
+      toName: personName,
       completedAt: z.date(),
     }),
     links: [],

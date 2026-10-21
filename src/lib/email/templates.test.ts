@@ -110,6 +110,15 @@ describe("schemas", () => {
     expect(prepared).toEqual({ ok: false, paths: ["name"] });
   });
 
+  it("rejects a name with a line break", () => {
+    const prepared = prepareTemplate("pa-transfer-initiated", {
+      role: "initiator",
+      toName: "Ada\r\nBcc: x@example.com",
+      acceptBy: new Date(),
+    });
+    expect(prepared).toEqual({ ok: false, paths: ["toName"] });
+  });
+
   it("names the issue path, never the value", () => {
     const prepared = prepareTemplate("verify-email", {
       url: "javascript:secret-value",
