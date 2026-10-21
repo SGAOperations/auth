@@ -147,34 +147,41 @@ export async function readKeys(db: Reader, now: Date) {
 /**
  * Creates a staged ES256 key, stored exactly the way the plugin's createJwk
  * stores one (encrypted private key), except for the sentinel `createdAt`.
- * `secret` is BETTER_AUTH_SECRET.
+ * `secret` is BETTER_AUTH_SECRET. The state is read, planned and written inside
+ * a serializable transaction, so two operators cannot both stage.
  */
 export async function stageKey(
-  db: Reader,
+  db: Pick<PrismaClient, "$transaction">,
   secret: string,
   now: Date,
 ): Promise<string> {
-  planStage(await readKeys(db, now));
-
   const { publicWebKey, privateWebKey } = await generateExportedKeyPair({
     jwks: { keyPairConfig: { alg: JWT_ALG } },
   });
-  const row = await db.jwks.create({
-    data: {
-      publicKey: JSON.stringify(publicWebKey),
-      privateKey: JSON.stringify(
-        await symmetricEncrypt({
-          key: secret,
-          data: JSON.stringify(privateWebKey),
-        }),
-      ),
-      alg: JWT_ALG,
-      crv: "P-256",
-      createdAt: STAGED_KEY_CREATED_AT,
+  const privateKey = JSON.stringify(
+    await symmetricEncrypt({
+      key: secret,
+      data: JSON.stringify(privateWebKey),
+    }),
+  );
+
+  return db.$transaction(
+    async (tx) => {
+      planStage(await readKeys(tx, now));
+      const row = await tx.jwks.create({
+        data: {
+          publicKey: JSON.stringify(publicWebKey),
+          privateKey,
+          alg: JWT_ALG,
+          crv: "P-256",
+          createdAt: STAGED_KEY_CREATED_AT,
+        },
+        select: { id: true },
+      });
+      return row.id;
     },
-    select: { id: true },
-  });
-  return row.id;
+    { isolationLevel: "Serializable" },
+  );
 }
 
 /**

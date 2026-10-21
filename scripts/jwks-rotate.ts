@@ -16,7 +16,7 @@ import { UsageError, describeTarget } from "../prisma/seed/sync-env.js";
 
 // Standalone ops script: parses its own env and builds its own client, the same
 // exception as scripts/positions-sync.ts. Dry run by default; `--apply` writes.
-// Allowed in production. See docs/runbooks/rotate-secrets.md (AUTH-T69).
+// Allowed in production. See docs/runbooks/rotate-secrets.md.
 
 const USAGE = "Usage: npm run jwks:rotate [-- status|stage|activate] [--apply]";
 
@@ -97,9 +97,9 @@ async function main() {
       );
       return;
     }
-    await activateStagedKey(prisma, new Date());
+    const applied = await activateStagedKey(prisma, new Date());
     console.log(
-      `Activated ${plan.stagedId}. ${plan.activeId} is expired and stays published for 7 days.`,
+      `Activated ${applied.stagedId}. ${applied.activeId} is expired and stays published for 7 days.`,
     );
   } finally {
     await prisma.$disconnect();
