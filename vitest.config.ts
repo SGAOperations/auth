@@ -56,7 +56,16 @@ export default defineConfig({
       provider: "v8",
       include: ["src/lib/**/*.ts"],
       exclude: ["src/lib/**/*.test.ts"],
-      thresholds: { lines: 80 },
+      thresholds: {
+        lines: 80,
+        // The rule matrix is security logic: every branch must be exercised.
+        "src/lib/authz.ts": {
+          branches: 100,
+          functions: 100,
+          lines: 100,
+          statements: 100,
+        },
+      },
       reporter: ["text-summary", "text"],
     },
   },
