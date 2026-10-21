@@ -120,7 +120,7 @@ export function toSessionView(
     id: row.id,
     createdAt: row.createdAt.toISOString(),
     lastActiveAt: row.updatedAt.toISOString(),
-    // "" means a refused multi-hop x-forwarded-for (#39).
+    // "" means a refused multi-hop x-forwarded-for.
     ip: row.ipAddress || null,
     device: describeDevice(row.userAgent),
     isCurrent: row.id === currentSessionId,
