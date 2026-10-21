@@ -49,5 +49,9 @@ export const auth = betterAuth({
   session: { cookieCache: { enabled: false } },
   // Upstash limits in src/lib/rate-limit (AUTH-T63); the built-in limiter stays off (docs/ENGINEERING.md §3).
   rateLimit: { enabled: false },
-  plugins: buildAuthPlugins(settings.signupAllowlist),
+  plugins: buildAuthPlugins({
+    signupAllowlist: settings.signupAllowlist,
+    prisma,
+    issuer: settings.baseURL,
+  }),
 });

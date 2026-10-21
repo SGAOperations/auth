@@ -10,6 +10,17 @@ const isProduction = process.env.SGAUTH_ENV === "production";
 const nextConfig: NextConfig = {
   // Next 16 dev blocks HMR and dev assets for any origin but localhost.
   allowedDevOrigins: ["*.sga.localhost"],
+  // Supabase is pointed at the issuer URL, so discovery and the key set must
+  // resolve under /.well-known. The preview gate exempts the original paths.
+  async rewrites() {
+    return [
+      { source: "/.well-known/jwks.json", destination: "/api/auth/jwks" },
+      {
+        source: "/.well-known/openid-configuration",
+        destination: "/api/sgauth/openid-configuration",
+      },
+    ];
+  },
   async headers() {
     return [
       {
