@@ -1,0 +1,51 @@
+# Dependabot version and security updates for npm, weekly, against dev.
+#
+# Updates are grouped to keep the PR count low: the `test` job serializes on
+# the neon-test-branch concurrency group, so a burst of PRs queues behind it.
+# Dependabot PRs run CI with Dependabot secrets, not Actions secrets (see
+# CONTRIBUTING.md, "Dependency and code scanning").
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/New_York
+    open-pull-requests-limit: 5
+    labels:
+      - chore
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    groups:
+      nextjs:
+        patterns:
+          - next
+          - eslint-config-next
+      react:
+        patterns:
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+      prisma:
+        patterns:
+          - prisma
+          - "@prisma/*"
+      production:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"

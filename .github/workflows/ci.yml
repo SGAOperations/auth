@@ -71,6 +71,10 @@ jobs:
           cache: npm
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+      - name: Audit all dependencies (informational)
+        if: always()
+        continue-on-error: true
+        run: npm audit --audit-level=high
 
   migrations:
     runs-on: ubuntu-latest
