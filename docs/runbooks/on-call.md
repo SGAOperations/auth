@@ -30,10 +30,15 @@ secrets, and the values are in the team password manager.
 Do not schedule or poll database traffic to keep the compute awake. Scale-to-zero
 is what keeps SGAuth inside the Free quota.
 
+## Quarterly checks
+
+- Subdomain review: the workflow opens an issue on the 1st of January, April, July and October. Follow [subdomain-review.md](subdomain-review.md) and close it within the month.
+
 ## Other runbooks
 
 - [neon-restore.md](neon-restore.md): restore `main` to an earlier point in time.
 - [neon-upgrade.md](neon-upgrade.md): move the project to the Launch plan.
+- [subdomain-review.md](subdomain-review.md): inventory the DNS zone and remove dangling records.
 
 ## Upgrade log
 

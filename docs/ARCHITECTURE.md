@@ -35,3 +35,9 @@ plan. A problem noticed after that is not recoverable from Neon itself. The
 procedure and its limits are in
 [`runbooks/neon-restore.md`](runbooks/neon-restore.md). The Launch plan extends
 the window to 7 days.
+
+## Security policies
+
+- [SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md): who may have a
+  `northeasternsga.com` subdomain, and why every one can read the session
+  cookie.
