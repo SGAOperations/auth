@@ -38,6 +38,16 @@ export function isMutatingEntry(relPath: string, source: string): boolean {
       return true;
     }
   }
+  const exportList = /export\s*\{([^}]*)\}/g;
+  for (const match of source.matchAll(exportList)) {
+    const names = match[1].split(",").map((part) => {
+      const specifier = part.trim().split(/\s+as\s+/);
+      return specifier[specifier.length - 1].trim();
+    });
+    if (names.some((name) => MUTATING_METHODS.includes(name))) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -64,6 +74,9 @@ describe("isMutatingEntry", () => {
     ["a/route.ts", "export const PATCH = handler;"],
     ["a/route.ts", "export const { GET, PUT } = handlers;"],
     ["a/route.ts", "export const {\n  GET,\n  POST: post,\n} = handlers;"],
+    ["a/route.ts", "export { handler as POST };"],
+    ["a/route.ts", 'export { POST } from "./x";'],
+    ["a/route.ts", "export {\n  GET,\n  handler as DELETE,\n};"],
     ["a/actions.ts", '"use server";\nexport async function f() {}'],
     ["a/actions.tsx", "// header\n'use server'\nexport async function f() {}"],
   ])("detects %s: %s", (relPath, source) => {
@@ -74,6 +87,8 @@ describe("isMutatingEntry", () => {
     ["a/route.ts", "export async function GET() {}"],
     ["a/route.ts", "export const { GET, HEAD } = handlers;"],
     ["a/route.ts", "const POST = 1;"],
+    ["a/route.ts", "export { POST as GET };"],
+    ["a/route.ts", 'export { GET, HEAD } from "./x";'],
     ["a/page.tsx", "export default function Page() {}"],
     ["a/helpers.ts", 'import "x";\nconst s = "use server";'],
   ])("ignores %s: %s", (relPath, source) => {
