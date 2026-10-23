@@ -721,20 +721,20 @@ Audit every page with axe and keyboard-only navigation; add empty states, loadin
 **Acceptance criteria**
 - [ ] Adding a product on dev makes cross-origin POSTs from its origin pass Better Auth's origin check within 60 s; removing it makes them fail.
 - [ ] Unit tests for origin normalization (trailing slash, port, case).","High","2","Backlog","epic:sdk, phase:1, backend, registry, security"
-"Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm)","**Ticket:** AUTH-T57  
+"Scaffold the @nusgaops/sgauth package and publish pipeline (public npm)","**Ticket:** AUTH-T57  
 **Epic:** E8 Product Registry & SDK  
 **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
 **Depends on:** AUTH-T28 (Session endpoint for products: user, email, positions, admin flags)
 
-New repo `SGAOperations/sgauth-sdk` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the `@sgaoperations` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on `v*` tags; semantic versioning; `CHANGELOG.md`; provenance attestations enabled.
+New repo `SGAOperations/sgauth-sdk` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the `@nusgaops` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on `v*` tags; semantic versioning; `CHANGELOG.md`; provenance attestations enabled.
 
 **Acceptance criteria**
-- [ ] `npm install @sgaoperations/sgauth` works from any product repo with no `.npmrc` changes.
+- [ ] `npm install @nusgaops/sgauth` works from any product repo with no `.npmrc` changes.
 - [ ] CI publishes on `v*` tags via trusted publishing and fails on version collisions; the package page shows provenance.","High","3","Backlog","epic:sdk, phase:2, sdk, infra"
 "SDK: getSession() with cookie forwarding and a 60-second cache","**Ticket:** AUTH-T58  
 **Epic:** E8 Product Registry & SDK  
 **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ  
-**Depends on:** AUTH-T57 (Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm))
+**Depends on:** AUTH-T57 (Scaffold the @nusgaops/sgauth package and publish pipeline (public npm))
 
 `getSession({ headers | cookieHeader })`: extracts the SGAuth cookie (name from `SGAUTH_COOKIE_NAME`, default `__Secure-sgauth.session_token`), calls `{SGAUTH_URL}/api/sgauth/session` with the `Cookie` header, returns a typed `SgaSession | null`. In-memory LRU cache keyed by SHA-256 of the token, TTL 60 s (configurable, max 300 s), negative cache 10 s. **Availability:** SGAuth is a single point of failure for every product, so on network error or 5xx the SDK serves a previously cached session for that token for up to `staleIfErrorSeconds` (default 300, max 900) and calls `onError`; with no cached entry it returns null (fail closed). Timeout 3 s. Never caches 5xx as a session. Products must never log the forwarded Cookie header (documented). Ships the JSON schema types from AUTH-T28.
 
