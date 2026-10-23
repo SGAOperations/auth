@@ -55,7 +55,7 @@ export const PRODUCT_TICKETS = [
     labels: ["sgauth", "backend"],
     deps: ["AUTH-T59", "AUTH-T80", "AUTH-T34"],
     title:
-      "Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy",
+      "Install @nusgaops/sgauth and protect all routes with the SGAuth proxy",
     description: `Add the SDK from public npm (no registry config), env vars (\`SGAUTH_URL\`, \`SGAUTH_COOKIE_NAME\`), and \`proxy.ts\` using \`createSgaProxy({ publicPaths: ['/api/uploadthing', '/health'] })\` (cookie-presence check only; real validation in server code via \`requireSession()\`). Unauthenticated requests redirect to \`https://auth.northeasternsga.com/login?redirect=<current URL>\`. Register \`https://vaultz.northeasternsga.com\` (and \`vaultz-dev.northeasternsga.com\`) in the SGAuth product registry first.`,
     acceptance: [
       "Visiting any VaultZ page without an SGAuth session redirects to SGAuth login and back to the original page after login.",
