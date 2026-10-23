@@ -7,9 +7,9 @@ import {
 } from "./transports";
 
 const message = {
-  from: "SGA Auth <no-reply@auth.northeasternsga.com>",
+  from: "SGAuth <no-reply@auth.northeasternsga.com>",
   to: "avery@northeastern.edu",
-  subject: "Verify your email for SGA Auth",
+  subject: "Verify your email for SGAuth",
   html: "<p>hi</p>",
   text: "hi",
   template: "verify-email",

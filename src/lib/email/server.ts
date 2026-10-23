@@ -52,7 +52,7 @@ export const mailer = createMailer({
     dailyCap: env.SGAUTH_EMAIL_DAILY_CAP,
     log: logger,
   }),
-  from: `SGA Auth <${env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_ADDRESS}>`,
+  from: `SGAuth <${env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_ADDRESS}>`,
   linkOrigin: new URL(toAuthSettings(env).baseURL).origin,
   log: logger,
 });

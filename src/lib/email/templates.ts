@@ -25,8 +25,13 @@ const url = z.url({ protocol: /^https?$/ });
 
 const expiresInMinutes = z.number().int().positive();
 
-function greeting(recipient?: string): string {
-  return recipient ? `Hi ${recipient},` : "Hi,";
+function greeting(recipient?: string, salutation = "Hi"): string {
+  return recipient ? `${salutation} ${recipient},` : `${salutation},`;
+}
+
+// Primary Admin emails open with "Hello".
+function adminGreeting(): string {
+  return greeting(undefined, "Hello");
 }
 
 function defineTemplate<S extends z.ZodType>(template: {
@@ -56,16 +61,22 @@ const REASON_LINES = {
 
 const SECURITY_EVENTS = {
   "password-changed": {
-    subject: "Your SGA Auth password was changed",
+    subject: "Your SGAuth password was changed",
     heading: "Your password was changed",
+    body: (when: string) =>
+      `Your password was changed on ${when}. If this wasn't you, reset your password immediately and contact SGA Operational Affairs.`,
   },
   "password-reset": {
-    subject: "Your SGA Auth password was reset",
+    subject: "Your SGAuth password was reset",
     heading: "Your password was reset",
+    body: (when: string) =>
+      `Your password was reset on ${when}. If this wasn't you, reset your password immediately and contact SGA Operational Affairs.`,
   },
   "admin-granted": {
-    subject: "You now have admin access in SGA Auth",
+    subject: "You now have admin access in SGAuth",
     heading: "You now have admin access",
+    body: (when: string) =>
+      `This happened at ${when}. If this wasn't you, reset your password right away and contact SGA.`,
   },
 } as const;
 
@@ -74,7 +85,7 @@ export const TEMPLATES = {
     schema: z.object({ name, url, expiresInMinutes }),
     links: ["url"],
     render: (d) =>
-      compose("Verify your email for SGA Auth", {
+      compose("Verify your email for SGAuth", {
         preheader: "Confirm this address to finish creating your account.",
         heading: "Verify your email",
         paragraphs: [
@@ -92,7 +103,7 @@ export const TEMPLATES = {
     schema: z.object({ name, url, expiresInMinutes }),
     links: ["url"],
     render: (d) =>
-      compose("Reset your SGA Auth password", {
+      compose("Reset your SGAuth password", {
         preheader: "Choose a new password for your SGA account.",
         heading: "Reset your password",
         paragraphs: [
@@ -117,9 +128,7 @@ export const TEMPLATES = {
     render: (d) => {
       const invite = d.kind === "admin-invite";
       return compose(
-        invite
-          ? "You've been invited to SGA Auth"
-          : "Set your SGA Auth password",
+        invite ? "You've been invited to SGAuth" : "Set your SGAuth password",
         {
           preheader: "Set a password to finish setting up your account.",
           heading: invite ? "You've been invited" : "Set your password",
@@ -127,7 +136,7 @@ export const TEMPLATES = {
             greeting(d.name),
             ...(invite ? ["An SGA admin set up an account for you."] : []),
             "Your account is ready, but it has no password yet.",
-            `The link expires in ${formatDuration(d.expiresInMinutes)}.`,
+            `This link expires in ${formatDuration(d.expiresInMinutes)}.`,
           ],
           action: { label: "Set password", url: d.url },
         },
@@ -176,10 +185,7 @@ export const TEMPLATES = {
       return compose(event.subject, {
         preheader: event.heading,
         heading: event.heading,
-        paragraphs: [
-          greeting(d.name),
-          `This happened at ${formatEt(d.occurredAt)}. If this wasn't you, reset your password right away and contact SGA.`,
-        ],
+        paragraphs: [greeting(d.name), event.body(formatEt(d.occurredAt))],
       });
     },
   }),
@@ -201,12 +207,12 @@ export const TEMPLATES = {
     links: ["url"],
     render: (d) =>
       d.role === "recipient"
-        ? compose(`${d.fromName} wants to make you Primary Admin of SGA Auth`, {
+        ? compose(`${d.fromName} wants to make you Primary Admin of SGAuth`, {
             preheader: "Review a Primary Admin transfer.",
             heading: "Primary Admin transfer request",
             paragraphs: [
-              greeting(),
-              `${d.fromName} wants to make you Primary Admin of SGA Auth.`,
+              adminGreeting(),
+              `${d.fromName} wants to make you Primary Admin of SGAuth.`,
               `Accept by ${formatEt(d.acceptBy)}.`,
             ],
             action: { label: "Review transfer", url: d.url },
@@ -215,7 +221,7 @@ export const TEMPLATES = {
             preheader: "Your Primary Admin transfer is waiting for a response.",
             heading: "Primary Admin transfer started",
             paragraphs: [
-              greeting(),
+              adminGreeting(),
               `You started a Primary Admin transfer to ${d.toName}.`,
               `It goes ahead only if they accept by ${formatEt(d.acceptBy)}.`,
             ],
@@ -243,7 +249,7 @@ export const TEMPLATES = {
             preheader: `${d.toName} accepted the transfer.`,
             heading: "Primary Admin transfer accepted",
             paragraphs: [
-              greeting(),
+              adminGreeting(),
               `${d.toName} accepted. The transfer completes at ${formatEt(d.executesAt)}.`,
               "You can cancel until then.",
             ],
@@ -253,7 +259,7 @@ export const TEMPLATES = {
             preheader: "You are about to become Primary Admin.",
             heading: "Primary Admin transfer accepted",
             paragraphs: [
-              greeting(),
+              adminGreeting(),
               `You'll become Primary Admin at ${formatEt(d.executesAt)}.`,
               `${d.fromName} can cancel the transfer until then.`,
             ],
@@ -277,7 +283,7 @@ export const TEMPLATES = {
         preheader: "A Primary Admin transfer will not go ahead.",
         heading: "Primary Admin transfer cancelled",
         paragraphs: [
-          greeting(),
+          adminGreeting(),
           REASON_LINES[d.reason](d.otherName),
           "Nothing changed: the current Primary Admin keeps the role.",
         ],
@@ -293,11 +299,11 @@ export const TEMPLATES = {
     }),
     links: [],
     render: (d) =>
-      compose(`${d.toName} is now Primary Admin of SGA Auth`, {
+      compose(`${d.toName} is now Primary Admin of SGAuth`, {
         preheader: `${d.toName} is now Primary Admin.`,
         heading: "Primary Admin transfer complete",
         paragraphs: [
-          greeting(),
+          adminGreeting(),
           `${d.fromName} transferred the Primary Admin role to ${d.toName} at ${formatEt(d.completedAt)}.`,
           ...(d.role === "admin" ? [] : ["You'll need to sign in again."]),
         ],
@@ -308,17 +314,17 @@ export const TEMPLATES = {
     schema: z.object({
       name,
       lastLoginAt: z.date(),
-      deleteAfter: z.date(),
+      deactivateAfter: z.date(),
       signInUrl: url,
     }),
     links: ["signInUrl"],
     render: (d) =>
       compose("Sign in to keep your SGA account", {
-        preheader: "Your account will be deleted if you don't sign in.",
+        preheader: "Your account will be deactivated if you don't sign in.",
         heading: "Sign in to keep your account",
         paragraphs: [
           greeting(d.name),
-          `You haven't signed in since ${formatEt(d.lastLoginAt)}. If you don't sign in before ${formatEt(d.deleteAfter)}, your account will be deleted.`,
+          `You haven't signed in since ${formatEt(d.lastLoginAt)}. If you don't sign in before ${formatEt(d.deactivateAfter)}, your account will be deactivated.`,
         ],
         action: { label: "Sign in", url: d.signInUrl },
       }),

@@ -82,7 +82,7 @@ async function send(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: `SGA Auth <${from}>`,
+      from: `SGAuth <${from}>`,
       to: [to],
       subject: content.subject,
       html: content.html,

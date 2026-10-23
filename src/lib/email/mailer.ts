@@ -35,7 +35,7 @@ export interface MailerLog {
 interface MailerOptions {
   transport: Transport;
   caps: EmailCaps;
-  /** The full From header, for example `SGA Auth <no-reply@…>`. */
+  /** The full From header, for example `SGAuth <no-reply@…>`. */
   from: string;
   /** Every link in a message must sit on this origin. */
   linkOrigin: string;

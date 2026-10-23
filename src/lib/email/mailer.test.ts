@@ -10,7 +10,7 @@ import {
 import { EmailTransportError, type Transport } from "./transports";
 
 const ORIGIN = "https://auth.northeasternsga.com";
-const FROM = "SGA Auth <no-reply@auth.northeasternsga.com>";
+const FROM = "SGAuth <no-reply@auth.northeasternsga.com>";
 
 type VerifyMessage = Extract<EmailMessage, { template: "verify-email" }>;
 
@@ -59,7 +59,7 @@ describe("sendEmail", () => {
       expect.objectContaining({
         from: FROM,
         to: "avery@northeastern.edu",
-        subject: "Verify your email for SGA Auth",
+        subject: "Verify your email for SGAuth",
         template: "verify-email",
       }),
     );

@@ -155,7 +155,7 @@ export const SAMPLES: readonly Sample[] = [
     data: {
       name: "Avery",
       lastLoginAt: EARLIER,
-      deleteAfter: WEEK,
+      deactivateAfter: WEEK,
       signInUrl: `${ORIGIN}/sign-in`,
     },
   },

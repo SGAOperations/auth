@@ -1,8 +1,7 @@
 // Pure on purpose: no `server-only`, no `@/` imports and no env, so templates
 // render in Next, in Vitest and in scripts/email-preview.ts under plain Node.
 
-const FOOTER =
-  "Sent by SGA Auth, the sign-in for Northeastern SGA tools. Replies to this address aren't read.";
+const FOOTER = "Replies to this address aren't read.";
 
 const HTML_ESCAPES: Record<string, string> = {
   "&": "&amp;",
@@ -79,7 +78,7 @@ export function renderLayout(input: LayoutInput): RenderedBody {
     `<div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>`,
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">',
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">',
-    `<tr><td style="${FONT}font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGA Auth</td></tr>`,
+    `<tr><td style="${FONT}font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>`,
     `<tr><td style="padding:16px 32px 8px;"><h1 style="${FONT}font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">${escapeHtml(heading)}</h1>`,
     paragraphs.map(paragraphHtml).join(""),
     actionHtml,
@@ -90,7 +89,7 @@ export function renderLayout(input: LayoutInput): RenderedBody {
   ].join("\n");
 
   const textLines = [
-    "SGA Auth",
+    "SGAuth",
     "",
     heading,
     "",

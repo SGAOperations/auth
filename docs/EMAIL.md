@@ -22,7 +22,7 @@ The sending domain is `auth.northeasternsga.com`, verified only in the SGAuth ac
 | TXT     | `resend._domainkey.auth.northeasternsga.com` | DKIM public key (value from Resend)                   |
 | TXT     | `_dmarc.auth.northeasternsga.com`            | `v=DMARC1; p=quarantine; rua=mailto:<shared mailbox>` |
 
-The `from` address is `SGA Auth <no-reply@auth.northeasternsga.com>`. Check deliverability with the steps under "Previewing" below: `dmarc=pass` with `header.from=auth.northeasternsga.com` aligned with the DKIM `d=` domain.
+The `from` address is `SGAuth <no-reply@auth.northeasternsga.com>`. Check deliverability with the steps under "Previewing" below: `dmarc=pass` with `header.from=auth.northeasternsga.com` aligned with the DKIM `d=` domain.
 
 ## API keys
 
@@ -60,7 +60,7 @@ Each template is a zod schema plus a pure `render(data)` that returns `{ subject
 | `pa-transfer-accepted`  | `role: "initiator"` with `cancelUrl`, `toName`, `executesAt`; or `role: "recipient"` with `fromName`, `executesAt` | `cancelUrl` |
 | `pa-transfer-cancelled` | `role`, `otherName`, `reason`: `cancelled`, `declined`, `expired` or `recipient-ineligible`                        | none        |
 | `pa-transfer-completed` | `role`: `initiator`, `recipient` or `admin`, `fromName`, `toName`, `completedAt`                                   | none        |
-| `inactivity-notice`     | `name?`, `lastLoginAt`, `deleteAfter`, `signInUrl`                                                                 | `signInUrl` |
+| `inactivity-notice`     | `name?`, `lastLoginAt`, `deactivateAfter`, `signInUrl`                                                             | `signInUrl` |
 
 "Account locked" and "unlock" are two emails: a notice, and the single-use unlock link. Primary Admin "expired" is a `pa-transfer-cancelled` reason. Emailed links consume their token on POST, never on GET (ENGINEERING §3), so the consumer's page renders a confirm step.
 
