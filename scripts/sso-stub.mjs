@@ -4,9 +4,8 @@
 // vaultz.sga.localhost: it reads the SGAuth session cookie from the browser
 // request and asks SGAuth who the session belongs to.
 //
-// It reads SGAUTH_URL and SGAUTH_COOKIE_NAME, the names the SDK will read.
-// The SDK will call /api/sgauth/session (AUTH-T28), which does not exist yet,
-// so the stub uses Better Auth's own /api/auth/get-session.
+// It reads SGAUTH_URL and SGAUTH_COOKIE_NAME, the names the SDK will read, and
+// calls /api/sgauth/session as the SDK will (docs/SESSION-ENDPOINT.md).
 //
 // Local tooling only, never deployed. It reads `process.env` directly: the
 // `src/lib/env.ts` rule in docs/ENGINEERING.md section 2 covers application
@@ -78,12 +77,16 @@ async function resolveStatus(cookieValue) {
   let response;
   try {
     // Forward only the session cookie, never the whole header.
-    response = await fetch(`${SGAUTH_URL}/api/auth/get-session`, {
+    response = await fetch(`${SGAUTH_URL}/api/sgauth/session`, {
       headers: { cookie: `${COOKIE_NAME}=${cookieValue}` },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {
     return unreachable("timeout or connection error");
+  }
+  // 401 is the one answer for every no-session case.
+  if (response.status === 401) {
+    return `A ${cookieCode} cookie arrived, but SGAuth returned no session (expired or revoked).`;
   }
   if (!response.ok) return unreachable(`HTTP ${response.status}`);
 

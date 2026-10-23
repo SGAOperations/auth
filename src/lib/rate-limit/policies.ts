@@ -28,6 +28,16 @@ export const POLICIES = {
   token: [
     { id: "token:session:1m", limit: 60, windowSeconds: 60, by: "session" },
   ],
+  // Only src/lib/sgauth-session/server.ts uses this, through an in-memory
+  // limiter, per instance. Never send it to Redis: the endpoint is a hot path.
+  sessionLookup: [
+    {
+      id: "session-lookup:session:1m",
+      limit: 120,
+      windowSeconds: 60,
+      by: "session",
+    },
+  ],
   reauth: [{ id: "reauth:user:1m", limit: 5, windowSeconds: 60, by: "user" }],
   adminMutation: [
     { id: "admin:user:1m", limit: 100, windowSeconds: 60, by: "user" },

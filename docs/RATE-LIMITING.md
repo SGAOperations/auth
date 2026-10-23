@@ -6,17 +6,18 @@ How SGAuth limits mutating and expensive endpoints (AUTH-T63, #75). Code is in `
 
 Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limits there, never inline. A rule id is part of the Redis key, so renaming one resets its counters.
 
-| Rule id            | Endpoint                                 | Keyed by      | Limit | Window     |
-| ------------------ | ---------------------------------------- | ------------- | ----- | ---------- |
-| `sign-in:ip:1m`    | `POST /api/auth/sign-in/email`           | IP            | 10    | 1 minute   |
-| `sign-in:ip:1h`    | `POST /api/auth/sign-in/email`           | IP            | 50    | 1 hour     |
-| `sign-up:ip:1h`    | `POST /api/auth/sign-up/email`           | IP            | 5     | 1 hour     |
-| `reset:ip:10m`     | `POST /api/auth/request-password-reset`  | IP            | 3     | 10 minutes |
-| `reset:email:10m`  | `POST /api/auth/request-password-reset`  | email         | 3     | 10 minutes |
-| `verify:email:1h`  | `POST /api/auth/send-verification-email` | email         | 3     | 1 hour     |
-| `token:session:1m` | `/api/auth/token` (any method)           | session token | 60    | 1 minute   |
-| `reauth:user:1m`   | re-auth handler (AUTH-T32)               | user id       | 5     | 1 minute   |
-| `admin:user:1m`    | admin mutation handlers (AUTH-T36)       | user id       | 100   | 1 minute   |
+| Rule id                     | Endpoint                                                               | Keyed by      | Limit | Window     |
+| --------------------------- | ---------------------------------------------------------------------- | ------------- | ----- | ---------- |
+| `sign-in:ip:1m`             | `POST /api/auth/sign-in/email`                                         | IP            | 10    | 1 minute   |
+| `sign-in:ip:1h`             | `POST /api/auth/sign-in/email`                                         | IP            | 50    | 1 hour     |
+| `sign-up:ip:1h`             | `POST /api/auth/sign-up/email`                                         | IP            | 5     | 1 hour     |
+| `reset:ip:10m`              | `POST /api/auth/request-password-reset`                                | IP            | 3     | 10 minutes |
+| `reset:email:10m`           | `POST /api/auth/request-password-reset`                                | email         | 3     | 10 minutes |
+| `verify:email:1h`           | `POST /api/auth/send-verification-email`                               | email         | 3     | 1 hour     |
+| `token:session:1m`          | `/api/auth/token` (any method)                                         | session token | 60    | 1 minute   |
+| `session-lookup:session:1m` | `GET /api/sgauth/session` and `/minimal` (in-memory only, never Redis) | session token | 120   | 1 minute   |
+| `reauth:user:1m`            | re-auth handler (AUTH-T32)                                             | user id       | 5     | 1 minute   |
+| `admin:user:1m`             | admin mutation handlers (AUTH-T36)                                     | user id       | 100   | 1 minute   |
 
 - A request is blocked when any rule of its policy denies it. The response is `429` with `Retry-After` (whole seconds, at least 1), `Cache-Control: no-store` and the body `{"code":"TOO_MANY_REQUESTS","message":"Too many requests. Try again later."}`. The request never reaches Better Auth.
 - Emails are normalised (`normalizeEmail`) and hashed with SHA-256, and session tokens are hashed, before they become part of a key. IPs and user ids are used as they are. Per-email buckets count a request whether or not the account exists, so the 429 is identical either way.
@@ -26,7 +27,7 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 
 ## What is not limited
 
-- **The session endpoint** (`/api/auth/get-session` now, `/api/sgauth/session` with AUTH-T28). It is the hot path, and the Upstash free tier is 500,000 commands a month. It relies on the SDK cache and Vercel's platform protections, and makes no Redis call at all. The cheap in-process token bucket in the design is left to AUTH-T28, which can size it against its real callers: product servers share Vercel egress IPs, so an IP-keyed bucket designed now would throttle whole products.
+- **The session endpoints** (`/api/auth/get-session`, `/api/sgauth/session` and `/api/sgauth/session/minimal`, see [SESSION-ENDPOINT.md](SESSION-ENDPOINT.md)). They are the hot path, and the Upstash free tier is 500,000 commands a month, so they make no Redis call at all. `/api/auth/get-session` relies on the SDK cache and Vercel's platform protections. The two `/api/sgauth/session` routes add an **in-process** bucket, `session-lookup:session:1m` (120 per minute, keyed by the hashed session token, per instance). It stops one stolen cookie from hammering Neon. It is keyed by token and never by IP, because product servers share Vercel egress IPs and an IP bucket would throttle whole products. The policy is in-memory only and is never sent to Redis. The key is the raw cookie value, checked before Better Auth verifies its signature, so the bucket also holds junk tokens. The memory backend keeps at most 10,000 keys and evicts the oldest, so an attacker who rotates junk tokens can push a legitimate token's counter out and reset it. A junk request costs only an HMAC check and no database read, so this does not expose Neon, but the bucket is a best-effort brake on one stolen valid cookie and not a guarantee.
 - **Trusted server-side calls** to `auth.api.*` (the seed, admin code, tests). Only HTTP traffic goes through the wrapper.
 
 ## Namespaces and environments
