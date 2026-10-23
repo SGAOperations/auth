@@ -16,6 +16,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "delegated",
     to: "better-auth",
   },
+  // The delete runs through Better Auth's /revoke-session, whose SESSION_REVOKED
+  // is emitted by audit-hooks.ts.
+  "src/app/api/sgauth/sessions/[id]/route.ts": {
+    kind: "delegated",
+    to: "better-auth",
+  },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",
     reason:
