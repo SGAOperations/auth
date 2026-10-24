@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run --coverage",
     "test:unit": "vitest run --project unit",
+    "test:authz": "vitest run --project unit --coverage --coverage.include=src/lib/authz.ts src/lib/authz",
     "test:watch": "vitest",
     "seed": "prisma db seed",
     "prisma:migrate-dev": "node scripts/prisma-guard.mjs migrate dev && prisma migrate dev",
