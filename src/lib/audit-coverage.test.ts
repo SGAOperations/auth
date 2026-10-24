@@ -49,15 +49,20 @@ function mutatingAppFiles(): string[] {
 }
 
 function authEndpoints() {
+  const prisma = {} as unknown as PrismaClient;
   const auth = betterAuth({
     ...buildAuthOptions({
-      prisma: {} as unknown as PrismaClient,
+      prisma,
       baseURL: "http://localhost:3000",
       secret: "s".repeat(32),
     }),
     plugins: buildAuthPlugins({
-      domains: new Set(["northeastern.edu"]),
-      emails: new Set(),
+      signupAllowlist: {
+        domains: new Set(["northeastern.edu"]),
+        emails: new Set(),
+      },
+      prisma,
+      issuer: "http://localhost:3000",
     }),
   });
   return Object.values(auth.api).flatMap((endpoint) => {
