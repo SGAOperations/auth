@@ -12,6 +12,12 @@ const EXEMPT: Record<string, string> = {
     "Unauthenticated browser CSP report sink; it acts on no user and only writes a redacted log line",
   "src/app/preview-gate/unlock/route.ts":
     "Preview-environment password gate; it acts on no user and runs before any sign-in",
+  "src/app/api/jobs/alerts/route.ts":
+    "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
+  "src/app/api/jobs/pa-transfer/route.ts":
+    "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
+  "src/app/api/jobs/retention/route.ts":
+    "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
 };
 
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
