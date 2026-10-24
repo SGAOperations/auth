@@ -19,6 +19,7 @@
     "prisma:db-push": "node scripts/prisma-guard.mjs db push && prisma db push",
     "positions:sync": "tsx scripts/positions-sync.ts",
     "email:preview": "tsx scripts/email-preview.ts",
+    "recover-primary-admin": "tsx --conditions=react-server scripts/recover-primary-admin.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
