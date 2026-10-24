@@ -108,6 +108,8 @@ From a fresh clone to a seeded local Primary Admin takes under 15 minutes.
 
 Which URL, cookie name and database each environment uses, and how to run SGAuth and a product side by side locally, is in [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md). The session cookie is set on `sga.localhost`, so a product stub on `vaultz.sga.localhost:3001` shares the session (`node scripts/sso-stub.mjs`).
 
+What SGAuth stores and for how long: [docs/DATA_HANDLING.md](docs/DATA_HANDLING.md).
+
 ## What `npm run seed` does
 
 What it writes depends on `SGAUTH_ENV`:
