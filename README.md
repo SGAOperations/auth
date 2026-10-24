@@ -112,6 +112,8 @@ Which URL, cookie name and database each environment uses, and how to run SGAuth
 
 A Neon and Next.js product follows [docs/integration/neon-products.md](docs/integration/neon-products.md). A Supabase product gets its own guide at [docs/integration/supabase-products.md](docs/integration/supabase-products.md) (#93).
 
+What SGAuth stores and for how long: [docs/DATA_HANDLING.md](docs/DATA_HANDLING.md).
+
 ## What `npm run seed` does
 
 What it writes depends on `SGAUTH_ENV`:
