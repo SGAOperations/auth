@@ -62,7 +62,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 
 - Each product adds a Vercel branch domain `<product>-dev.northeasternsga.com` on its own dev branch, with `SGAUTH_URL=https://auth-dev.northeasternsga.com` and `SGAUTH_COOKIE_NAME=__Secure-sgauth-dev.session_token`.
 - The domain is added in the order in [SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md#adding-a-subdomain): registry, Vercel, then DNS.
-- The product registers that origin in SGAuth's product registry once AUTH-T56 (#68) exists.
+- The product's origin must be an **active** row in that environment's product registry. SGAuth picks it up within 60 s, or at once on the instance that saved it.
 - Ad-hoc `*.vercel.app` product previews **cannot use SSO**. The browser never sends a `northeasternsga.com` cookie to `vercel.app`, so use the branch domain.
 - Testers unlock the [gate](#pre-production-gates) on `auth-dev` once per browser (7 days). Product servers call the exempt machine endpoints and need no gate cookie or Vercel header once the Deployment Protection Exception is on. Until then, product previews cannot redirect a browser to `auth-dev`.
 
@@ -70,6 +70,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 
 - Run `npm run dev` with `SGAUTH_ENV=local`, then browse to `http://auth.sga.localhost:3000`, never `http://localhost:3000`. On bare `localhost` the browser rejects the `Domain=sga.localhost` cookie, and the origin is not trusted.
 - Products run on `<product>.sga.localhost:<port>` (VaultZ on `vaultz.sga.localhost:3001`) with `SGAUTH_URL=http://auth.sga.localhost:3000` and `SGAUTH_COOKIE_NAME=sgauth-local.session_token`.
+- On `SGAUTH_ENV=local`, any `http://<name>.sga.localhost:<port>` origin is trusted with no registry row. `BETTER_AUTH_TRUSTED_ORIGINS` is refused at boot in every environment.
 - Name resolution by browser:
   - Chrome and Edge resolve `*.localhost` natively.
   - Firefox: add the hostnames to `network.dns.localDomains` in `about:config`.
@@ -93,7 +94,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 
 ## SDK dev mode
 
-Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70), and the integration guide (AUTH-T80, #92) links back here.
+Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70) on top of the [session endpoint](SESSION-ENDPOINT.md), and the integration guide (AUTH-T80, #92) links back here.
 
 ## Build pipeline
 
@@ -164,6 +165,7 @@ These machine endpoints are exempt, matched exactly and on any method, because p
 - `/api/auth/token`
 - `/api/auth/get-session`
 - `/api/sgauth/session`
+- `/api/sgauth/session/minimal`
 - `/api/health`
 - `/.well-known/jwks.json`
 - `/.well-known/openid-configuration`

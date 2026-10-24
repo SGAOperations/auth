@@ -33,6 +33,9 @@ export const serverShape = z.object({
   SGAUTH_PREVIEW_GATE_PASSWORD: z.string().min(16).optional(),
   SGAUTH_PREVIEW_GATE: z.enum(["on", "off"]).optional(),
   SGAUTH_CSP_MODE: z.enum(CSP_MODES).default("report-only"),
+  // Declared only to be refused: Better Auth reads it straight from the
+  // environment, which would bypass the product registry.
+  BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.email().optional(),
   UPSTASH_REDIS_REST_URL: z.url().optional(),
@@ -98,6 +101,15 @@ export const serverSchema = serverShape.superRefine((env, ctx) => {
         message: `required when SGAUTH_ENV=${env.SGAUTH_ENV}`,
       });
     }
+  }
+
+  if (env.BETTER_AUTH_TRUSTED_ORIGINS !== undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["BETTER_AUTH_TRUSTED_ORIGINS"],
+      message:
+        "must not be set: trusted origins come from the product registry (src/lib/products.ts)",
+    });
   }
 
   if (env.SGAUTH_ENV !== "local") {
