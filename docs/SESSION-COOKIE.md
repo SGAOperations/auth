@@ -43,9 +43,23 @@ Preview could technically use `__Host-`. It keeps `__Secure-` so every environme
   - Dangling or third-party subdomains are the main exposure (#80).
 - **Cookie tossing and login CSRF.** Any HTTPS subdomain can set `__Secure-sgauth.session_token` on `Domain=northeasternsga.com`, or set a more specific `Path` or host-only copy that the browser sends first. Values are signed, so it cannot forge another user's session. It can plant a valid session for an attacker-controlled account, which silently logs the victim in as the attacker. Controls:
   - subdomain hygiene (#80, AUTH-T68);
-  - Origin enforcement on mutations (#77);
+  - Origin enforcement on mutations (see **Origin enforcement** below);
   - showing the signed-in identity on account pages;
   - real browser observation in #115.
-- **SameSite=Lax** stops cross-site subresource and POST requests. Sibling subdomains are same-site, so their POSTs still carry the cookie, and #77's Origin checks are the control.
+- **SameSite=Lax** stops cross-site subresource and POST requests. Sibling subdomains are same-site, so their POSTs still carry the cookie, and Origin enforcement is the control.
 - **Dev and production coexist.** The names differ, so each server reads only its own cookie, and a dev session token means nothing to production's database, or the reverse. The dev cookie also reaches production hosts, where it is never read.
 - **Preview** cookies never reach `northeasternsga.com`, which is why `*.vercel.app` previews cannot use product SSO.
+
+### Origin enforcement
+
+`src/proxy.ts` runs `createOriginGuard` (`src/lib/security/origin.ts`) after the preview gate on every request whose path is `/api/sgauth` or under `/api/sgauth/`. It covers routes by path, so a new route cannot forget to opt in.
+
+- **Checked:** every method except GET, HEAD and OPTIONS.
+  - `Sec-Fetch-Site: cross-site` is rejected whatever the Origin says. Every registered product is same-site with SGAuth, and sibling subdomains are `same-site`, so only Origin tells them apart.
+  - The `Origin` header must be a bare http(s) origin. `null` is rejected. A missing Origin falls back to `Referer`, reduced to its origin. Neither present is rejected.
+  - The origin must match a registry-derived trusted origin exactly (`getTrustedOrigins()`). There is no wildcard or pattern matching.
+  - A registry failure fails closed.
+- **Answer:** 403 `{ "code": "INVALID_ORIGIN", "message": "Invalid origin." }`, identical for every reason. The reason, method, path and origin are logged at `warn`, never the cookie, query string or full Referer. A rejection writes no `AuditEvent`.
+- **Not covered here:** `/api/auth/*` (Better Auth checks Origin itself, fed by the same registry), server actions (Next rejects an Origin that does not match Host), `/api/csp-report` and `/preview-gate/unlock`.
+- **Non-browser callers** (product servers, scripts, curl) must send `Origin: <their registered product origin>` on mutations, or get a 403. The check does not depend on a cookie being present. Origin is not a boundary against a non-browser caller, which can send any value.
+- **Limit:** Origin does not stop a compromised registered subdomain. Subdomain hygiene (#80) does.
