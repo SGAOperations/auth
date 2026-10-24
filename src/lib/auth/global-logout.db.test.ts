@@ -26,7 +26,10 @@ describe.skipIf(!url)("global logout and revocation", () => {
       baseURL: BASE_URL,
       secret: SECRET,
       trustedOrigins: [BASE_URL, PRODUCT],
-      advanced: buildCookieOptions(resolveCookiePolicy("production")),
+      advanced: {
+        ...buildCookieOptions(resolveCookiePolicy("production")),
+        disableOriginCheck: false,
+      },
     }),
     session: { cookieCache: { enabled: false } },
   });

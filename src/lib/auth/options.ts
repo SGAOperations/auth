@@ -162,7 +162,7 @@ export function buildAuthOptions({
           ctx.path === "/revoke-sessions" &&
           !isAPIError(ctx.context.returned)
         ) {
-          // revoke-sessions deletes the current row too; expire its cookie so the browser drops it (#42).
+          // revoke-sessions deletes the current row too; expire its cookie.
           deleteSessionCookie(ctx);
         }
         if (ctx.path === "/sign-in/email") await rehashAfterSignIn(ctx);
