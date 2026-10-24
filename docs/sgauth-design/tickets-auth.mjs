@@ -49,7 +49,7 @@ export const EPICS = {
     name: "E8 Product Registry & SDK",
     label: "epic:sdk",
     description:
-      "Admin-managed product registry that drives trusted origins and redirects, and the published @sgaoperations/sgauth package products use to read sessions and tokens.",
+      "Admin-managed product registry that drives trusted origins and redirects, and the published @nusgaops/sgauth package products use to read sessions and tokens.",
   },
   security: {
     name: "E9 Security Hardening",
@@ -1140,10 +1140,10 @@ Key naming convention (document in the admin UI help and the integration guides)
     labels: ["sdk", "infra"],
     deps: ["AUTH-T28"],
     title:
-      "Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm)",
-    description: `New repo \`SGAOperations/sgauth-sdk\` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the \`@sgaoperations\` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on \`v*\` tags; semantic versioning; \`CHANGELOG.md\`; provenance attestations enabled.`,
+      "Scaffold the @nusgaops/sgauth package and publish pipeline (public npm)",
+    description: `New repo \`SGAOperations/sgauth-sdk\` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the \`@nusgaops\` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on \`v*\` tags; semantic versioning; \`CHANGELOG.md\`; provenance attestations enabled.`,
     acceptance: [
-      "`npm install @sgaoperations/sgauth` works from any product repo with no `.npmrc` changes.",
+      "`npm install @nusgaops/sgauth` works from any product repo with no `.npmrc` changes.",
       "CI publishes on `v*` tags via trusted publishing and fails on version collisions; the package page shows provenance.",
     ],
   },

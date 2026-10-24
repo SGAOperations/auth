@@ -94,6 +94,9 @@ const positionOnUser = {
   metadata: z.strictObject({ positionId: z.string().min(1) }),
 } as const;
 
+const breakGlassOperator = z.string().trim().min(1).max(100);
+const breakGlassReason = z.string().trim().min(10).max(500);
+
 export const AUDIT_CATALOG = {
   LOGIN_SUCCESS: {
     targetType: "USER",
@@ -153,7 +156,28 @@ export const AUDIT_CATALOG = {
   PA_TRANSFER_CANCELLED: transferTarget,
   PA_TRANSFER_COMPLETED: transferTarget,
   PA_TRANSFER_EXPIRED: transferTarget,
-  BREAK_GLASS_PA_RECOVERY: userTarget,
+  // Both modes of scripts/recover-primary-admin.ts share one type, told apart
+  // by `mode`, so a single alert on this type covers MFA resets too.
+  BREAK_GLASS_PA_RECOVERY: {
+    targetType: "USER",
+    metadata: z.discriminatedUnion("mode", [
+      z.strictObject({
+        mode: z.literal("transfer"),
+        operator: breakGlassOperator,
+        reason: breakGlassReason,
+        previousPrimaryAdminId: z.string().min(1).nullable(),
+        previousAdminRevoked: z.boolean(),
+        cancelledTransferId: z.string().min(1).optional(),
+        sessionsRevoked: z.int().min(0),
+      }),
+      z.strictObject({
+        mode: z.literal("reset_mfa"),
+        operator: breakGlassOperator,
+        reason: breakGlassReason,
+        sessionsRevoked: z.int().min(0),
+      }),
+    ]),
+  },
   ACCOUNT_LOCKED: userTarget,
   ACCOUNT_UNLOCKED: userTarget,
   MFA_ENROLLED: userTarget,

@@ -31,7 +31,7 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 139 tickets across
 - **E5 Admin & Primary Admin** (label `epic:admin`, 7 tickets, 23 points): Server-enforced admin rules, the single transferable Primary Admin with a guarded transfer flow, break-glass recovery, and bulk user administration.
 - **E6 Positions** (label `epic:positions`, 5 tickets, 11 points): Flat, admin-managed positions (stable key + display name) carried in every session; assignment, soft delete, retirement, propagation, and history.
 - **E7 Admin UI & Account UI** (label `epic:ui`, 9 tickets, 27 points): Light admin UI (users, positions, products, audit, PA transfer) and a minimal account page for every user (profile, positions, product links, sessions, password, MFA).
-- **E8 Product Registry & SDK** (label `epic:sdk`, 7 tickets, 17 points): Admin-managed product registry that drives trusted origins and redirects, and the published @sgaoperations/sgauth package products use to read sessions and tokens.
+- **E8 Product Registry & SDK** (label `epic:sdk`, 7 tickets, 17 points): Admin-managed product registry that drives trusted origins and redirects, and the published @nusgaops/sgauth package products use to read sessions and tokens.
 - **E9 Security Hardening** (label `epic:security`, 10 tickets, 26 points): Upstash rate limiting, escalating account lockout, CSRF and origin enforcement, headers, TOTP MFA (required for admins), subdomain hygiene, secrets, enumeration resistance, scanning, and a threat model.
 - **E10 Observability & Audit** (label `epic:observability`, 6 tickets, 13 points): Append-only audit log with full coverage, structured logs, PostHog analytics and error tracking, health and uptime, alerts, and retention/deletion jobs.
 - **E11 Integration Guides & Docs** (label `epic:docs`, 7 tickets, 18 points): Architecture doc (Neon mandate), Neon-product and Supabase-product integration guides, admin runbooks, privacy notice, SDK reference, contributor guide.
@@ -106,7 +106,7 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 139 tickets across
 | AUTH-T54 | Account security page: change password, MFA enrollment, backup codes | AUTH | 3 | High | 3 | AUTH-T23, AUTH-T67 |
 | AUTH-T55 | Accessibility, responsive, and empty/error state pass | AUTH | 3 | Medium | 2 | AUTH-T48, AUTH-T49, AUTH-T53, AUTH-T54 |
 | AUTH-T56 | Product registry service: trusted origins and redirect allowlist at runtime | AUTH | 1 | High | 2 | AUTH-T14 |
-| AUTH-T57 | Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm) | AUTH | 2 | High | 3 | AUTH-T28 |
+| AUTH-T57 | Scaffold the @nusgaops/sgauth package and publish pipeline (public npm) | AUTH | 2 | High | 3 | AUTH-T28 |
 | AUTH-T58 | SDK: getSession() with cookie forwarding and a 60-second cache | AUTH | 2 | High | 3 | AUTH-T57 |
 | AUTH-T59 | SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs) | AUTH | 2 | High | 3 | AUTH-T58 |
 | AUTH-T60 | SDK: getAccessToken() for Supabase clients | AUTH | 3 | Medium | 2 | AUTH-T58, AUTH-T29 |
@@ -154,7 +154,7 @@ Generated from `tickets-auth.mjs` and `tickets-products.mjs`. 139 tickets across
 | AUTH-T103 | Scanner-safe email links: land on a page, consume the token on POST | AUTH | 1 | Urgent | 2 | AUTH-T20 |
 | AUTH-T105 | Passkeys as an optional sign-in method | AUTH | 4 | Medium | 5 | AUTH-T17, AUTH-T32, AUTH-T54, AUTH-T67 |
 | AUTH-T104 | Spike: validate cross-subdomain cookies, prefixes, and local hostnames on the real domain before building on them | AUTH | 1 | Urgent | 2 | AUTH-T05, AUTH-T26 |
-| VAULTZ-V01 | Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy | VAULTZ | 2 | High | 3 | AUTH-T59, AUTH-T80, AUTH-T34 |
+| VAULTZ-V01 | Install @nusgaops/sgauth and protect all routes with the SGAuth proxy | VAULTZ | 2 | High | 3 | AUTH-T59, AUTH-T80, AUTH-T34 |
 | VAULTZ-V02 | Remove the shared passphrase gate | VAULTZ | 2 | High | 2 | VAULTZ-V01 |
 | VAULTZ-V03 | Link VaultZ purchaser records to SGAuth user ids | VAULTZ | 2 | Medium | 3 | VAULTZ-V01 |
 | VAULTZ-V04 | Position-based permissions map for VaultZ | VAULTZ | 2 | High | 3 | VAULTZ-V01, AUTH-T44 |
@@ -1063,21 +1063,21 @@ Audit every page with axe and keyboard-only navigation; add empty states, loadin
 - [ ] Adding a product on dev makes cross-origin POSTs from its origin pass Better Auth's origin check within 60 s; removing it makes them fail.
 - [ ] Unit tests for origin normalization (trailing slash, port, case).
 
-### AUTH-T57 — Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm)
+### AUTH-T57 — Scaffold the @nusgaops/sgauth package and publish pipeline (public npm)
 
 **Priority:** High · **Estimate:** 3 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sdk, phase:2, sdk, infra  
 **Depends on:** AUTH-T28 (Session endpoint for products: user, email, positions, admin flags)
 
-New repo `SGAOperations/sgauth-sdk` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the `@sgaoperations` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on `v*` tags; semantic versioning; `CHANGELOG.md`; provenance attestations enabled.
+New repo `SGAOperations/sgauth-sdk` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the `@nusgaops` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on `v*` tags; semantic versioning; `CHANGELOG.md`; provenance attestations enabled.
 
 **Acceptance criteria**
-- [ ] `npm install @sgaoperations/sgauth` works from any product repo with no `.npmrc` changes.
+- [ ] `npm install @nusgaops/sgauth` works from any product repo with no `.npmrc` changes.
 - [ ] CI publishes on `v*` tags via trusted publishing and fails on version collisions; the package page shows provenance.
 
 ### AUTH-T58 — SDK: getSession() with cookie forwarding and a 60-second cache
 
 **Priority:** High · **Estimate:** 3 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sdk, phase:2, sdk, sso  
-**Depends on:** AUTH-T57 (Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm))
+**Depends on:** AUTH-T57 (Scaffold the @nusgaops/sgauth package and publish pipeline (public npm))
 
 `getSession({ headers | cookieHeader })`: extracts the SGAuth cookie (name from `SGAUTH_COOKIE_NAME`, default `__Secure-sgauth.session_token`), calls `{SGAUTH_URL}/api/sgauth/session` with the `Cookie` header, returns a typed `SgaSession | null`. In-memory LRU cache keyed by SHA-256 of the token, TTL 60 s (configurable, max 300 s), negative cache 10 s. **Availability:** SGAuth is a single point of failure for every product, so on network error or 5xx the SDK serves a previously cached session for that token for up to `staleIfErrorSeconds` (default 300, max 900) and calls `onError`; with no cached entry it returns null (fail closed). Timeout 3 s. Never caches 5xx as a session. Products must never log the forwarded Cookie header (documented). Ships the JSON schema types from AUTH-T28.
 
@@ -1525,7 +1525,7 @@ Run a k6/autocannon script against the dev deployment: 100 concurrent virtual us
 
 ## SGAuth integration — VaultZ
 
-### VAULTZ-V01 — Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy
+### VAULTZ-V01 — Install @nusgaops/sgauth and protect all routes with the SGAuth proxy
 
 **Priority:** High · **Estimate:** 3 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sgauth-integration, phase:2, sgauth, backend  
 **Depends on:** AUTH-T59 (SDK: Next.js helpers (proxy/middleware, requireSession, position guards, URLs)); AUTH-T80 (Integration guide for Neon-based products (Next.js)); AUTH-T34 (Non-production SSO topology: dev deployment, local hostnames, product preview domains)
@@ -1539,7 +1539,7 @@ Add the SDK from public npm (no registry config), env vars (`SGAUTH_URL`, `SGAUT
 ### VAULTZ-V02 — Remove the shared passphrase gate
 
 **Priority:** High · **Estimate:** 2 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sgauth-integration, phase:2, sgauth, backend  
-**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy)
+**Depends on:** VAULTZ-V01 (Install @nusgaops/sgauth and protect all routes with the SGAuth proxy)
 
 Delete `lib/access-gate.ts`, `lib/actions/access.ts`, the passphrase page, and the `VAULTZ_ACCESS_CODE`/`VAULTZ_ACCESS_SECRET` env vars after the cutover (keep behind a `SGAUTH_ENABLED` flag for one release so rollback is a flag flip, then delete).
 
@@ -1549,7 +1549,7 @@ Delete `lib/access-gate.ts`, `lib/actions/access.ts`, the passphrase page, and t
 ### VAULTZ-V03 — Link VaultZ purchaser records to SGAuth user ids
 
 **Priority:** Medium · **Estimate:** 3 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sgauth-integration, phase:2, sgauth, data  
-**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy)
+**Depends on:** VAULTZ-V01 (Install @nusgaops/sgauth and protect all routes with the SGAuth proxy)
 
 VaultZ's `User` table records purchasers (first/last), not logins. Add `sgauthUserId String? @unique` and `email String?`. On first authenticated request, find-or-create the purchaser row for the session user (name from SGAuth split into first/last as a best effort, editable). Admin UI to link legacy purchaser rows to SGAuth users by email. Purchases created by the current user default `userId` to their linked row.
 
@@ -1560,7 +1560,7 @@ VaultZ's `User` table records purchasers (first/last), not logins. Add `sgauthUs
 ### VAULTZ-V04 — Position-based permissions map for VaultZ
 
 **Priority:** High · **Estimate:** 3 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sgauth-integration, phase:2, sgauth, permissions  
-**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy); AUTH-T44 (Seed the curated SGA position list)
+**Depends on:** VAULTZ-V01 (Install @nusgaops/sgauth and protect all routes with the SGAuth proxy); AUTH-T44 (Seed the curated SGA position list)
 
 Create `lib/permissions.ts` mapping SGAuth position keys to VaultZ capabilities, using keys from the curated seed (`prisma/seed/positions.json` in SGAOperations/auth). Starting proposal for the VaultZ owner to confirm: `vice-president-of-operational-affairs`, `comptroller`, `finance-manager` → manage designations/budgets/transfers; `student-body-president`, `executive-vice-president` → read everything; any other position holder → create their own purchases; no positions → no access. Add a product role (e.g. `vaultz-admin`) in the SGAuth admin UI only if the curated offices do not cover a need. Gate server actions and pages with `hasAnyPosition`. Permissions are decided in VaultZ, not in SGAuth; SGAuth only supplies positions. Document the map in the README and agree the keys with the curated position list.
 
@@ -1571,7 +1571,7 @@ Create `lib/permissions.ts` mapping SGAuth position keys to VaultZ capabilities,
 ### VAULTZ-V05 — Account and sign-out links in the VaultZ header
 
 **Priority:** Low · **Estimate:** 1 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sgauth-integration, phase:2, sgauth, ui  
-**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy)
+**Depends on:** VAULTZ-V01 (Install @nusgaops/sgauth and protect all routes with the SGAuth proxy)
 
 Show the session user's name, a link to `accountUrl()`, and a sign-out action using `logoutUrl('https://vaultz.northeasternsga.com')`.
 
@@ -1581,7 +1581,7 @@ Show the session user's name, a link to `accountUrl()`, and a sign-out action us
 ### VAULTZ-V06 — Dev and preview topology for VaultZ
 
 **Priority:** Medium · **Estimate:** 2 · **Phase:** Phase 2 — Admin, Primary Admin, positions, UI, SDK, VaultZ · **Labels:** epic:sgauth-integration, phase:2, sgauth, infra  
-**Depends on:** VAULTZ-V01 (Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy); AUTH-T34 (Non-production SSO topology: dev deployment, local hostnames, product preview domains)
+**Depends on:** VAULTZ-V01 (Install @nusgaops/sgauth and protect all routes with the SGAuth proxy); AUTH-T34 (Non-production SSO topology: dev deployment, local hostnames, product preview domains)
 
 Configure the Vercel branch domain `vaultz-dev.northeasternsga.com` pointing at the dev branch with `SGAUTH_URL=https://auth-dev.northeasternsga.com` and the dev cookie name; local dev on `vaultz.sga.localhost:3001` against local SGAuth. Document in the VaultZ README.
 

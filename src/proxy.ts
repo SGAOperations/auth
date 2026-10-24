@@ -9,6 +9,7 @@ import {
   isGatePath,
   verifyGateCookie,
 } from "@/lib/preview-gate";
+import { isCorsPreflight } from "@/lib/security/cors";
 import {
   CSP_REPORT_GROUP,
   CSP_REPORT_PATH,
@@ -34,6 +35,8 @@ function gate(request: NextRequest): NextResponse | null {
 
   const { pathname, search } = request.nextUrl;
   if (isExemptPath(pathname) || isGatePath(pathname)) return null;
+  // Browsers never send cookies on a preflight, and it returns no body.
+  if (isCorsPreflight(request.method, pathname)) return null;
 
   const cookie = request.cookies.get(GATE_COOKIE)?.value;
   if (verifyGateCookie(key, cookie, Math.floor(Date.now() / 1000))) {

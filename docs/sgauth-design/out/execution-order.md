@@ -93,7 +93,7 @@ Computed from the dependency graph in the ticket sources: 139 tickets, 269 block
 | AUTH-T31 | [#43](https://github.com/SGAOperations/auth/issues/43) | High | 2 | Safe post-login redirects validated against the product registry | #68 |
 | AUTH-T32 | [#44](https://github.com/SGAOperations/auth/issues/44) | High | 3 | Re-authentication (sudo mode) for sensitive actions | #39, #79 |
 | AUTH-T42 | [#54](https://github.com/SGAOperations/auth/issues/54) | High | 3 | Positions CRUD: create, edit name/category, soft delete with retirement | #22, #47, #25 |
-| AUTH-T57 | [#69](https://github.com/SGAOperations/auth/issues/69) | High | 3 | Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm) | #40 |
+| AUTH-T57 | [#69](https://github.com/SGAOperations/auth/issues/69) | High | 3 | Scaffold the @nusgaops/sgauth package and publish pipeline (public npm) | #40 |
 | AUTH-T65 | [#77](https://github.com/SGAOperations/auth/issues/77) | High | 2 | CSRF and origin enforcement across subdomains | #68, #38 |
 | AUTH-T87 | [#99](https://github.com/SGAOperations/auth/issues/99) | High | 3 | Import script: Chambers users with bcrypt hashes and position mapping | #98, #33, #56, #25 |
 | AUTH-T94 | [#106](https://github.com/SGAOperations/auth/issues/106) | High | 5 | Integration tests for authentication flows | #105, #29, #30, #31, #39, #76 |
@@ -178,7 +178,7 @@ Computed from the dependency graph in the ticket sources: 139 tickets, 269 block
 | ATTENDANCE-M03 | (not created) | High | 5 | (Neon path) Migrate to Neon and integrate with the SDK | (not created), #71, #92 |
 | CHAMBERS-C02 | [chambers#149](https://github.com/SGAOperations/chambers/issues/149) | High | 5 | Replace Supabase Auth with the SGAuth SDK (proxy, session helpers, login removal) | chambers#148, #71, #92 |
 | SENATEPATH-S02 | [senate-path#89](https://github.com/SGAOperations/senate-path/issues/89) | High | 3 | Gate the SenatePath admin area with SGAuth positions | senate-path#88, #71, #92 |
-| VAULTZ-V01 | [vaultz#747](https://github.com/SGAOperations/vaultz/issues/747) | High | 3 | Install @sgaoperations/sgauth and protect all routes with the SGAuth proxy | #71, #92, #46 |
+| VAULTZ-V01 | [vaultz#747](https://github.com/SGAOperations/vaultz/issues/747) | High | 3 | Install @nusgaops/sgauth and protect all routes with the SGAuth proxy | #71, #92, #46 |
 | AUTH-T90 | [#102](https://github.com/SGAOperations/auth/issues/102) | Medium | 2 | Rollout plan and user communications | #92, #99 |
 
 ## Wave 12 — 15 tickets, 36 points

@@ -39,6 +39,7 @@ describe("POLICIES", () => {
       ["reset:email:10m", 3, 600, "email"],
       ["verify:email:1h", 3, 3600, "email"],
       ["token:session:1m", 60, 60, "session"],
+      ["session-lookup:session:1m", 120, 60, "session"],
       ["reauth:user:1m", 5, 60, "user"],
       ["admin:user:1m", 100, 60, "user"],
     ]);
