@@ -29,6 +29,7 @@ Every variable set in Vercel, by scope. "Preview (`dev`)" is the branch-specific
 | `SGAUTH_SIGNUP_ALLOWLIST` ([#134](https://github.com/SGAOperations/auth/issues/134))      | Comma-separated exact emails and `@domain` suffixes allowed to sign up outside production. Lists people, so it stays out of the repo. | not set          | set                                | set                    | not set       | manual | no     |
 | `UPSTASH_REDIS_REST_URL` ([#75](https://github.com/SGAOperations/auth/issues/75))         | Upstash Redis REST endpoint for rate limiting. Required on `production` and `dev`. See [RATE-LIMITING.md](RATE-LIMITING.md).          | its own database | its own database, not production's | not set                | not set       | manual | no     |
 | `UPSTASH_REDIS_REST_TOKEN` ([#75](https://github.com/SGAOperations/auth/issues/75))       | Token for that database. Required on `production` and `dev`.                                                                          | its own token    | its own token                      | not set                | not set       | manual | yes    |
+| `CRON_SECRET` ([#50](https://github.com/SGAOperations/auth/issues/50))                    | Bearer secret for the `/api/jobs/*` routes. Required on `production` and `dev`. See [Scheduled jobs](#scheduled-jobs).                | distinct value   | distinct value                     | not set                | not set       | manual | yes    |
 | `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`                  | Read by `settings.ts` (preview `baseURL`, the `local`-on-Vercel assertion) and by `scripts/vercel-build.mjs`.                         | system           | system                             | system                 | n/a           | Vercel | no     |
 | `VERCEL_AUTOMATION_BYPASS_SECRET`                                                         | Exposes one bypass secret. Listed for reference only. Never copied into another product.                                              | system           | system                             | system                 | n/a           | Vercel | yes    |
 
@@ -37,14 +38,14 @@ Notes:
 - The `VERCEL_*` variables require "Automatically expose System Environment Variables" to stay on.
 - `TEST_DATABASE_URL` and `TEST_DIRECT_URL` are local and CI only. They are never set in Vercel.
 - The Development scope is either filled as shown or left empty. Local development uses `.env`.
-- Later tickets add their own rows (Resend, PostHog, `CRON_SECRET`).
+- Later tickets add their own rows (Resend, PostHog).
 
 Rules:
 
 - **No secret value is shared across scopes.** `auth-dev` is reachable from the internet, so none of its secrets (`BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, database credentials) may equal production's or the Preview (all branches) value. The Neon `dev` roles have no access to Neon `main`.
 - Nothing secret is `NEXT_PUBLIC_`.
 - Every connection string uses `sslmode=verify-full`. The one exception is `DIRECT_URL`, which may use `sslmode=require&sslaccept=strict` if the migration CLI rejects `verify-full`. If that happens, note it on #12.
-- The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, `SGAUTH_SIGNUP_ALLOWLIST`, `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password, and the env validation (#75) refuses to start on `production` or `dev` without the Upstash pair.
+- The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, `SGAUTH_SIGNUP_ALLOWLIST`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` and `CRON_SECRET`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password, and the env validation (#75, #50) refuses to start on `production` or `dev` without the Upstash pair or `CRON_SECRET`.
 - Never set `SGAUTH_PREVIEW_GATE=off` in a Vercel scope.
 
 ## Cookies and SDK values
@@ -107,6 +108,22 @@ Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cooki
 
 Migrations apply while the previous deployment is still serving, so every migration follows expand/contract ([MIGRATIONS.md](MIGRATIONS.md#expandcontract)). Nothing in the build log may contain a credential or connection string. There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
 
+## Scheduled jobs
+
+`.github/workflows/scheduled-jobs.yml` calls `POST /api/jobs/<name>` with `Authorization: Bearer $CRON_SECRET`. There are no Vercel cron jobs, and `vercel.json` must never gain a `crons` section: Hobby allows two jobs at once a day and rejects finer schedules at deploy time.
+
+| Job           | Schedule (UTC)      | Does                                                                         |
+| ------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `pa-transfer` | hourly, at minute 7 | Executes due COOLING Primary Admin transfers and expires stale PENDING ones. |
+| `alerts`      | every 15 minutes    | Stub until #89.                                                              |
+| `retention`   | daily at 08:23      | Stub until #90.                                                              |
+
+- **Hourly, not every 15 minutes.** Every run queries Postgres and wakes the Neon compute for about 5 minutes. Every 15 minutes is about 60 CU-hours a month per branch against the Free plan's 100 per project. Hourly is about 15. A transfer completes up to about an hour after its 24-hour cooling window ends, plus any GitHub schedule delay.
+- **Targets.** Scheduled runs call production only. `dev` is dispatch-only: Actions, then "Scheduled jobs", then Run workflow with `environment=dev`.
+- **GitHub secrets**, each equal to the matching Vercel `CRON_SECRET`: `CRON_SECRET_PRODUCTION` (Production) and `CRON_SECRET_DEV` (Preview `dev`). While `auth-dev` is still behind Standard Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET_DEV`; the workflow sends it as `x-vercel-protection-bypass` for dev calls only.
+- **Behaviour.** Every route is idempotent and returns quickly. A missing or wrong bearer answers `401` and does nothing. A failing job answers non-2xx, which shows as a red run. A missed run is caught by the next one.
+- GitHub runs schedules only from the default branch (`dev`) and disables them after 60 days without repository activity.
+
 ## Shared pre-production database
 
 `dev` and every PR preview use the one Neon `dev` branch. There is no Neon-Vercel integration, and opening or closing a PR never creates or deletes a Neon branch. The daily hygiene job (#20) deletes only stale `tmp-*` branches.
@@ -166,6 +183,8 @@ These machine endpoints are exempt, matched exactly and on any method, because p
 - `/api/sgauth/session`
 - `/api/sgauth/session/minimal`
 - `/api/health`
+- `/api/csp-report`
+- `/api/jobs/pa-transfer`, `/api/jobs/alerts` and `/api/jobs/retention` (bearer-protected by `CRON_SECRET`)
 - `/.well-known/jwks.json`
 - `/.well-known/openid-configuration`
 

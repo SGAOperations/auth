@@ -118,6 +118,20 @@ describe("audit coverage: App Router files", () => {
     }
   });
 
+  it("emits every listed event from the module behind each job route", () => {
+    for (const [path, entry] of Object.entries(APP_ROUTE_AUDIT)) {
+      if (entry.kind !== "job") continue;
+      const source = read(entry.module);
+      expect(source, `${entry.module} has no writeAuditEvent() call`).toContain(
+        "writeAuditEvent(",
+      );
+      expect(
+        missingLiterals(source, entry.events),
+        `${path} lists an event ${entry.module} never mentions`,
+      ).toEqual([]);
+    }
+  });
+
   it("lists only files that exist and mutate", () => {
     expect(Object.keys(APP_ROUTE_AUDIT).sort()).toEqual(files);
   });
