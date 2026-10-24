@@ -112,4 +112,14 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
     reason: "sends mail only; no account state changes",
   },
   "/verify-password": { kind: "exempt", reason: "read-only password check" },
+  "/jwks": {
+    kind: "exempt",
+    reason:
+      "public key set; mints the first key pair lazily when none exists, no account or session state",
+  },
+  "/token": {
+    kind: "exempt",
+    reason:
+      "mints a 10-minute JWT from an existing session; no state change; refreshed about every 9 minutes, so auditing it would flood the append-only table",
+  },
 };

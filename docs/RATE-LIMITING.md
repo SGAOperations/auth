@@ -23,7 +23,7 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 - Emails are normalised (`normalizeEmail`) and hashed with SHA-256, and session tokens are hashed, before they become part of a key. IPs and user ids are used as they are. Per-email buckets count a request whether or not the account exists, so the 429 is identical either way.
 - The Better Auth routes are limited by `withAuthRateLimit` in `src/app/api/auth/[...all]/route.ts`. A route that cannot supply its identifier falls back to the IP: a verification resend with no parseable email, and a token call with no session cookie. A reset with no email runs only its IP rule.
 - **Re-auth and admin handlers do not exist yet.** AUTH-T32 and AUTH-T36 must call `limitRequest("reauth" | "adminMutation", userId)` from `@/lib/rate-limit/server` first in each handler, and return the response when it is not `null`.
-- `/token` is matched before the jwt plugin (AUTH-T29) mounts it. If it mounts at another path, update `matchAuthRoute`.
+- The jwt plugin (AUTH-T29) mounts `/token`, and `matchAuthRoute` matches that path. If the plugin is ever moved to another path, update `matchAuthRoute`.
 
 ## What is not limited
 

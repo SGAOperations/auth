@@ -19,6 +19,7 @@
     "prisma:db-push": "node scripts/prisma-guard.mjs db push && prisma db push",
     "positions:sync": "tsx scripts/positions-sync.ts",
     "email:preview": "tsx scripts/email-preview.ts",
+    "jwks:rotate": "tsx scripts/jwks-rotate.ts",
     "recover-primary-admin": "tsx --conditions=react-server scripts/recover-primary-admin.ts",
     "postinstall": "prisma generate"
   },
@@ -60,6 +61,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "eslint-config-prettier": "^10.1.8",
+    "jose": "6.2.12",
     "neonctl": "8.4.4",
     "prettier": "^3.8.1",
     "prisma": "^7.10.0",
