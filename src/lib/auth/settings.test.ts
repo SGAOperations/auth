@@ -142,12 +142,12 @@ describe("parseAuthEnv", () => {
     },
   );
 
-  it("sets trustedOrigins to the baseURL", () => {
+  it("leaves trusted origins to the product registry", () => {
     const result = parseAuthEnv({
       SGAUTH_ENV: "production",
       BETTER_AUTH_SECRET: SECRET,
     });
-    expect(result.trustedOrigins).toEqual([result.baseURL]);
+    expect(result).not.toHaveProperty("trustedOrigins");
   });
 });
 

@@ -33,8 +33,17 @@ export const serverShape = z.object({
   SGAUTH_PREVIEW_GATE_PASSWORD: z.string().min(16).optional(),
   SGAUTH_PREVIEW_GATE: z.enum(["on", "off"]).optional(),
   SGAUTH_CSP_MODE: z.enum(CSP_MODES).default("report-only"),
+  // Declared only to be refused: Better Auth reads it straight from the
+  // environment, which would bypass the product registry.
+  BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.email().optional(),
+  SGAUTH_EMAIL_DAILY_CAP: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100_000)
+    .default(500),
   UPSTASH_REDIS_REST_URL: z.url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
@@ -84,8 +93,11 @@ const LOCAL_ONLY_KEYS = [
 const REQUIRED_IN: Partial<
   Record<keyof typeof serverShape.shape, readonly SgauthEnv[]>
 > = {
+  RESEND_API_KEY: ["production", "dev"],
+  RESEND_FROM_EMAIL: ["production", "dev"],
   UPSTASH_REDIS_REST_URL: ["production", "dev"],
   UPSTASH_REDIS_REST_TOKEN: ["production", "dev"],
+  CRON_SECRET: ["production", "dev"],
 };
 
 export const serverSchema = serverShape.superRefine((env, ctx) => {
@@ -98,6 +110,15 @@ export const serverSchema = serverShape.superRefine((env, ctx) => {
         message: `required when SGAUTH_ENV=${env.SGAUTH_ENV}`,
       });
     }
+  }
+
+  if (env.BETTER_AUTH_TRUSTED_ORIGINS !== undefined) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["BETTER_AUTH_TRUSTED_ORIGINS"],
+      message:
+        "must not be set: trusted origins come from the product registry (src/lib/products.ts)",
+    });
   }
 
   if (env.SGAUTH_ENV !== "local") {

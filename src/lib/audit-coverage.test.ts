@@ -49,15 +49,20 @@ function mutatingAppFiles(): string[] {
 }
 
 function authEndpoints() {
+  const prisma = {} as unknown as PrismaClient;
   const auth = betterAuth({
     ...buildAuthOptions({
-      prisma: {} as unknown as PrismaClient,
+      prisma,
       baseURL: "http://localhost:3000",
       secret: "s".repeat(32),
     }),
     plugins: buildAuthPlugins({
-      domains: new Set(["northeastern.edu"]),
-      emails: new Set(),
+      signupAllowlist: {
+        domains: new Set(["northeastern.edu"]),
+        emails: new Set(),
+      },
+      prisma,
+      issuer: "http://localhost:3000",
     }),
   });
   return Object.values(auth.api).flatMap((endpoint) => {
@@ -114,6 +119,20 @@ describe("audit coverage: App Router files", () => {
       expect(
         missingLiterals(source, entry.events),
         `${path} does not mention every listed event`,
+      ).toEqual([]);
+    }
+  });
+
+  it("emits every listed event from the module behind each job route", () => {
+    for (const [path, entry] of Object.entries(APP_ROUTE_AUDIT)) {
+      if (entry.kind !== "job") continue;
+      const source = read(entry.module);
+      expect(source, `${entry.module} has no writeAuditEvent() call`).toContain(
+        "writeAuditEvent(",
+      );
+      expect(
+        missingLiterals(source, entry.events),
+        `${path} lists an event ${entry.module} never mentions`,
       ).toEqual([]);
     }
   });

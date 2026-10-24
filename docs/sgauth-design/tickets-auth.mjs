@@ -49,7 +49,7 @@ export const EPICS = {
     name: "E8 Product Registry & SDK",
     label: "epic:sdk",
     description:
-      "Admin-managed product registry that drives trusted origins and redirects, and the published @sgaoperations/sgauth package products use to read sessions and tokens.",
+      "Admin-managed product registry that drives trusted origins and redirects, and the published @nusgaops/sgauth package products use to read sessions and tokens.",
   },
   security: {
     name: "E9 Security Hardening",
@@ -483,7 +483,7 @@ No breached-password (HIBP) check, per decision.`,
       "Email infrastructure: Resend on a dedicated SGAuth sending domain with volume caps",
     description: `Password login keeps email volume low (verification, reset, set-password, lock/unlock, security notices, PA transfer steps). Chambers sends almost all of SGA's current email, and Resend's free quota is **per account**, so a separate API key inside the shared account would not isolate anything. Therefore:
 - **Separate Resend account** owned by an SGA shared mailbox (not a student's personal login), credentials in the team vault. Confirm once that Resend's terms permit a distinct account for a distinct sender and record the answer here.
-- Dedicated sending subdomain \`mail.northeasternsga.com\` verified only in that account, with SPF, DKIM, and DMARC (p=quarantine) records; \`from\` = \`SGA Auth <no-reply@mail.northeasternsga.com>\`.
+- Dedicated sending subdomain \`auth.northeasternsga.com\` verified only in that account, with SPF, DKIM, and DMARC (p=quarantine) records; \`from\` = \`SGAuth <no-reply@auth.northeasternsga.com>\`.
 - \`src/lib/email/mailer.ts\` provider-agnostic interface (\`sendEmail({ to, template, data })\`) with a Resend implementation and a console/preview transport for local/test.
 - Templates (React Email or plain HTML+text): verify, reset, invite/set-password, account locked, unlock, security notice (password changed / new admin grant), PA transfer initiated / accepted / cancelled / completed, inactivity notice.
 - Caps: per-recipient 10 emails per hour and 30 per day; global daily cap (env, default 500) with an alert at 80%. Log every send with template and recipient hash to the log stream.`,
@@ -1140,10 +1140,10 @@ Key naming convention (document in the admin UI help and the integration guides)
     labels: ["sdk", "infra"],
     deps: ["AUTH-T28"],
     title:
-      "Scaffold the @sgaoperations/sgauth package and publish pipeline (public npm)",
-    description: `New repo \`SGAOperations/sgauth-sdk\` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the \`@sgaoperations\` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on \`v*\` tags; semantic versioning; \`CHANGELOG.md\`; provenance attestations enabled.`,
+      "Scaffold the @nusgaops/sgauth package and publish pipeline (public npm)",
+    description: `New repo \`SGAOperations/sgauth-sdk\` (TypeScript, tsup, vitest, ESM+CJS, Node 20+). Publish to the **public npm registry** under the \`@nusgaops\` org scope (claim the scope on npmjs.com; the SDK contains no secrets, only calls to public SGAuth endpoints with the user's cookie). GitHub Packages was rejected because it requires a classic personal access token to install even public packages. Use npm **trusted publishing** (OIDC from GitHub Actions) so no long-lived npm token exists; publish on \`v*\` tags; semantic versioning; \`CHANGELOG.md\`; provenance attestations enabled.`,
     acceptance: [
-      "`npm install @sgaoperations/sgauth` works from any product repo with no `.npmrc` changes.",
+      "`npm install @nusgaops/sgauth` works from any product repo with no `.npmrc` changes.",
       "CI publishes on `v*` tags via trusted publishing and fails on version collisions; the package page shows provenance.",
     ],
   },

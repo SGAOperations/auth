@@ -17,6 +17,23 @@ afterEach(() => {
   requestHeaders.mockReset();
 });
 
+const transferMetadata = {
+  mode: "transfer",
+  operator: "Ada Lovelace",
+  reason: "Primary Admin unreachable",
+  previousPrimaryAdminId: "u-old",
+  previousAdminRevoked: false,
+  sessionsRevoked: 2,
+};
+
+const breakGlassEvent = {
+  type: "BREAK_GLASS_PA_RECOVERY",
+  actorType: "BREAK_GLASS",
+  targetType: "USER",
+  targetId: "u-new",
+  metadata: transferMetadata,
+};
+
 function fakeDb() {
   const create = vi.fn();
   const db = { auditEvent: { create } } as unknown as Pick<
@@ -56,8 +73,7 @@ describe("parseAuditEvent", () => {
     ).not.toThrow();
     expect(() =>
       parseAuditEvent({
-        type: "BREAK_GLASS_PA_RECOVERY",
-        actorType: "BREAK_GLASS",
+        ...breakGlassEvent,
       }),
     ).not.toThrow();
   });
@@ -168,11 +184,94 @@ describe("parseAuditEvent", () => {
       }),
     ).toThrow(ZodError);
     expect(() =>
-      parseAuditEvent({
-        type: "BREAK_GLASS_PA_RECOVERY",
-        actorType: "SYSTEM",
-      }),
+      parseAuditEvent({ ...breakGlassEvent, actorType: "SYSTEM" }),
     ).toThrow(ZodError);
+  });
+
+  describe("BREAK_GLASS_PA_RECOVERY metadata", () => {
+    const withMetadata = (metadata: unknown) => ({
+      ...breakGlassEvent,
+      metadata,
+    });
+
+    it("accepts a reset_mfa event and measures length after trimming", () => {
+      expect(() =>
+        parseAuditEvent(
+          withMetadata({
+            mode: "reset_mfa",
+            operator: "Ada",
+            reason: "lost phone and codes",
+            sessionsRevoked: 0,
+          }),
+        ),
+      ).not.toThrow();
+      expect(() =>
+        parseAuditEvent(
+          withMetadata({
+            mode: "reset_mfa",
+            operator: "Ada",
+            reason: "   short   ",
+            sessionsRevoked: 0,
+          }),
+        ),
+      ).toThrow(ZodError);
+    });
+
+    it("accepts a transfer with no previous Primary Admin", () => {
+      expect(() =>
+        parseAuditEvent(
+          withMetadata({
+            ...transferMetadata,
+            previousPrimaryAdminId: null,
+          }),
+        ),
+      ).not.toThrow();
+    });
+
+    it("rejects a missing mode", () => {
+      const rest: Record<string, unknown> = { ...transferMetadata };
+      delete rest.mode;
+      expect(() => parseAuditEvent(withMetadata(rest))).toThrow(ZodError);
+    });
+
+    it("rejects an unknown key", () => {
+      expect(() =>
+        parseAuditEvent(
+          withMetadata({ ...transferMetadata, email: "pa@northeastern.edu" }),
+        ),
+      ).toThrow(ZodError);
+    });
+
+    it("rejects a key from the other mode", () => {
+      expect(() =>
+        parseAuditEvent(
+          withMetadata({
+            mode: "reset_mfa",
+            operator: "Ada",
+            reason: "lost phone and codes",
+            sessionsRevoked: 0,
+            previousAdminRevoked: false,
+          }),
+        ),
+      ).toThrow(ZodError);
+    });
+
+    it("rejects a reason shorter than 10 characters", () => {
+      expect(() =>
+        parseAuditEvent(withMetadata({ ...transferMetadata, reason: "short" })),
+      ).toThrow(ZodError);
+    });
+
+    it("rejects an empty operator and a negative session count", () => {
+      expect(() =>
+        parseAuditEvent(withMetadata({ ...transferMetadata, operator: " " })),
+      ).toThrow(ZodError);
+      expect(() =>
+        parseAuditEvent(
+          withMetadata({ ...transferMetadata, sessionsRevoked: -1 }),
+        ),
+      ).toThrow(ZodError);
+    });
   });
 });
 

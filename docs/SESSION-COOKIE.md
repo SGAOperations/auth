@@ -50,9 +50,9 @@ Preview could technically use `__Host-`. It keeps `__Secure-` so every environme
 - **Every `*.northeasternsga.com` host receives the production cookie** on every request. That includes `auth-dev`, product `<product>-dev` branch domains, and any subdomain pointed at a third party. HttpOnly keeps it from page scripts, but a host's server code sees it.
   - No SGAuth or product code logs `Cookie` headers.
   - Products forward only the session cookie to SGAuth (the SDK).
-  - Dangling or third-party subdomains are the main exposure (#80).
+  - Dangling or third-party subdomains are the main exposure ([SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md)).
 - **Cookie tossing and login CSRF.** Any HTTPS subdomain can set `__Secure-sgauth.session_token` on `Domain=northeasternsga.com`, or set a more specific `Path` or host-only copy that the browser sends first. Values are signed, so it cannot forge another user's session. It can plant a valid session for an attacker-controlled account, which silently logs the victim in as the attacker. Controls:
-  - subdomain hygiene (#80, AUTH-T68);
+  - subdomain hygiene ([SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md), #80, AUTH-T68);
   - Origin enforcement on mutations (#77);
   - showing the signed-in identity on account pages;
   - real browser observation in #115.

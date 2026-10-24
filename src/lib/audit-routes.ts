@@ -6,6 +6,12 @@ import type { AuditEventType } from "@/lib/audit";
 
 export type AuditCoverage =
   | { kind: "audited"; events: readonly AuditEventType[] }
+  // A machine route whose audit events are written by `module`, not the route.
+  | {
+      kind: "job";
+      module: string;
+      events: readonly AuditEventType[];
+    }
   | { kind: "exempt"; reason: string }
   | { kind: "read" }
   | { kind: "delegated"; to: "better-auth" };
@@ -22,6 +28,10 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "delegated",
     to: "better-auth",
   },
+  "src/app/api/sgauth/sessions/revoke-all/route.ts": {
+    kind: "delegated",
+    to: "better-auth",
+  },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",
     reason:
@@ -31,6 +41,23 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason:
       "browser CSP violation reports; writes only an advisory log line, no account or session state",
+  },
+  "src/app/api/jobs/pa-transfer/route.ts": {
+    kind: "job",
+    module: "src/lib/jobs/pa-transfer.ts",
+    events: [
+      "PA_TRANSFER_COMPLETED",
+      "PA_TRANSFER_EXPIRED",
+      "PA_TRANSFER_CANCELLED",
+    ],
+  },
+  "src/app/api/jobs/alerts/route.ts": {
+    kind: "exempt",
+    reason: "stub until #89/#90; no state change",
+  },
+  "src/app/api/jobs/retention/route.ts": {
+    kind: "exempt",
+    reason: "stub until #89/#90; no state change",
   },
 };
 
@@ -95,4 +122,14 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
     reason: "sends mail only; no account state changes",
   },
   "/verify-password": { kind: "exempt", reason: "read-only password check" },
+  "/jwks": {
+    kind: "exempt",
+    reason:
+      "public key set; mints the first key pair lazily when none exists, no account or session state",
+  },
+  "/token": {
+    kind: "exempt",
+    reason:
+      "mints a 10-minute JWT from an existing session; no state change; refreshed about every 9 minutes, so auditing it would flood the append-only table",
+  },
 };

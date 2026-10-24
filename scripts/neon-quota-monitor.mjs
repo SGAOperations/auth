@@ -20,7 +20,7 @@ import { pathToFileURL } from "node:url";
 export const QUOTA_CU_HOURS = 100;
 export const THRESHOLDS = [50, 70, 85, 100];
 export const UPGRADE_TRIGGER = 85;
-export const DEFAULT_FROM = "SGA Auth <no-reply@mail.northeasternsga.com>";
+export const DEFAULT_FROM = "SGAuth <no-reply@auth.northeasternsga.com>";
 export const RUNBOOK_URL =
   "https://github.com/SGAOperations/auth/blob/dev/docs/runbooks/neon-upgrade.md";
 
