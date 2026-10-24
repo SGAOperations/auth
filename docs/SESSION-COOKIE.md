@@ -27,6 +27,16 @@ The source of truth is `src/lib/auth/session-lifetime.ts`.
 - The cookie can outlive the cap by up to 30 days. That is harmless, because the database row is authoritative.
 - `freshAge` is Better Auth's default. Re-auth uses `lastReauthAt` (#44).
 
+## Self-service sessions
+
+The source of truth is `src/lib/sessions/own-sessions.ts`.
+
+- `GET /api/sgauth/sessions` returns the caller's live sessions: `200 { sessions: [{ id, createdAt, lastActiveAt, ip, device, isCurrent }] }`, or `401`. It never returns the token.
+- `DELETE /api/sgauth/sessions/:id` revokes one of the caller's sessions: `204`, `401`, `403` (untrusted or missing Origin) or `404`. The `404` is identical for another user's id, an unknown id, an expired id and a malformed id, so ids cannot be probed.
+- Revoking the current session also expires `session_token`, `session_data` and `dont_remember`, using the live cookie names and attributes from Better Auth's context.
+- `lastActiveAt` is `Session.updatedAt`, which Better Auth bumps only on the daily sliding refresh, so it is accurate to about a day.
+- DELETE checks `Origin` (or the origin of `Referer`) locally against Better Auth's trusted origins, until #77 generalizes it.
+
 ## Why not `__Host-`
 
 Browsers reject a `__Host-` cookie that has a `Domain` attribute (it also requires `Path=/` and `Secure`). A cookie shared across subdomains needs `Domain`, so `__Secure-` is the strongest prefix available.
