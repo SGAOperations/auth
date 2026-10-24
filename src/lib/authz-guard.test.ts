@@ -10,6 +10,8 @@ const EXEMPT: Record<string, string> = {
     "Better Auth's own handler: sign-in, sign-up and session flows act on the caller's own account, not on another user",
   "src/app/api/csp-report/route.ts":
     "Unauthenticated browser CSP report sink; it acts on no user and only writes a redacted log line",
+  "src/app/api/sgauth/sessions/revoke-all/route.ts":
+    "Forwards to Better Auth's revoke-sessions, which acts only on the caller's own sessions; it never targets another user",
   "src/app/preview-gate/unlock/route.ts":
     "Preview-environment password gate; it acts on no user and runs before any sign-in",
   "src/app/api/jobs/alerts/route.ts":
