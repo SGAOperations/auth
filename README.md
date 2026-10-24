@@ -216,7 +216,8 @@ manager, never in git. Pooled vs. direct handling under Prisma is settled in
 AUTH-T04.
 
 To restore `main` to an earlier point in time, see
-[docs/runbooks/neon-restore.md](docs/runbooks/neon-restore.md).
+[docs/runbooks/neon-restore.md](docs/runbooks/neon-restore.md). All runbooks are
+indexed in [docs/runbooks/README.md](docs/runbooks/README.md).
 
 A daily workflow (`.github/workflows/neon-quota-monitor.yml`) emails an alert at
 50%, 70%, 85% and 100% of the Free plan's monthly compute quota. For what to do
