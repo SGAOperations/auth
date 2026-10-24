@@ -15,6 +15,11 @@ const upstash = {
   UPSTASH_REDIS_REST_TOKEN: "upstash-test-token",
 };
 
+const resend = {
+  RESEND_API_KEY: "re_test_key",
+  RESEND_FROM_EMAIL: "no-reply@auth.northeasternsga.com",
+};
+
 const CRON_SECRET = "c".repeat(32);
 
 function messageOf(raw: Record<string, string | undefined>): string {
@@ -118,6 +123,7 @@ describe("parseServerEnv", () => {
       const env = parseServerEnv({
         ...valid,
         ...upstash,
+        ...resend,
         CRON_SECRET,
         SGAUTH_ENV: sgauthEnv,
       });
@@ -142,8 +148,32 @@ describe("parseServerEnv", () => {
     });
   });
 
+  describe("Resend email transport", () => {
+    it.each(["production", "dev"])(
+      "is required when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const message = messageOf({
+          ...valid,
+          ...upstash,
+          SGAUTH_ENV: sgauthEnv,
+        });
+        expect(message).toContain("RESEND_API_KEY: missing");
+        expect(message).toContain("RESEND_FROM_EMAIL: missing");
+      },
+    );
+
+    it.each(["preview", "local"])(
+      "is optional when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const env = parseServerEnv({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(env.RESEND_API_KEY).toBeUndefined();
+        expect(env.RESEND_FROM_EMAIL).toBeUndefined();
+      },
+    );
+  });
+
   describe("job runner secret", () => {
-    const deployed = { ...valid, ...upstash };
+    const deployed = { ...valid, ...upstash, ...resend };
 
     it.each(["production", "dev"])(
       "is required when SGAUTH_ENV=%s",
@@ -179,6 +209,25 @@ describe("parseServerEnv", () => {
     });
   });
 
+  describe("SGAUTH_EMAIL_DAILY_CAP", () => {
+    it("defaults to 500", () => {
+      expect(parseServerEnv(valid).SGAUTH_EMAIL_DAILY_CAP).toBe(500);
+    });
+
+    it("coerces a numeric string", () => {
+      expect(
+        parseServerEnv({ ...valid, SGAUTH_EMAIL_DAILY_CAP: "90" })
+          .SGAUTH_EMAIL_DAILY_CAP,
+      ).toBe(90);
+    });
+
+    it.each(["0", "abc", "1.5", "100001"])("rejects %s", (value) => {
+      expect(messageOf({ ...valid, SGAUTH_EMAIL_DAILY_CAP: value })).toContain(
+        "SGAUTH_EMAIL_DAILY_CAP",
+      );
+    });
+  });
+
   it("strips undeclared keys, including the retired cookie variables", () => {
     const env = parseServerEnv({
       ...valid,
@@ -195,6 +244,7 @@ describe("parseServerEnv", () => {
     const env = parseServerEnv({
       ...valid,
       ...upstash,
+      ...resend,
       CRON_SECRET,
       SGAUTH_ENV: "dev",
       SGAUTH_SIGNUP_ALLOWLIST: "@example.edu",

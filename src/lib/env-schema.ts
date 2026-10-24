@@ -38,6 +38,12 @@ export const serverShape = z.object({
   BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.email().optional(),
+  SGAUTH_EMAIL_DAILY_CAP: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100_000)
+    .default(500),
   UPSTASH_REDIS_REST_URL: z.url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
@@ -87,6 +93,8 @@ const LOCAL_ONLY_KEYS = [
 const REQUIRED_IN: Partial<
   Record<keyof typeof serverShape.shape, readonly SgauthEnv[]>
 > = {
+  RESEND_API_KEY: ["production", "dev"],
+  RESEND_FROM_EMAIL: ["production", "dev"],
   UPSTASH_REDIS_REST_URL: ["production", "dev"],
   UPSTASH_REDIS_REST_TOKEN: ["production", "dev"],
   CRON_SECRET: ["production", "dev"],

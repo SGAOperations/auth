@@ -1,4 +1,10 @@
-/** The `sendEmail({ to, template, data })` shape planned in AUTH-T20. */
+import type { SendResult } from "@/lib/email/mailer";
+
+/**
+ * Deliberately loose: tests may capture any template name or data. The real
+ * contract is `EmailMessage` in `@/lib/email/mailer`, and `CapturingMailer`
+ * satisfies its `Mailer` interface.
+ */
 export type EmailMessage = {
   to: string;
   template: string;
@@ -6,7 +12,7 @@ export type EmailMessage = {
 };
 
 export type CapturingMailer = {
-  sendEmail(message: EmailMessage): Promise<void>;
+  sendEmail(message: EmailMessage): Promise<SendResult>;
   sent: EmailMessage[];
   to(address: string): EmailMessage[];
   last(): EmailMessage | undefined;
@@ -20,6 +26,7 @@ export function createCapturingMailer(): CapturingMailer {
     // A clone, so a caller mutating its message later cannot rewrite history.
     sendEmail: async (message) => {
       sent.push(structuredClone(message));
+      return { status: "sent" };
     },
     sent,
     // Case-insensitive, matching the citext email column.
