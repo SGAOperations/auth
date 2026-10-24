@@ -1,0 +1,42 @@
+# Quarterly subdomain review. On the 1st of January, April, July and October,
+# opens the "Subdomain review YYYY-Qn" issue with the checklist from
+# .github/subdomain-review-issue.md, once per quarter: if an issue with that
+# title already exists in any state, it does nothing.
+#
+# The issue deliberately does not get the `claude` label, so the pipeline does
+# not pick it up. The review is manual (docs/runbooks/subdomain-review.md).
+#
+# This job is not a required check. Scheduled workflows run only from the
+# default branch.
+name: Quarterly subdomain review
+
+on:
+  schedule:
+    - cron: "0 14 1 1,4,7,10 *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: quarterly-subdomain-review
+  cancel-in-progress: false
+
+jobs:
+  open-issue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open the review issue once per quarter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Subdomain review $(date -u +%Y)-Q$(( ($(date -u +%-m) - 1) / 3 + 1 ))"
+          count=$(gh issue list --state all --limit 100 --search "Subdomain review in:title" --json title --jq "map(select(.title == \"$title\")) | length")
+          if [ "$count" -ne 0 ]; then
+            echo "Already exists: $title"
+            exit 0
+          fi
+          gh issue create --title "$title" --label security --body-file .github/subdomain-review-issue.md

@@ -61,6 +61,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 ## Product previews
 
 - Each product adds a Vercel branch domain `<product>-dev.northeasternsga.com` on its own dev branch, with `SGAUTH_URL=https://auth-dev.northeasternsga.com` and `SGAUTH_COOKIE_NAME=__Secure-sgauth-dev.session_token`.
+- The domain is added in the order in [SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md#adding-a-subdomain): registry, Vercel, then DNS.
 - The product's origin must be an **active** row in that environment's product registry. SGAuth picks it up within 60 s, or at once on the instance that saved it.
 - Ad-hoc `*.vercel.app` product previews **cannot use SSO**. The browser never sends a `northeasternsga.com` cookie to `vercel.app`, so use the branch domain.
 - Testers unlock the [gate](#pre-production-gates) on `auth-dev` once per browser (7 days). Product servers call the exempt machine endpoints and need no gate cookie or Vercel header once the Deployment Protection Exception is on. Until then, product previews cannot redirect a browser to `auth-dev`.
