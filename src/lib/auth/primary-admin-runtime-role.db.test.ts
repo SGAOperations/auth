@@ -67,18 +67,31 @@ describe.skipIf(!url)("primary admin protection: runtime role SQL", () => {
       ),
     );
 
-  // A privilege test that silently passes as the owner proves nothing.
-  it("runs as the runtime role, not the table owner", async () => {
+  // A privilege test that silently passes as the owner proves nothing. Postgres
+  // lets either the table owner or the schema owner DROP an index, so both are
+  // excluded: a role that is a member of the public schema's owner (for example
+  // the Neon database owner, through pg_database_owner) can drop
+  // one_primary_admin without owning the table.
+  it("runs as the runtime role, not the table or schema owner", async () => {
     const { rows } = await client.query<{
       current_user: string;
-      member: boolean;
+      table_member: boolean;
+      schema_member: boolean;
     }>(
-      `SELECT current_user, pg_has_role(current_user, $1, 'MEMBER') AS member`,
+      `SELECT current_user,
+              pg_has_role(current_user, $1, 'MEMBER') AS table_member,
+              pg_has_role(
+                current_user,
+                (SELECT nspowner FROM pg_namespace WHERE nspname = 'public'),
+                'MEMBER'
+              ) AS schema_member`,
       [owner],
     );
     expect(
-      rows[0].current_user !== owner && !rows[0].member,
-      "TEST_DATABASE_URL must use the runtime role (see CONTRIBUTING.md)",
+      rows[0].current_user !== owner &&
+        !rows[0].table_member &&
+        !rows[0].schema_member,
+      "TEST_DATABASE_URL must use the runtime role, not the table owner or a member of the public schema's owner (see CONTRIBUTING.md)",
     ).toBe(true);
   });
 
