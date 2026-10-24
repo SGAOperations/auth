@@ -29,6 +29,7 @@ export const serverShape = z.object({
   VERCEL_ENV: z.string().optional(),
   VERCEL_BRANCH_URL: z.string().optional(),
   VERCEL_URL: z.string().optional(),
+  VERCEL_GIT_COMMIT_SHA: z.string().optional(),
   SGAUTH_SIGNUP_ALLOWLIST: z.string().optional(),
   SGAUTH_PREVIEW_GATE_PASSWORD: z.string().min(16).optional(),
   SGAUTH_PREVIEW_GATE: z.enum(["on", "off"]).optional(),
