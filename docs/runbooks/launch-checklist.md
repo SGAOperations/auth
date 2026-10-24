@@ -12,13 +12,13 @@ credentials: no `DIRECT_URL`, no API key, no backup code ever goes in a comment.
 The checklist cannot be completed until these have landed. Each section below
 names the one it needs.
 
-| Needs                                 | Ticket                                                    |
-| ------------------------------------- | --------------------------------------------------------- |
-| Threat model and pre-launch checklist | [#84](https://github.com/SGAOperations/auth/issues/84)    |
-| Security headers                      | [#78](https://github.com/SGAOperations/auth/issues/78)    |
-| Health endpoint and uptime monitor    | [#88](https://github.com/SGAOperations/auth/issues/88)    |
-| Break-glass recovery                  | [#51](https://github.com/SGAOperations/auth/issues/51)    |
-| Escalating account lockout            | [#76](https://github.com/SGAOperations/auth/issues/76)    |
+| Needs                                 | Ticket                                                         |
+| ------------------------------------- | -------------------------------------------------------------- |
+| Threat model and pre-launch checklist | [#84](https://github.com/SGAOperations/auth/issues/84)         |
+| Security headers                      | [#78](https://github.com/SGAOperations/auth/issues/78)         |
+| Health endpoint and uptime monitor    | [#88](https://github.com/SGAOperations/auth/issues/88)         |
+| Break-glass recovery                  | [#51](https://github.com/SGAOperations/auth/issues/51)         |
+| Escalating account lockout            | [#76](https://github.com/SGAOperations/auth/issues/76)         |
 | TOTP enrolment                        | #79 and [#66](https://github.com/SGAOperations/auth/issues/66) |
 
 Production sign-up and email verification must work before section 7
@@ -42,16 +42,10 @@ items come first.
 ## 2. Production environment variables
 
 - [ ] Every Production-column row of [ENVIRONMENTS.md](../ENVIRONMENTS.md),
-      "Environment variables", is set in the Vercel Production environment:
-      - `DATABASE_URL` and `DIRECT_URL`, both `sslmode=verify-full`
-      - `SGAUTH_ENV=production`
-      - `BETTER_AUTH_SECRET`
-      - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`
-      - `RESEND_API_KEY` and `RESEND_FROM_EMAIL`
-      - `POSTHOG_KEY` and `POSTHOG_HOST`
-      - `CRON_SECRET`
+      "Environment variables", is set in the Vercel Production environment: - `DATABASE_URL` and `DIRECT_URL`, both `sslmode=verify-full` - `SGAUTH_ENV=production` - `BETTER_AUTH_SECRET` - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` - `RESEND_API_KEY` and `RESEND_FROM_EMAIL` - `POSTHOG_KEY` and `POSTHOG_HOST` - `CRON_SECRET`
 
       Verify: `vercel env ls production`, comparing names against the table.
+
 - [ ] No value is shared with `dev` or Preview. Verify: the secrets differ, and
       `DATABASE_URL` and `DIRECT_URL` point at the Neon `main` branch only.
 - [ ] `SEED_PRIMARY_ADMIN_*`, `SGAUTH_PREVIEW_GATE*` and
