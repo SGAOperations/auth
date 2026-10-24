@@ -32,6 +32,8 @@ is what keeps SGAuth inside the Free quota.
 
 ## Other runbooks
 
+- [break-glass.md](break-glass.md): recover the Primary Admin when the normal
+  transfer cannot run.
 - [neon-restore.md](neon-restore.md): restore `main` to an earlier point in time.
 - [neon-upgrade.md](neon-upgrade.md): move the project to the Launch plan.
 - [legacy-bcrypt.md](legacy-bcrypt.md): imported bcrypt hashes still awaiting re-hash, and when to remove the path.
