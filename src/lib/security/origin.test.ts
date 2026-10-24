@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  checkOrigin,
-  createOriginGuard,
-  isOriginEnforcedPath,
-} from "./origin";
+import { checkOrigin, createOriginGuard, isOriginEnforcedPath } from "./origin";
 
 const OWN = "https://auth.northeasternsga.com";
 const PRODUCT = "https://product.northeasternsga.com";
@@ -53,9 +49,9 @@ describe("checkOrigin passes", () => {
   });
 
   it("falls back to a trusted Referer, keeping only its origin", () => {
-    expect(
-      check("POST", { Referer: `${PRODUCT}/some/path?x=1` }),
-    ).toEqual({ ok: true });
+    expect(check("POST", { Referer: `${PRODUCT}/some/path?x=1` })).toEqual({
+      ok: true,
+    });
   });
 
   it("normalizes case and the default port", () => {
@@ -158,9 +154,7 @@ describe("createOriginGuard", () => {
   it("lets a safe method and an unenforced path through without loading the registry", async () => {
     const { guard, state } = setup();
     expect(await guard(new Request(ADMIN_USERS))).toBeNull();
-    expect(
-      await guard(post(`${OWN}/api/auth/sign-in/email`, {})),
-    ).toBeNull();
+    expect(await guard(post(`${OWN}/api/auth/sign-in/email`, {}))).toBeNull();
     expect(state.calls).toBe(0);
     expect(state.warns).toEqual([]);
   });

@@ -20,7 +20,9 @@ export type OriginRejection =
   | "untrusted_origin"
   | "registry_error";
 
-export type OriginVerdict = { ok: true } | { ok: false; reason: OriginRejection };
+export type OriginVerdict =
+  | { ok: true }
+  | { ok: false; reason: OriginRejection };
 
 export function isOriginEnforcedPath(pathname: string): boolean {
   return (
@@ -123,7 +125,9 @@ export interface OriginGuardDeps {
 
 /** A response that stops the request, or null to let it through. Never throws. */
 export function createOriginGuard({ trustedOrigins, log }: OriginGuardDeps) {
-  return async function guardOrigin(request: Request): Promise<Response | null> {
+  return async function guardOrigin(
+    request: Request,
+  ): Promise<Response | null> {
     if (SAFE_METHODS.has(request.method.toUpperCase())) return null;
     const { pathname } = new URL(request.url);
     if (!isOriginEnforcedPath(pathname)) return null;
@@ -148,7 +152,10 @@ export function createOriginGuard({ trustedOrigins, log }: OriginGuardDeps) {
       reason: verdict.reason,
       method: request.method,
       path: pathname,
-      origin: claimedOrigin(request.headers)?.slice(0, MAX_LOGGED_ORIGIN_LENGTH),
+      origin: claimedOrigin(request.headers)?.slice(
+        0,
+        MAX_LOGGED_ORIGIN_LENGTH,
+      ),
     });
     return invalidOriginResponse();
   };
