@@ -20,6 +20,8 @@ const resend = {
   RESEND_FROM_EMAIL: "no-reply@auth.northeasternsga.com",
 };
 
+const CRON_SECRET = "c".repeat(32);
+
 function messageOf(raw: Record<string, string | undefined>): string {
   try {
     parseServerEnv(raw);
@@ -89,6 +91,24 @@ describe("parseServerEnv", () => {
     expect(env.RESEND_FROM_EMAIL).toBe("auth@example.com");
   });
 
+  describe("BETTER_AUTH_TRUSTED_ORIGINS", () => {
+    it("is refused, naming the key without echoing the value", () => {
+      const origin = "https://x.vercel.app";
+      const message = messageOf({
+        ...valid,
+        BETTER_AUTH_TRUSTED_ORIGINS: origin,
+      });
+      expect(message).toContain("BETTER_AUTH_TRUSTED_ORIGINS");
+      expect(message).not.toContain(origin);
+    });
+
+    it("is treated as unset when empty", () => {
+      expect(() =>
+        parseServerEnv({ ...valid, BETTER_AUTH_TRUSTED_ORIGINS: "" }),
+      ).not.toThrow();
+    });
+  });
+
   describe("Upstash rate-limit store", () => {
     it.each(["production", "dev"])(
       "is required when SGAUTH_ENV=%s",
@@ -104,6 +124,7 @@ describe("parseServerEnv", () => {
         ...valid,
         ...upstash,
         ...resend,
+        CRON_SECRET,
         SGAUTH_ENV: sgauthEnv,
       });
       expect(env.UPSTASH_REDIS_REST_URL).toBe(upstash.UPSTASH_REDIS_REST_URL);
@@ -151,6 +172,43 @@ describe("parseServerEnv", () => {
     );
   });
 
+  describe("job runner secret", () => {
+    const deployed = { ...valid, ...upstash, ...resend };
+
+    it.each(["production", "dev"])(
+      "is required when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        expect(messageOf({ ...deployed, SGAUTH_ENV: sgauthEnv })).toContain(
+          "CRON_SECRET: missing",
+        );
+      },
+    );
+
+    it.each(["production", "dev"])("parses on %s when set", (sgauthEnv) => {
+      const env = parseServerEnv({
+        ...deployed,
+        CRON_SECRET,
+        SGAUTH_ENV: sgauthEnv,
+      });
+      expect(env.CRON_SECRET).toBe(CRON_SECRET);
+    });
+
+    it.each(["preview", "local"])(
+      "is optional when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const env = parseServerEnv({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(env.CRON_SECRET).toBeUndefined();
+      },
+    );
+
+    it("rejects a short secret without echoing it", () => {
+      const short = "z".repeat(31);
+      const message = messageOf({ ...valid, CRON_SECRET: short });
+      expect(message).toContain("CRON_SECRET");
+      expect(message).not.toContain(short);
+    });
+  });
+
   describe("SGAUTH_EMAIL_DAILY_CAP", () => {
     it("defaults to 500", () => {
       expect(parseServerEnv(valid).SGAUTH_EMAIL_DAILY_CAP).toBe(500);
@@ -187,6 +245,7 @@ describe("parseServerEnv", () => {
       ...valid,
       ...upstash,
       ...resend,
+      CRON_SECRET,
       SGAUTH_ENV: "dev",
       SGAUTH_SIGNUP_ALLOWLIST: "@example.edu",
       SGAUTH_PREVIEW_GATE_PASSWORD: "p".repeat(16),

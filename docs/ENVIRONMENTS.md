@@ -32,6 +32,7 @@ Every variable set in Vercel, by scope. "Preview (`dev`)" is the branch-specific
 | `RESEND_API_KEY` ([#32](https://github.com/SGAOperations/auth/issues/32))                 | Sending-only Resend key, restricted to `auth.northeasternsga.com`, from the SGAuth account. Required on `production` and `dev`. See [EMAIL.md](EMAIL.md). | its own key                         | its own key, not production's       | not set                | not set       | manual | yes    |
 | `RESEND_FROM_EMAIL` ([#32](https://github.com/SGAOperations/auth/issues/32))              | Bare sender address. The `SGAuth` display name is added in code. Required on `production` and `dev`.                                                      | `no-reply@auth.northeasternsga.com` | `no-reply@auth.northeasternsga.com` | not set                | not set       | manual | no     |
 | `SGAUTH_EMAIL_DAILY_CAP` ([#32](https://github.com/SGAOperations/auth/issues/32))         | Optional global daily send cap (default 500). Set it at or under the Resend plan's daily limit.                                                           | optional                            | optional                            | not set                | not set       | manual | no     |
+| `CRON_SECRET` ([#50](https://github.com/SGAOperations/auth/issues/50))                    | Bearer secret for the `/api/jobs/*` routes. Required on `production` and `dev`. See [Scheduled jobs](#scheduled-jobs).                                    | distinct value                      | distinct value                      | not set                | not set       | manual | yes    |
 | `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`                  | Read by `settings.ts` (preview `baseURL`, the `local`-on-Vercel assertion) and by `scripts/vercel-build.mjs`.                                             | system                              | system                              | system                 | n/a           | Vercel | no     |
 | `VERCEL_AUTOMATION_BYPASS_SECRET`                                                         | Exposes one bypass secret. Listed for reference only. Never copied into another product.                                                                  | system                              | system                              | system                 | n/a           | Vercel | yes    |
 
@@ -40,14 +41,14 @@ Notes:
 - The `VERCEL_*` variables require "Automatically expose System Environment Variables" to stay on.
 - `TEST_DATABASE_URL` and `TEST_DIRECT_URL` are local and CI only. They are never set in Vercel.
 - The Development scope is either filled as shown or left empty. Local development uses `.env`.
-- Later tickets add their own rows (PostHog, `CRON_SECRET`).
+- Later tickets add their own rows (PostHog).
 
 Rules:
 
 - **No secret value is shared across scopes.** `auth-dev` is reachable from the internet, so none of its secrets (`BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, database credentials) may equal production's or the Preview (all branches) value. The Neon `dev` roles have no access to Neon `main`.
 - Nothing secret is `NEXT_PUBLIC_`.
 - Every connection string uses `sslmode=verify-full`. The one exception is `DIRECT_URL`, which may use `sslmode=require&sslaccept=strict` if the migration CLI rejects `verify-full`. If that happens, note it on #12.
-- The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, `SGAUTH_SIGNUP_ALLOWLIST`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password, and the env validation (#75, #32) refuses to start on `production` or `dev` without the Upstash pair and the Resend pair.
+- The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, `SGAUTH_SIGNUP_ALLOWLIST`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `CRON_SECRET`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password, and the env validation (#75, #32, #50) refuses to start on `production` or `dev` without the Upstash pair, the Resend pair or `CRON_SECRET`.
 - Never set `SGAUTH_PREVIEW_GATE=off` in a Vercel scope.
 
 ## Cookies and SDK values
@@ -64,7 +65,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 ## Product previews
 
 - Each product adds a Vercel branch domain `<product>-dev.northeasternsga.com` on its own dev branch, with `SGAUTH_URL=https://auth-dev.northeasternsga.com` and `SGAUTH_COOKIE_NAME=__Secure-sgauth-dev.session_token`.
-- The product registers that origin in SGAuth's product registry once AUTH-T56 (#68) exists.
+- The product's origin must be an **active** row in that environment's product registry. SGAuth picks it up within 60 s, or at once on the instance that saved it.
 - Ad-hoc `*.vercel.app` product previews **cannot use SSO**. The browser never sends a `northeasternsga.com` cookie to `vercel.app`, so use the branch domain.
 - Testers unlock the [gate](#pre-production-gates) on `auth-dev` once per browser (7 days). Product servers call the exempt machine endpoints and need no gate cookie or Vercel header once the Deployment Protection Exception is on. Until then, product previews cannot redirect a browser to `auth-dev`.
 
@@ -72,6 +73,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 
 - Run `npm run dev` with `SGAUTH_ENV=local`, then browse to `http://auth.sga.localhost:3000`, never `http://localhost:3000`. On bare `localhost` the browser rejects the `Domain=sga.localhost` cookie, and the origin is not trusted.
 - Products run on `<product>.sga.localhost:<port>` (VaultZ on `vaultz.sga.localhost:3001`) with `SGAUTH_URL=http://auth.sga.localhost:3000` and `SGAUTH_COOKIE_NAME=sgauth-local.session_token`.
+- On `SGAUTH_ENV=local`, any `http://<name>.sga.localhost:<port>` origin is trusted with no registry row. `BETTER_AUTH_TRUSTED_ORIGINS` is refused at boot in every environment.
 - Name resolution by browser:
   - Chrome and Edge resolve `*.localhost` natively.
   - Firefox: add the hostnames to `network.dns.localDomains` in `about:config`.
@@ -108,6 +110,22 @@ Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cooki
 5. Runs `prisma generate`, `prisma migrate deploy`, then `next build`, stopping at the first failure.
 
 Migrations apply while the previous deployment is still serving, so every migration follows expand/contract ([MIGRATIONS.md](MIGRATIONS.md#expandcontract)). Nothing in the build log may contain a credential or connection string. There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
+
+## Scheduled jobs
+
+`.github/workflows/scheduled-jobs.yml` calls `POST /api/jobs/<name>` with `Authorization: Bearer $CRON_SECRET`. There are no Vercel cron jobs, and `vercel.json` must never gain a `crons` section: Hobby allows two jobs at once a day and rejects finer schedules at deploy time.
+
+| Job           | Schedule (UTC)      | Does                                                                         |
+| ------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `pa-transfer` | hourly, at minute 7 | Executes due COOLING Primary Admin transfers and expires stale PENDING ones. |
+| `alerts`      | every 15 minutes    | Stub until #89.                                                              |
+| `retention`   | daily at 08:23      | Stub until #90.                                                              |
+
+- **Hourly, not every 15 minutes.** Every run queries Postgres and wakes the Neon compute for about 5 minutes. Every 15 minutes is about 60 CU-hours a month per branch against the Free plan's 100 per project. Hourly is about 15. A transfer completes up to about an hour after its 24-hour cooling window ends, plus any GitHub schedule delay.
+- **Targets.** Scheduled runs call production only. `dev` is dispatch-only: Actions, then "Scheduled jobs", then Run workflow with `environment=dev`.
+- **GitHub secrets**, each equal to the matching Vercel `CRON_SECRET`: `CRON_SECRET_PRODUCTION` (Production) and `CRON_SECRET_DEV` (Preview `dev`). While `auth-dev` is still behind Standard Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET_DEV`; the workflow sends it as `x-vercel-protection-bypass` for dev calls only.
+- **Behaviour.** Every route is idempotent and returns quickly. A missing or wrong bearer answers `401` and does nothing. A failing job answers non-2xx, which shows as a red run. A missed run is caught by the next one.
+- GitHub runs schedules only from the default branch (`dev`) and disables them after 60 days without repository activity.
 
 ## Shared pre-production database
 
@@ -168,6 +186,8 @@ These machine endpoints are exempt, matched exactly and on any method, because p
 - `/api/sgauth/session`
 - `/api/sgauth/session/minimal`
 - `/api/health`
+- `/api/csp-report`
+- `/api/jobs/pa-transfer`, `/api/jobs/alerts` and `/api/jobs/retention` (bearer-protected by `CRON_SECRET`)
 - `/.well-known/jwks.json`
 - `/.well-known/openid-configuration`
 

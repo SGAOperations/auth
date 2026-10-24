@@ -34,7 +34,7 @@ interface AuthOptionsInput {
   prisma: PrismaClient;
   baseURL: string;
   secret: string;
-  trustedOrigins?: string[];
+  trustedOrigins?: BetterAuthOptions["trustedOrigins"];
   /** Cookie attributes from `buildCookieOptions`; config.ts supplies them. */
   advanced?: BetterAuthOptions["advanced"];
 }

@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { buildAuthOptions } from "@/lib/auth/options";
 import { buildAuthPlugins } from "@/lib/auth/plugins";
 import { logger, logLevel } from "@/lib/log";
+import { getTrustedOrigins } from "@/lib/products";
 import { toAuthSettings } from "@/lib/auth/settings";
 import {
   assertSecureCookieConfig,
@@ -32,7 +33,7 @@ export const auth = betterAuth({
     prisma,
     baseURL: settings.baseURL,
     secret: settings.secret,
-    trustedOrigins: settings.trustedOrigins,
+    trustedOrigins: getTrustedOrigins,
     advanced,
   }),
   // Better Auth's own lines go through the structured, redacting logger.
