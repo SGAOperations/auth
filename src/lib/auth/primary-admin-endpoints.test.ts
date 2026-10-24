@@ -7,9 +7,7 @@ import { buildAuthPlugins } from "@/lib/auth/plugins";
 const TRIPWIRE =
   "The Better Auth admin plugin is mounted. Add its ban-user, set-role, remove-user, update-user and impersonate-user endpoints to primary-admin-protection.db.test.ts against the Primary Admin before merging.";
 
-// The ticket's "if mounted" clause: Better Auth's admin plugin can ban,
-// re-role, remove and impersonate users, none of which the Primary Admin
-// invariants tests exercise until someone mounts it and extends them.
+// Admin plugin can ban, re-role, remove and impersonate users; untested until mounted.
 describe("primary admin: Better Auth admin plugin tripwire", () => {
   const prisma = {} as unknown as PrismaClient;
   const plugins = buildAuthPlugins({
