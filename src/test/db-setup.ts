@@ -43,9 +43,10 @@ function childrenFirst(
 //   (AuditEvent) and reject DELETE as well. Tests that write to them must
 //   filter by their own ids rather than assume an empty table.
 // - The Primary Admin row cannot be deleted or demoted outside a transfer, and
-//   a transfer cannot commit without a Primary Admin. Tests must therefore
-//   never commit one: create it inside a transaction that rolls back, as
-//   factories.db.test.ts does.
+//   a transfer cannot commit without a Primary Admin. The only one a test may
+//   commit is the harness Primary Admin (ensureHarnessPrimaryAdmin), which
+//   survives every reset. Any other is created inside a transaction that rolls
+//   back, as factories.db.test.ts does.
 async function resetTables(client: Client) {
   const tables = await client.query<{ tablename: string }>(
     `SELECT tablename FROM pg_tables
