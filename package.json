@@ -21,6 +21,7 @@
     "positions:sync": "tsx scripts/positions-sync.ts",
     "email:preview": "tsx scripts/email-preview.ts",
     "jwks:rotate": "tsx scripts/jwks-rotate.ts",
+    "bootstrap-primary-admin": "tsx scripts/bootstrap-primary-admin.ts",
     "recover-primary-admin": "tsx --conditions=react-server scripts/recover-primary-admin.ts",
     "postinstall": "prisma generate"
   },
