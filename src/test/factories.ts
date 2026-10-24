@@ -58,17 +58,23 @@ export function createAdmin(
 }
 
 /**
- * createUser with `isAdmin` and `isPrimaryAdmin`. Does not guard against a
- * second Primary Admin: the database rejects that, and tests may assert it.
+ * createUser with `isAdmin` and `isPrimaryAdmin`, after displacing any existing
+ * Primary Admin (the harness one, see `ensureHarnessPrimaryAdmin`) inside `db`.
  *
- * A Primary Admin can never be deleted, and the harness reset leaves it in
- * place, so pass the client of a transaction that rolls back (`db`) instead of
- * committing one.
+ * `db` must be the client of a transaction that rolls back: a Primary Admin can
+ * never be deleted, so a committed one would stay for good. The displacement
+ * runs on `db`, so it lasts for that transaction only.
  */
-export function createPrimaryAdmin(
-  overrides: CreateUserOverrides = {},
-  db: Prisma.TransactionClient = prisma,
+export async function createPrimaryAdmin(
+  overrides: CreateUserOverrides,
+  db: Prisma.TransactionClient,
 ) {
+  await db.$executeRaw`SELECT set_config('sgauth.pa_transfer', 'on', true)`;
+  await db.user.updateMany({
+    where: { isPrimaryAdmin: true },
+    data: { isPrimaryAdmin: false },
+  });
+  await db.$executeRaw`SELECT set_config('sgauth.pa_transfer', 'off', true)`;
   return createUser({ isAdmin: true, isPrimaryAdmin: true, ...overrides }, db);
 }
 

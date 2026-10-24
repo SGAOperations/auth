@@ -22,7 +22,7 @@ Personal `dev-*` branches are kept by the branch hygiene job and count toward Ne
 
 ### Files
 
-Name tests that need no database `*.test.ts`, and database tests `*.db.test.ts`. `db` files run serially because they share one branch. Before each file the harness runs `DELETE` on every table through the migration role (`TEST_DIRECT_URL`); it never uses `TRUNCATE` and never disables a trigger. Two things survive the reset: tables guarded by a `TRUNCATE` trigger, such as the append-only `AuditEvent`, are skipped, so filter by your own ids instead of assuming an empty table; and a Primary Admin row cannot be deleted, so never commit one. Create it inside a transaction that rolls back, as `src/test/factories.db.test.ts` does.
+Name tests that need no database `*.test.ts`, and database tests `*.db.test.ts`. `db` files run serially because they share one branch. Before each file the harness runs `DELETE` on every table through the migration role (`TEST_DIRECT_URL`); it never uses `TRUNCATE` and never disables a trigger. Two things survive the reset: tables guarded by a `TRUNCATE` trigger, such as the append-only `AuditEvent`, are skipped, so filter by your own ids instead of assuming an empty table; and a Primary Admin row cannot be deleted. The harness Primary Admin (`ensureHarnessPrimaryAdmin` in `src/test/harness-primary-admin.ts`) is the one committed Primary Admin: it persists across runs, and every other Primary Admin is created through `createPrimaryAdmin` inside a transaction that rolls back, as `src/test/factories.db.test.ts` does.
 
 ### Coverage
 
@@ -32,13 +32,13 @@ Name tests that need no database `*.test.ts`, and database tests `*.db.test.ts`.
 
 Import from `src/test/factories.ts`. All use the app's `prisma` client.
 
-| Factory                           | Defaults                                                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `createUser(overrides?)`          | Unique `@northeastern.edu` email, `emailVerified: true`, `status: "ACTIVE"`. `password` also creates the credential `Account`. |
-| `createAdmin(overrides?)`         | `createUser` with `isAdmin: true`.                                                                                             |
-| `createPrimaryAdmin(overrides?)`  | `createUser` with `isAdmin` and `isPrimaryAdmin`. Does not guard against a second one: the database rejects that.              |
-| `createSession(user, overrides?)` | Random token, `expiresAt` 30 days and `absoluteExpiresAt` 90 days from `Date.now()`, so a fake clock drives them.              |
-| `createPosition(overrides?)`      | Active position with a unique kebab-case `key` and a name. No holders: create `UserPosition` rows directly.                    |
+| Factory                             | Defaults                                                                                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createUser(overrides?)`            | Unique `@northeastern.edu` email, `emailVerified: true`, `status: "ACTIVE"`. `password` also creates the credential `Account`.                 |
+| `createAdmin(overrides?)`           | `createUser` with `isAdmin: true`.                                                                                                             |
+| `createPrimaryAdmin(overrides, tx)` | `createUser` with `isAdmin` and `isPrimaryAdmin`. Requires a rolled-back transaction client and displaces the harness Primary Admin inside it. |
+| `createSession(user, overrides?)`   | Random token, `expiresAt` 30 days and `absoluteExpiresAt` 90 days from `Date.now()`, so a fake clock drives them.                              |
+| `createPosition(overrides?)`        | Active position with a unique kebab-case `key` and a name. No holders: create `UserPosition` rows directly.                                    |
 
 ### Fakes
 
