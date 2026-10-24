@@ -17,7 +17,10 @@ const SECURITY_HEADERS = {
   "x-robots-tag": "noindex",
   "content-security-policy":
     "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
-  "referrer-policy": "no-referrer",
+  // Not "no-referrer": under that policy a same-origin form POST is sent with
+  // `Origin: null` (Fetch, "serializing a request origin"), which the POST
+  // origin check in createStubHandler would refuse.
+  "referrer-policy": "same-origin",
 };
 
 const ESCAPES = {

@@ -231,6 +231,8 @@ test("every response carries the hardening headers", async () => {
   for (const response of responses) {
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(response.headers.get("x-robots-tag"), "noindex");
+    // "no-referrer" would make a browser send `Origin: null` on the form POSTs.
+    assert.equal(response.headers.get("referrer-policy"), "same-origin");
     assert.match(
       response.headers.get("content-security-policy") ?? "",
       /default-src 'none'/,
