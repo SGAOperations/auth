@@ -23,11 +23,11 @@ At least two people hold the production `DIRECT_URL`, which lives in the team
 password manager. The holders are filled in when the current Primary Admin
 reviews this runbook.
 
-|      Holder       |                 Role                   |          Contact               |
-| ------            | ----                                   | -------                        |
-| Eli Patania       | Vice President of Operational Affairs  | patania.e@northeastern.edu     |
-| Logan Ravinuthala | Digital Innovation Manager             | ravinuthala.l@northeastern.edu |
-| Elina Jiang       | Information Manager                    | jiang.eli@northeastern.edu     |
+| Holder            | Role                                  | Contact                        |
+| ----------------- | ------------------------------------- | ------------------------------ |
+| Eli Patania       | Vice President of Operational Affairs | patania.e@northeastern.edu     |
+| Logan Ravinuthala | Digital Innovation Manager            | ravinuthala.l@northeastern.edu |
+| Elina Jiang       | Information Manager                   | jiang.eli@northeastern.edu     |
 
 ## Two-person rule
 
