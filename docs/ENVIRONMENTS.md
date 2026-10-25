@@ -178,7 +178,7 @@ Once go/no-go is posted:
 
 ## SDK dev mode
 
-Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70) on top of the [session endpoint](SESSION-ENDPOINT.md), and the integration guide (AUTH-T80, #92) links back here.
+Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70) on top of the [session endpoint](SESSION-ENDPOINT.md), and [the Neon integration guide](integration/neon-products.md) links back here.
 
 ## Build pipeline
 
