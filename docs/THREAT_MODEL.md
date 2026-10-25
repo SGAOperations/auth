@@ -12,7 +12,7 @@ A STRIDE-lite threat model for SGAuth, the residual-risk register it produces, a
 
 Assets:
 
-- the session cookie, `__Secure-sgauth.session_token` with `Domain=northeasternsga.com` ([SESSION-COOKIE.md](SESSION-COOKIE.md));
+- the session cookie, `__Secure-sgauth.session_token` with `Domain=.northeasternsga.com` ([SESSION-COOKIE.md](SESSION-COOKIE.md));
 - the JWT signing keys, stored in the `Jwks` table and encrypted with `BETTER_AUTH_SECRET`;
 - the Neon `main` branch and its `runtime` and `migration` roles;
 - the Primary Admin (PA) and admin flags;
@@ -52,7 +52,7 @@ Trust boundaries:
 
 **Disposition:** Accepted, red-team C1.
 
-**Checklist:** PL-01, PL-02, PL-03.
+**Checklist:** PL-02, PL-03. The production cookie attributes are checked in [launch-checklist.md](runbooks/launch-checklist.md), section 9.
 
 ### TM-02 Session fixation and replay
 
@@ -299,7 +299,8 @@ The people who hold each role fill this in when they review. An agent does not g
 
 An item is closed when its check passes, or when its threat has an accepted-risk note and an owner in the register above.
 
-- [ ] **PL-01** — The production cookie is `__Secure-sgauth.session_token` with `Domain=.northeasternsga.com`, `Secure`, `HttpOnly` and `SameSite=Lax`, on the real domain (TM-01; verify in browser dev tools, Application, Cookies).
+The ids start at PL-02 and stay stable. PL-01, the production cookie attributes, is checked in [launch-checklist.md](runbooks/launch-checklist.md), section 9, so it is not repeated here.
+
 - [ ] **PL-02** — The #115 (AUTH-T104) cookie spike has a recorded go/no-go signed off by the SGAuth lead (TM-01; verify on #115).
 - [ ] **PL-03** — The DNS inventory has zero dangling records and the production registry has no wildcard origin (TM-01; verify via [runbooks/subdomain-review.md](runbooks/subdomain-review.md) and the `Product` rows).
 - [ ] **PL-04** — The session token value changes across sign-in: a token present before sign-in is not the one present after (TM-02; verify in dev tools on the real domain).
@@ -325,12 +326,11 @@ An item is closed when its check passes, or when its threat has an accepted-risk
 
 ## Known gaps
 
-The controls below are cited above but their issues were open on 2026-10-24, so the checklist items that depend on them cannot pass yet.
+The controls below are cited above but their issues were open on 2026-10-25, so the checklist items that depend on them cannot pass yet.
 
 | Issue              | Control                                        | Affects                    |
 | ------------------ | ---------------------------------------------- | -------------------------- |
 | `#115 (AUTH-T104)` | Cross-subdomain cookie spike                   | TM-01, PL-02               |
-| `#77 (AUTH-T65)`   | Origin enforcement across subdomains           | TM-01                      |
 | `#44 (AUTH-T32)`   | Re-authentication for sensitive actions        | TM-02, TM-04, TM-05        |
 | `#90 (AUTH-T78)`   | Session purge by `createdAt`                   | TM-02, PL-06               |
 | `#81 (AUTH-T69)`   | Secrets and JWKS rotation procedures           | TM-03, TM-09, PL-10        |
