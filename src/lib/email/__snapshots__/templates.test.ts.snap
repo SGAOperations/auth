@@ -43,7 +43,7 @@ exports[`rendering > renders account-unlock with a subject, html and text 1`] = 
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Unlock your account</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Use this link to unlock your SGA account. The link works once and expires in 1 hour.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/unlock?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Unlock account</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/unlock?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/unlock?token=sample</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/unlock?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Unlock account</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/unlock?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/unlock?token=sample-token</a></p>
 
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -58,7 +58,7 @@ Hi Avery,
 Use this link to unlock your SGA account. The link works once and expires in 1 hour.
 
 Unlock account:
-https://auth.northeasternsga.com/unlock?token=sample
+https://auth.northeasternsga.com/unlock?token=sample-token
 
 --
 Replies to this address aren't read.",
@@ -111,7 +111,7 @@ exports[`rendering > renders pa-transfer-accepted-initiator with a subject, html
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer accepted</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hello,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Sam Rivera accepted. The transfer completes at October 17, 2026 at 3:00 PM ET.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You can cancel until then.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Cancel transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Cancel transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token</a></p>
 
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -128,7 +128,7 @@ Sam Rivera accepted. The transfer completes at October 17, 2026 at 3:00 PM ET.
 You can cancel until then.
 
 Cancel transfer:
-https://auth.northeasternsga.com/admin/transfer
+https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token
 
 --
 Replies to this address aren't read.",
@@ -574,7 +574,7 @@ exports[`rendering > renders pa-transfer-initiated-recipient with a subject, htm
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer request</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hello,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Jordan Lee wants to make you Primary Admin of SGAuth.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Accept by October 23, 2026 at 3:00 PM ET.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Review transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Review transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token</a></p>
 
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -591,7 +591,7 @@ Jordan Lee wants to make you Primary Admin of SGAuth.
 Accept by October 23, 2026 at 3:00 PM ET.
 
 Review transfer:
-https://auth.northeasternsga.com/admin/transfer
+https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token
 
 --
 Replies to this address aren't read.",
@@ -610,7 +610,7 @@ exports[`rendering > renders reset-password with a subject, html and text 1`] = 
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Reset your password</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Someone asked to reset the password for this account. The link works once and expires in 1 hour.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/reset-password?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Choose a new password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/reset-password?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/reset-password?token=sample</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/reset-password?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Choose a new password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/reset-password?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/reset-password?token=sample-token</a></p>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you didn&#39;t ask for this, ignore this email. Your password won&#39;t change.</p>
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -625,7 +625,7 @@ Hi Avery,
 Someone asked to reset the password for this account. The link works once and expires in 1 hour.
 
 Choose a new password:
-https://auth.northeasternsga.com/reset-password?token=sample
+https://auth.northeasternsga.com/reset-password?token=sample-token
 
 If you didn't ask for this, ignore this email. Your password won't change.
 
@@ -739,7 +739,7 @@ exports[`rendering > renders set-password-admin-invite with a subject, html and 
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">You&#39;ve been invited</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">An SGA admin set up an account for you.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Your account is ready, but it has no password yet.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">This link expires in 7 days.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/set-password?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Set password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/set-password?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/set-password?token=sample</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/set-password?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Set password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/set-password?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/set-password?token=sample-token</a></p>
 
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -758,7 +758,7 @@ Your account is ready, but it has no password yet.
 This link expires in 7 days.
 
 Set password:
-https://auth.northeasternsga.com/set-password?token=sample
+https://auth.northeasternsga.com/set-password?token=sample-token
 
 --
 Replies to this address aren't read.",
@@ -777,7 +777,7 @@ exports[`rendering > renders set-password-first-sign-in with a subject, html and
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Set your password</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Your account is ready, but it has no password yet.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">This link expires in 7 days.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/set-password?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Set password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/set-password?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/set-password?token=sample</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/set-password?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Set password</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/set-password?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/set-password?token=sample-token</a></p>
 
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -794,7 +794,7 @@ Your account is ready, but it has no password yet.
 This link expires in 7 days.
 
 Set password:
-https://auth.northeasternsga.com/set-password?token=sample
+https://auth.northeasternsga.com/set-password?token=sample-token
 
 --
 Replies to this address aren't read.",
@@ -813,7 +813,7 @@ exports[`rendering > renders verify-email with a subject, html and text 1`] = `
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Verify your email</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Confirm this address to finish creating your SGA account. The link expires in 24 hours.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/verify?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Verify email</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/verify?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/verify?token=sample</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/verify-email?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Verify email</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/verify-email?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/verify-email?token=sample-token</a></p>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you didn&#39;t create an account, you can ignore this email.</p>
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -828,7 +828,7 @@ Hi Avery,
 Confirm this address to finish creating your SGA account. The link expires in 24 hours.
 
 Verify email:
-https://auth.northeasternsga.com/verify?token=sample
+https://auth.northeasternsga.com/verify-email?token=sample-token
 
 If you didn't create an account, you can ignore this email.
 
@@ -849,7 +849,7 @@ exports[`rendering > renders verify-email-hostile-name with a subject, html and 
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Verify your email</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi &lt;script&gt;alert(1)&lt;/script&gt; &amp; co,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Confirm this address to finish creating your SGA account. The link expires in 24 hours.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/verify?token=sample" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Verify email</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/verify?token=sample" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/verify?token=sample</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/verify-email?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Verify email</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/verify-email?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/verify-email?token=sample-token</a></p>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you didn&#39;t create an account, you can ignore this email.</p>
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -864,7 +864,7 @@ Hi <script>alert(1)</script> & co,
 Confirm this address to finish creating your SGA account. The link expires in 24 hours.
 
 Verify email:
-https://auth.northeasternsga.com/verify?token=sample
+https://auth.northeasternsga.com/verify-email?token=sample-token
 
 If you didn't create an account, you can ignore this email.
 

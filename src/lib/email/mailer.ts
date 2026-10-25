@@ -9,6 +9,7 @@ import {
   type TemplateName,
 } from "@/lib/email/templates";
 import { EmailTransportError, type Transport } from "@/lib/email/transports";
+import { resolveLinkTarget } from "@/lib/token-links/actions";
 
 export type { EmailMessage };
 
@@ -78,10 +79,21 @@ export function createMailer({
     }
 
     // Stops a caller mailing an off-site link under SGAuth's name.
-    for (const link of prepared.linkUrls) {
-      if (originOf(link) !== linkOrigin) {
+    for (const { url } of prepared.links) {
+      if (originOf(url) !== linkOrigin) {
         throw new Error(
           `Link for email template ${template} is not on ${linkOrigin}`,
+        );
+      }
+    }
+
+    // Every link must point at its field's registered, live page. The error
+    // omits the URL, which holds the token.
+    for (const { field, url } of prepared.links) {
+      const target = resolveLinkTarget(template, field, url);
+      if (!target.ok) {
+        throw new Error(
+          `Email template ${template} link ${field} is not a registered token-link page (${target.reason})`,
         );
       }
     }

@@ -38,6 +38,10 @@ export const POLICIES = {
       by: "session",
     },
   ],
+  // POST /<token-link>/confirm, for the emailed-link pages.
+  tokenLink: [
+    { id: "token-link:ip:10m", limit: 20, windowSeconds: 600, by: "ip" },
+  ],
   reauth: [{ id: "reauth:user:1m", limit: 5, windowSeconds: 60, by: "user" }],
   adminMutation: [
     { id: "admin:user:1m", limit: 100, windowSeconds: 60, by: "user" },

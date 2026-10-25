@@ -356,12 +356,16 @@ interface AnyTemplate {
 const REGISTRY: Record<TemplateName, AnyTemplate> = TEMPLATES;
 
 export type PreparedEmail =
-  | { ok: true; content: EmailContent; linkUrls: string[] }
+  | {
+      ok: true;
+      content: EmailContent;
+      links: { field: string; url: string }[];
+    }
   | { ok: false; paths: string[] };
 
 /**
  * Validates `data` against the template's schema, renders it, and lists the
- * URLs held in its `links` fields. Failures name issue paths only, never
+ * URLs held in its `links` fields, by field. Failures name issue paths only, never
  * values.
  */
 export function prepareTemplate(
@@ -382,11 +386,11 @@ export function prepareTemplate(
     typeof parsed.data === "object" && parsed.data !== null
       ? { ...parsed.data }
       : {};
-  const linkUrls = entry.links.flatMap((field) => {
+  const links = entry.links.flatMap((field) => {
     const value = fields[field];
-    return typeof value === "string" ? [value] : [];
+    return typeof value === "string" ? [{ field, url: value }] : [];
   });
-  return { ok: true, content, linkUrls };
+  return { ok: true, content, links };
 }
 
 /** `prepareTemplate` for callers that want an exception, such as previews. */
