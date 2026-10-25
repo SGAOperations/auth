@@ -4,9 +4,15 @@ import { toAuthSettings } from "@/lib/auth/settings";
 import { env } from "@/lib/env";
 import { isAllowedRedirect } from "@/lib/products";
 import { openRedirect, redirectCookieOptions } from "@/lib/redirect/cookie";
-import { resolveRedirect } from "@/lib/redirect/validate";
+import { resolveRedirect, type RedirectDeps } from "@/lib/redirect/validate";
 
 const settings = toAuthSettings(env);
+
+const redirectDeps: RedirectDeps = {
+  sgauthOrigin: new URL(settings.baseURL).origin,
+  allowHttpProducts: settings.sgauthEnv === "local",
+  isAllowedRedirect,
+};
 
 /**
  * The URL to send the browser to once the user is signed in, or `/account`.
@@ -28,9 +34,14 @@ export async function consumeRedirect(): Promise<string> {
     target = await openRedirect(token, settings.secret);
   }
 
-  return resolveRedirect(target, {
-    sgauthOrigin: new URL(settings.baseURL).origin,
-    allowHttpProducts: settings.sgauthEnv === "local",
-    isAllowedRedirect,
-  });
+  return resolveRedirect(target, redirectDeps);
+}
+
+/**
+ * Whether `target`, a value `consumeRedirect` returned, is still one an
+ * emailed-link handler may send the browser to. It is the same check run
+ * again, so a handler never follows a URL its consumer did not resolve.
+ */
+export async function isResolvedRedirect(target: string): Promise<boolean> {
+  return (await resolveRedirect(target, redirectDeps)) === target;
 }

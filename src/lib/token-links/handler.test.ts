@@ -169,6 +169,41 @@ describe("createTokenActionHandler", () => {
     expect(response.headers.get("location")).not.toContain("secret-token");
   });
 
+  it.each(["sent", "rate"] as const)(
+    "maps %s to ?result=%s with no token in the URL",
+    async (result) => {
+      const { handle } = setup({ result });
+      const response = await handle(post(form({ token: "secret-token" })));
+      expect(location(response).searchParams.get("result")).toBe(result);
+      expect(response.headers.get("location")).not.toContain("secret-token");
+    },
+  );
+
+  it("follows a redirectTo that the page's own check allows", async () => {
+    const { handle } = setup({
+      result: "done",
+      redirectTo: "https://app.example.com/home",
+    });
+    const strict = createTokenActionHandler({
+      action: "verify-email",
+      consume: async () => ({
+        result: "done",
+        redirectTo: "https://app.example.com/home",
+      }),
+      limit: async () => ({ allowed: true, retryAfterSeconds: 0 }),
+      allowRedirect: (target) => target === "https://app.example.com/home",
+      log: { error: vi.fn() },
+    });
+
+    const allowed = await strict(post(form({ token: "t" })));
+    expect(location(allowed).toString()).toBe("https://app.example.com/home");
+
+    // The default check still refuses an off-site target.
+    const refused = await handle(post(form({ token: "t" })));
+    expect(location(refused).origin).toBe(ORIGIN);
+    expect(location(refused).searchParams.get("result")).toBe("done");
+  });
+
   it("maps invalid to ?result=invalid", async () => {
     const { handle } = setup({ result: "invalid" });
     const response = await handle(post(form({ token: "t" })));

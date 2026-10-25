@@ -255,9 +255,14 @@ describe.skipIf(!url)("email and password sign-in", () => {
     const lateSession = await addSession(user.id);
 
     await verify(email);
-    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
-    expect(
-      await prisma.session.findUnique({ where: { id: lateSession.id } }),
-    ).toBeNull();
+    // Only the auto-sign-in session is left, and it is newer than both.
+    const remaining = await prisma.session.findMany({
+      where: { userId: user.id },
+    });
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0].id).not.toBe(lateSession.id);
+    expect(remaining[0].createdAt.getTime()).toBeGreaterThanOrEqual(
+      lateSession.createdAt.getTime(),
+    );
   });
 });

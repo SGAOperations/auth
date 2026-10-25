@@ -109,7 +109,10 @@ describe.skipIf(!url)("TOTP multi-factor authentication", () => {
 
   async function loginMethods(userId: string) {
     const events = await eventsFor(userId, "LOGIN_SUCCESS");
-    return events.map((event) => (event.metadata as { method: string }).method);
+    // Verifying the address logs the user in; these tests are about sign-in.
+    return events
+      .map((event) => (event.metadata as { method: string }).method)
+      .filter((method) => method !== "email_verification");
   }
 
   async function totpSecretOf(userId: string) {

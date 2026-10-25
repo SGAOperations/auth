@@ -54,6 +54,7 @@ describe.skipIf(!url)("scanner-safe verify-email link", () => {
         auth: consumerAuth,
         db: prisma,
         secret: SECRET,
+        resolveRedirect: async () => "/account",
       }),
       limit,
       log,
@@ -95,8 +96,14 @@ describe.skipIf(!url)("scanner-safe verify-email link", () => {
     });
   }
 
-  const result = (response: Response) =>
-    new URL(response.headers.get("location") ?? "").searchParams.get("result");
+  // A successful verification redirects to the resolved target, /account here,
+  // with no `result` parameter.
+  const result = (response: Response) => {
+    const location = new URL(response.headers.get("location") ?? "");
+    return location.pathname === "/account"
+      ? "done"
+      : location.searchParams.get("result");
+  };
 
   const reload = (id: string) =>
     prisma.user.findUniqueOrThrow({ where: { id } });
@@ -160,14 +167,16 @@ describe.skipIf(!url)("scanner-safe verify-email link", () => {
     expect(first.status).toBe(303);
     expect(result(first)).toBe("done");
     expect((await reload(user.id)).emailVerified).toBe(true);
-    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
+    // The inserted session is revoked; the auto-sign-in session is the one left.
+    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(1);
+    expect(first.headers.getSetCookie().length).toBeGreaterThan(0);
     expect(await verifiedEvents(user.id)).toBe(1);
     expect(await rowCount(token)).toBe(1);
 
     const second = await handle(post(token));
     expect(result(second)).toBe("used");
     expect(await verifiedEvents(user.id)).toBe(1);
-    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
+    expect(await prisma.session.count({ where: { userId: user.id } })).toBe(1);
     expect(
       await loadVerifyEmailView({ token }, { secret: SECRET, db: prisma }),
     ).toEqual({ state: "used" });

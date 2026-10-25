@@ -50,7 +50,10 @@ describe.skipIf(!url)("session lifetime", () => {
     });
     const token = await createEmailVerificationToken(SECRET, email);
     await auth.api.verifyEmail({ query: { token } });
-    return prisma.user.findUniqueOrThrow({ where: { email } });
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    // Verifying signs the user in; these tests expect to open every session.
+    await prisma.session.deleteMany({ where: { userId: user.id } });
+    return user;
   }
 
   async function signIn(

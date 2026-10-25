@@ -6,6 +6,7 @@ import { z } from "zod";
 export const SIGNUP_EMAIL_DOMAIN = "northeastern.edu";
 export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 128;
+export const VERIFICATION_TOKEN_TTL_SECONDS = 86_400;
 
 export const AUTH_ERROR_CODES = {
   EMAIL_DOMAIN_NOT_ALLOWED: {
