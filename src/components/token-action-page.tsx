@@ -10,10 +10,8 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-// The shared page of every emailed token link (AUTH-T103). `ready` is a form
-// that POSTs to the page's confirm route, and it is the only way the token is
-// consumed. Opening the page, from a person or a scanner, does nothing. The
-// component adds no client JS, so the flow works with JavaScript off.
+// Shared page of every emailed token link. `ready` is a form that POSTs to the
+// confirm route, the only way the token is consumed. No client JS.
 
 type Outcome = "done" | "invalid" | "used" | "rate" | "error";
 

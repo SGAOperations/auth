@@ -38,7 +38,7 @@ export const POLICIES = {
       by: "session",
     },
   ],
-  // POST /<token-link>/confirm, for the emailed-link pages (AUTH-T103).
+  // POST /<token-link>/confirm, for the emailed-link pages.
   tokenLink: [
     { id: "token-link:ip:10m", limit: 20, windowSeconds: 600, by: "ip" },
   ],

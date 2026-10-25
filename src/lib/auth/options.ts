@@ -105,10 +105,8 @@ export function buildAuthOptions({
     baseURL,
     secret,
     trustedOrigins,
-    // The emailed link is /verify-email (a page plus a POST, AUTH-T103). This
-    // HTTP GET would consume the token on a scanner pre-fetch and skip the
-    // single-use record. `auth.api.verifyEmail`, which the POST calls
-    // in-process, is unaffected.
+    // Disabled so a GET never consumes the token; the /verify-email page and
+    // its POST call `auth.api.verifyEmail` in-process instead.
     disabledPaths: ["/verify-email"],
     session: SESSION_OPTIONS,
     advanced: {

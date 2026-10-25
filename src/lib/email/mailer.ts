@@ -87,9 +87,8 @@ export function createMailer({
       }
     }
 
-    // Every link must point at its field's registered, live page (AUTH-T103),
-    // so nothing mails a link to a missing page or to a GET-acting endpoint.
-    // The message never carries the URL, which holds the token.
+    // Every link must point at its field's registered, live page. The error
+    // omits the URL, which holds the token.
     for (const { field, url } of prepared.links) {
       const target = resolveLinkTarget(template, field, url);
       if (!target.ok) {

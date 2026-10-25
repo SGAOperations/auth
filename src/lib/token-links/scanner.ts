@@ -26,10 +26,10 @@ const SCANNER_USER_AGENTS = [
   "Google-Read-Aloud",
 ].map((agent) => agent.toLowerCase());
 
-/** An empty or missing User-Agent counts as a scanner. */
+/** An empty or missing User-Agent is not a scanner: a person's client may strip it. */
 export function isLinkScanner(userAgent: string | null | undefined): boolean {
   const agent = userAgent?.trim().toLowerCase();
-  if (!agent) return true;
+  if (!agent) return false;
   return SCANNER_USER_AGENTS.some((known) => agent.includes(known));
 }
 

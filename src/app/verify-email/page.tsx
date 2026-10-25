@@ -16,7 +16,7 @@ export default async function VerifyEmailPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // Read-only: a GET never consumes the token (AUTH-T103).
+  // Read-only: a GET never consumes the token.
   const view = await loadVerifyEmailView(await searchParams, {
     secret: toAuthSettings(env).secret,
     db: prisma,

@@ -15,7 +15,7 @@ const EXEMPT: Record<string, string> = {
   "src/app/api/sgauth/sessions/revoke-all/route.ts":
     "Forwards to Better Auth's revoke-sessions, which acts only on the caller's own sessions; it never targets another user",
   "src/app/verify-email/confirm/route.ts":
-    "Emailed-link confirm POST (AUTH-T103): anonymous by design, the signed single-use verify token is the authority, and it acts only on the account that token names",
+    "Emailed-link confirm POST: anonymous by design, the signed single-use verify token is the authority, and it acts only on the account that token names",
   "src/app/preview-gate/unlock/route.ts":
     "Preview-environment password gate; it acts on no user and runs before any sign-in",
   "src/app/api/jobs/alerts/route.ts":

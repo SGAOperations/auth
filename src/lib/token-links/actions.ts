@@ -1,9 +1,8 @@
 import type { TemplateName } from "@/lib/email/templates";
 
-// Pure: no `server-only`, no env, so the proxy, the mailer and tests can all
-// import it. The registry of every emailed link in SGAuth (AUTH-T103): each
-// token link opens a page that shows what is about to happen, and the token is
-// consumed only by that page's POST.
+// Registry of every emailed link. Pure (no `server-only`, no env), so the
+// proxy, the mailer and tests can import it. A token is consumed only by the
+// page's POST, never by opening the link.
 
 export type TokenActionStatus = "live" | "pending";
 

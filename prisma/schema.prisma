@@ -147,8 +147,7 @@ model UnlockToken {
   @@index([userId])
 }
 
-/// AUTH-T103: a Better Auth email-verification JWT that has been used. Claimed
-/// before verification runs, so each emailed verify link works once.
+/// A used Better Auth email-verification JWT, claimed before verification runs.
 model UsedEmailVerificationToken {
   /// lower-case hex SHA-256 of the JWT; the token itself is never stored
   tokenHash String   @id

@@ -42,9 +42,9 @@ describe("isLinkScanner", () => {
   );
 
   it.each([null, undefined, "", "   "])(
-    "treats a missing User-Agent (%j) as a scanner",
+    "does not treat a missing User-Agent (%j) as a scanner",
     (agent) => {
-      expect(isLinkScanner(agent)).toBe(true);
+      expect(isLinkScanner(agent)).toBe(false);
     },
   );
 });
@@ -82,6 +82,15 @@ describe("scannerResponse", () => {
       "text/html; charset=utf-8",
     );
     expect(response?.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("lets a GET with no User-Agent through to the page", () => {
+    expect(scannerResponse("GET", "/verify-email", null)).toBeNull();
+    expect(scannerResponse("GET", "/verify-email", "")).toBeNull();
+  });
+
+  it("still answers HEAD with no User-Agent", () => {
+    expect(scannerResponse("HEAD", "/verify-email", null)?.status).toBe(200);
   });
 
   it("still matches with a trailing slash", () => {

@@ -99,9 +99,7 @@ export async function proxy(request: NextRequest) {
   const blocked = gate(request);
   if (blocked) return blocked;
 
-  // HEAD and scanner GETs on an emailed link never reach the page (AUTH-T103).
-  // The body is static and script-free, so it needs no CSP nonce and gets no
-  // CSP header.
+  // HEAD and scanner GETs on an emailed link get a static page, no CSP needed.
   const scanned = scannerResponse(
     request.method,
     request.nextUrl.pathname,
