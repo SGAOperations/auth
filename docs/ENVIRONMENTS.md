@@ -83,6 +83,86 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 - **Product stub.** `node scripts/sso-stub.mjs` serves `http://vaultz.sga.localhost:3001`. It reads the session cookie and asks SGAuth who it belongs to, so it shows whether the cookie reached a sibling host. It reads `SGAUTH_URL`, `SGAUTH_COOKIE_NAME` and `PORT` (the defaults match the values above) and listens on loopback only. It forwards the session cookie to `SGAUTH_URL`, so it refuses to start when `SGAUTH_URL` is `http` on any host other than `localhost`, `*.localhost` or loopback.
 - **Manual SSO test.** Sign in at `http://auth.sga.localhost:3000` with a synthetic account, then reload `http://vaultz.sga.localhost:3001`: it shows "Signed in as ...". In DevTools, the `sgauth-local.session_token` cookie has Domain `.sga.localhost`, HttpOnly, SameSite=Lax, and no Secure flag. Sign-in needs a sign-in method (#29); the Playwright job in AUTH-T96 (#108) automates this check.
 
+## Cross-subdomain cookie spike (AUTH-T104)
+
+### Why
+
+Better Auth issues #5611 and #3938 report cross-subdomain cookies that are set and then dropped. Red-team findings B10 and C1 depend on how browsers order and accept cookies. This spike checks both on the real domain before product integration builds on them. Re-run it after any Better Auth minor upgrade and after any change to `src/lib/auth/cookies.ts`.
+
+### Setup
+
+1. **Preconditions.** `auth-dev` is deployed from `dev` and its gate can be unlocked. If the Deployment Protection Exception is not on yet, use the bypass cookie in the browser and set `SGAUTH_DEV_BYPASS_SECRET` on the stub project to a **dedicated** bypass secret, revoked at teardown.
+2. **Two synthetic accounts**, `victim` and `attacker`, at `@northeastern.edu` addresses on `SGAUTH_SIGNUP_ALLOWLIST`. Sign both up through the API. No verification email is sent yet, so in the Neon `dev` branch SQL editor set `"emailVerified" = true` for exactly those two rows.
+3. **The stub project.** Create a separate Vercel project, `sgauth-stub-dev`: framework Other, Node 22.x, **not** linked to Git. Deploy it with `npx vercel@latest deploy --prod` from `scripts/sso-stub-deploy/`. Assign the domain `stub-dev.northeasternsga.com` and add its CNAME.
+4. **Sign-in and sign-out snippets.** Run them from the DevTools console **on an `auth-dev` page**, so they are same-origin and pass Better Auth's Origin check:
+   - `fetch("/api/auth/sign-in/email",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})})`
+   - `fetch("/api/auth/sign-out",{method:"POST"})`
+5. **Record** the browser name and version, the OS, and the Better Auth version from `package-lock.json`.
+
+The stub is `scripts/sso-stub-deploy/`. It can only touch `__Secure-sgauth-dev.session_token`, refuses cross-origin POSTs, is `noindex`, and must never be pointed at production. Check it after deploying: `curl -sI https://stub-dev.northeasternsga.com/` returns 200 with `x-robots-tag: noindex`, and `/api/stub` with no route returns 404.
+
+### Procedure
+
+Run each check in Chrome, Firefox and Safari (macOS) unless it says otherwise, in a fresh profile or private window per browser.
+
+1. **Login sets exactly one cookie.** Unlock the gate on `auth-dev` and sign in as `victim`. Pass: DevTools shows exactly one `__Secure-sgauth-dev.session_token` for `auth-dev`, with Domain `.northeasternsga.com`, Path `/`, Secure, HttpOnly, SameSite Lax, and no `session_data` cookie. Note its Expires (about 30 days out). Then check for the #5611 symptom: wait 30 seconds, reload `auth-dev` twice, open `/api/auth/get-session`. Pass: the cookie is still there and the JSON shows `victim`.
+2. **Stub receives and resolves it.** Open `https://stub-dev.northeasternsga.com/`. Pass: it shows `Signed in as victim@...` with one copy, and still does after a reload 30 seconds later.
+3. **Sign-out clears it on both hosts.** Run the sign-out snippet on `auth-dev`. Pass: the cookie is gone on `auth-dev`, `/api/auth/get-session` returns `null`, and stub-dev shows the no-cookie text. Sign in again before check 6.
+4. **Preview host-only mode** (one PR preview, all three browsers). Unlock the gate on the preview and sign in as `victim` (preview uses Neon `dev`, so the accounts are shared). Pass: exactly one `__Secure-sgauth-preview.session_token`, with **no** Domain, Secure, HttpOnly, SameSite Lax; `/api/auth/get-session` on the preview shows `victim`; and no `sgauth` cookie is added on `northeasternsga.com` hosts.
+5. **Local `*.sga.localhost`.** Set `SGAUTH_ENV=local`, run `npm run dev` and `node scripts/sso-stub.mjs`, with the account on your personal Neon branch. Record whether `auth.sga.localhost` resolved natively or needed `network.dns.localDomains` (Firefox) or the hosts-file line (Safari). Sign in at `http://auth.sga.localhost:3000`. Pass: exactly one `sgauth-local.session_token` with Domain `.sga.localhost`, HttpOnly, SameSite Lax, not Secure; `http://vaultz.sga.localhost:3001` shows "Signed in as ..."; after sign-out it shows "Not signed in". A browser that drops or refuses the cookie is a **fail** and triggers the `sga.test` hosts-file follow-up.
+6. **Cookie tossing.** In a second profile sign in as `attacker` and copy its `session_token` value. In the victim's browser, toss it once per variant at `https://stub-dev.northeasternsga.com/toss`, clearing tossed cookies and signing in as `victim` again between variants. Record, per variant:
+   - `parent-path`: stub-dev still shows one copy (`victim`). In the Network panel for `auth-dev`'s `/api/auth/get-session`, record whether the Cookie header carries two copies, which is first, and whose session SGAuth resolved.
+   - `parent-root`: stub-dev shows one copy, expected to resolve to `attacker` (the victim's cookie was replaced). Record what `auth-dev` shows.
+   - `host-only`: stub-dev shows two copies; record the order and what each resolves to. `auth-dev` should still show `victim`.
+   - `sibling-host`: record whether the browser stored it (no new `auth-dev` cookie, Set-Cookie marked rejected) and whether `auth-dev` still shows `victim`.
+
+   Sum up each browser in one line, for example "parent-path copy sent first; Better Auth resolved attacker, so login CSRF is confirmed".
+
+### Results
+
+Every cell is `pending` until the matrix is run. Fill each with `pass`, `fail` or `n/a` and a one-line note, linking the evidence comment on #115.
+
+**Real domain**
+
+| Check                           | Chrome  | Firefox | Safari  |
+| ------------------------------- | ------- | ------- | ------- |
+| 1 Login sets exactly one cookie | pending | pending | pending |
+| 2 Stub resolves the session     | pending | pending | pending |
+| 3 Sign-out clears both hosts    | pending | pending | pending |
+| 6 Tossing: `parent-path`        | pending | pending | pending |
+| 6 Tossing: `parent-root`        | pending | pending | pending |
+| 6 Tossing: `host-only`          | pending | pending | pending |
+| 6 Tossing: `sibling-host`       | pending | pending | pending |
+
+**Preview**
+
+| Check                   | Chrome  | Firefox | Safari  |
+| ----------------------- | ------- | ------- | ------- |
+| 4 Host-only cookie mode | pending | pending | pending |
+
+**Local**
+
+| Check                      | Chrome  | Firefox | Safari  |
+| -------------------------- | ------- | ------- | ------- |
+| 5 `*.sga.localhost` cookie | pending | pending | pending |
+
+- Better Auth version tested: pending
+- Workarounds or pins: pending
+- Go/no-go: pending (SGAuth lead, date)
+
+### Evidence handling
+
+Screenshots and HAR excerpts go on #115, never in the repo. Before posting, replace every `session_token` value, `Cookie` header and `Set-Cookie` value with `<redacted>`. Never post a raw HAR file.
+
+### Teardown
+
+Once go/no-go is posted:
+
+1. Delete the `stub-dev` CNAME first, then the `sgauth-stub-dev` Vercel project, so no dangling DNS record is left (#80, AUTH-T68).
+2. Revoke the dedicated bypass secret, if one was made.
+3. Sign both synthetic accounts out, or delete their `Session` rows in Neon `dev`.
+4. Record the date here: pending.
+
 ## Dev environment rules
 
 - Every non-production environment shows the "DEVELOPMENT ENVIRONMENT" banner (`LOCAL ENVIRONMENT` locally) and is `noindex`, through a robots meta tag and an `X-Robots-Tag` header. `dev` and `preview` show the same text on purpose, so the gate page does not reveal which one it is.

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "rewrites": [
+    { "source": "/", "destination": "/api/stub?route=home" },
+    { "source": "/toss", "destination": "/api/stub?route=toss" },
+    { "source": "/untoss", "destination": "/api/stub?route=untoss" }
+  ]
+}

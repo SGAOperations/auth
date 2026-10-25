@@ -55,7 +55,7 @@ Preview could technically use `__Host-`. It keeps `__Secure-` so every environme
   - subdomain hygiene ([SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md), #80, AUTH-T68);
   - Origin enforcement on mutations (see **Origin enforcement** below);
   - showing the signed-in identity on account pages;
-  - real browser observation in #115.
+  - real browser observation in the [cross-subdomain cookie spike](ENVIRONMENTS.md#cross-subdomain-cookie-spike-auth-t104) (#115).
 - **SameSite=Lax** stops cross-site subresource and POST requests. Sibling subdomains are same-site, so their POSTs still carry the cookie, and Origin enforcement is the control.
 - **Dev and production coexist.** The names differ, so each server reads only its own cookie, and a dev session token means nothing to production's database, or the reverse. The dev cookie also reaches production hosts, where it is never read.
 - **Preview** cookies never reach `northeasternsga.com`, which is why `*.vercel.app` previews cannot use product SSO.

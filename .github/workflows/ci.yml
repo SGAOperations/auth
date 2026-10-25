@@ -59,7 +59,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/neon-quota-monitor.test.mjs scripts/sso-stub.test.mjs scripts/prisma-guard.test.mjs
+      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/neon-quota-monitor.test.mjs scripts/sso-stub.test.mjs scripts/sso-stub-deploy.test.mjs scripts/prisma-guard.test.mjs
 
   audit:
     runs-on: ubuntu-latest
