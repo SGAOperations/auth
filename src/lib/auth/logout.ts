@@ -1,15 +1,13 @@
 import "server-only";
 import { z } from "zod";
-import { MAX_REDIRECT_LENGTH } from "@/lib/product-registry";
 import type { Logger } from "@/lib/log/logger";
+import { resolveRedirect, type RedirectDeps } from "@/lib/redirect/validate";
 
 // Contract: docs/LOGOUT.md. Dependencies are injected, so nothing here reads
 // env or opens a connection. src/app/logout and src/app/api/sgauth/sessions
 // wire the real ones.
 
 const NO_STORE = "no-store";
-const PRINTABLE_ASCII = /^[\x21-\x7e]+$/;
-const ABSOLUTE_HTTP = /^https?:\/\//i;
 
 /** True only for `Sec-Fetch-Site: cross-site`; a missing header is allowed. */
 export function isCrossSiteRequest(headers: Pick<Headers, "get">): boolean {
@@ -25,63 +23,15 @@ export function isPrefetchRequest(headers: Pick<Headers, "get">): boolean {
   );
 }
 
-interface RedirectDeps {
-  sgauthOrigin: string;
-  /** `http:` product targets, for local development only. */
-  allowHttpProducts: boolean;
-  isAllowedRedirect(href: string): boolean | Promise<boolean>;
-}
-
-const redirectInput = z.string().min(1).max(MAX_REDIRECT_LENGTH);
-
-function parseRedirectCandidate(
-  raw: unknown,
-  { sgauthOrigin, allowHttpProducts }: Omit<RedirectDeps, "isAllowedRedirect">,
-): URL | null {
-  const parsed = redirectInput.safeParse(raw);
-  if (!parsed.success) return null;
-  const value = parsed.data;
-  if (!PRINTABLE_ASCII.test(value) || value.includes("\\")) return null;
-
-  let url: URL;
-  if (value.startsWith("/")) {
-    if (value.startsWith("//")) return null;
-    url = new URL(value, sgauthOrigin);
-    if (url.origin !== sgauthOrigin) return null;
-  } else if (ABSOLUTE_HTTP.test(value) && URL.canParse(value)) {
-    url = new URL(value);
-    if (url.username !== "" || url.password !== "") return null;
-    if (
-      url.protocol === "http:" &&
-      url.origin !== sgauthOrigin &&
-      !allowHttpProducts
-    ) {
-      return null;
-    }
-  } else {
-    return null;
-  }
-  url.hash = "";
-  return url;
-}
-
 /**
  * The URL to send the browser to after sign-out: SGAuth itself or a registered
  * product origin. Every failure, including a throwing registry, gives `/login`.
  */
-export async function resolveLogoutRedirect(
+export function resolveLogoutRedirect(
   raw: unknown,
   deps: RedirectDeps,
 ): Promise<string> {
-  const fallback = new URL("/login", deps.sgauthOrigin).href;
-  const url = parseRedirectCandidate(raw, deps);
-  if (!url) return fallback;
-  if (url.origin === deps.sgauthOrigin) return url.href;
-  try {
-    return (await deps.isAllowedRedirect(url.href)) ? url.href : fallback;
-  } catch {
-    return fallback;
-  }
+  return resolveRedirect(raw, deps, "/login");
 }
 
 interface LogoutAuth {
