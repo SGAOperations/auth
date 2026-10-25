@@ -1,4 +1,4 @@
--- AUTH-T77: security alert state and operational signals.
+-- Security alert cooldown state and operational signals.
 
 -- CreateTable
 CREATE TABLE "OpsSignal" (

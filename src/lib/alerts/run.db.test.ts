@@ -216,6 +216,35 @@ describe("runSecurityAlerts", () => {
     expect(await prisma.alertState.count()).toBe(1);
   });
 
+  it("keeps the claim when the mailer throws after an admin was emailed", async () => {
+    const now = randomNow();
+    await loginFailures(51, now);
+    let calls = 0;
+    const throwing: Mailer = {
+      sendEmail: async () => {
+        calls += 1;
+        if (calls === 1) return { status: "sent" };
+        throw new Error("mailer crashed");
+      },
+    };
+
+    await expect(setup(throwing).run(now)).rejects.toThrow("mailer crashed");
+    expect(await prisma.alertState.count()).toBe(1);
+  });
+
+  it("releases the claim when the mailer throws before any admin was emailed", async () => {
+    const now = randomNow();
+    await loginFailures(51, now);
+    const throwing: Mailer = {
+      sendEmail: async () => {
+        throw new Error("mailer crashed");
+      },
+    };
+
+    await expect(setup(throwing).run(now)).rejects.toThrow("mailer crashed");
+    expect(await prisma.alertState.count()).toBe(0);
+  });
+
   it("throws and leaves the state unclaimed when there are no admins", async () => {
     const now = randomNow();
     await prisma.user.deleteMany({ where: { isPrimaryAdmin: false } });

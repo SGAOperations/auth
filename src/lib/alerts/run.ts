@@ -236,7 +236,9 @@ export async function runSecurityAlerts({
       else result.failed += 1;
     }
   } catch (error) {
-    await releaseAll();
+    // Admins already emailed must not be emailed again, so the claim is kept
+    // once anything was delivered.
+    if (result.sent === 0) await releaseAll();
     throw error;
   }
 
