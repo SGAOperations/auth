@@ -182,9 +182,12 @@ sequenceDiagram
 
 ### Logout propagation
 
-Sign-out is built at Better Auth's `/api/auth/sign-out`. The `/logout` page and
-the revocation tools are not _(planned, SGAOperations/auth#42,
-SGAOperations/auth#45)_.
+Sign-out is built at Better Auth's `/api/auth/sign-out`. `GET /logout`,
+`POST /api/sgauth/sessions/revoke-all`, the own-sessions list and revoke routes
+(`GET /api/sgauth/sessions`, `DELETE /api/sgauth/sessions/[id]`) and
+`revokeAllSessionsForUser()` are built too. Only the admin users endpoint that
+calls the revocation function is not _(planned, SGAOperations/auth#48)_. The
+contract is in [LOGOUT.md](LOGOUT.md).
 
 ```mermaid
 sequenceDiagram
@@ -215,11 +218,11 @@ Staleness bounds after a sign-out or a revocation:
 The design summary says logout is "immediate for Neon products". That holds at
 SGAuth, and the SDK cache adds up to 60 seconds on top.
 
-- `/logout?redirect=` will reject `Sec-Fetch-Site: cross-site` and validate the
-  redirect against the registry _(planned, SGAOperations/auth#42)_.
+- `/logout?redirect=` rejects `Sec-Fetch-Site: cross-site` and validates the
+  redirect against the registry.
 - Sign-out everywhere, admin revocation, deactivation and "force re-login" all
-  delete session rows, so they behave the same _(planned,
-  SGAOperations/auth#42, SGAOperations/auth#45)_.
+  delete session rows, so they behave the same. The admin endpoint that
+  triggers revocation is _(planned, SGAOperations/auth#48)_.
 - Deactivation is also caught by the `/get-session` after-hook in
   `src/lib/auth/options.ts`, and by the `/token` payload check.
 - The clearing `Set-Cookie` uses the same Domain, Path and prefix as the cookie
@@ -340,31 +343,35 @@ URLs, cookie names and variables are in [ENVIRONMENTS.md](ENVIRONMENTS.md).
 
 ## Related documents
 
-| Document                                                                         | What it covers                                     | Status                            |
-| -------------------------------------------------------------------------------- | -------------------------------------------------- | --------------------------------- |
-| [ENGINEERING.md](ENGINEERING.md)                                                 | The quality bar and the pre-pull-request checklist | linked                            |
-| [sgauth-design/SGAuth-design-summary.md](sgauth-design/SGAuth-design-summary.md) | The settled architecture                           | linked                            |
-| [sgauth-design/SGAuth-red-team.md](sgauth-design/SGAuth-red-team.md)             | The threat review                                  | linked                            |
-| [ENVIRONMENTS.md](ENVIRONMENTS.md)                                               | Environments, variables, cookies, jobs and gates   | linked                            |
-| [SESSION-COOKIE.md](SESSION-COOKIE.md)                                           | The cookie contract and session lifetime           | linked                            |
-| [SESSION-ENDPOINT.md](SESSION-ENDPOINT.md)                                       | The product session endpoint contract              | linked                            |
-| [RATE-LIMITING.md](RATE-LIMITING.md)                                             | Limits, and what happens when Upstash is down      | linked                            |
-| [EMAIL.md](EMAIL.md)                                                             | The Resend account, DNS, keys and templates        | linked                            |
-| [CORS.md](CORS.md)                                                               | Browser calls from registered products             | linked                            |
-| [MIGRATIONS.md](MIGRATIONS.md)                                                   | Where each schema command may run                  | linked                            |
-| [CONTRIBUTING.md](../CONTRIBUTING.md)                                            | CI checks and branch protection                    | linked                            |
-| [runbooks/neon-restore.md](runbooks/neon-restore.md)                             | Restoring Neon data                                | linked                            |
-| [runbooks/neon-upgrade.md](runbooks/neon-upgrade.md)                             | Moving to the Launch plan                          | linked                            |
-| [runbooks/on-call.md](runbooks/on-call.md)                                       | Notes for whoever is watching SGAuth               | linked                            |
-| [runbooks/positions-sync.md](runbooks/positions-sync.md)                         | Syncing the curated position list                  | linked                            |
-| [runbooks/break-glass.md](runbooks/break-glass.md)                               | Primary Admin recovery                             | linked                            |
-| [runbooks/legacy-bcrypt.md](runbooks/legacy-bcrypt.md)                           | Tracking imported bcrypt hashes                    | linked                            |
-| Neon product guide                                                               | Integrating a Neon-backed product                  | planned, SGAOperations/auth#92    |
-| Supabase product guide                                                           | Integrating a Supabase-backed product              | planned, SGAOperations/auth#93    |
-| Admin runbooks                                                                   | Day-to-day admin tasks                             | planned, SGAOperations/auth#94    |
-| `runbooks/rotate-secrets.md`                                                     | Secret and JWKS rotation                           | planned, SGAOperations/auth#81    |
-| `DATA_HANDLING.md`                                                               | The privacy notice and data handling               | planned, SGAOperations/auth#95    |
-| SDK README                                                                       | Using `@nusgaops/sgauth`                           | planned, SGAOperations/auth-sdk#6 |
+| Document                                                                         | What it covers                                      | Status                            |
+| -------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------- |
+| [ENGINEERING.md](ENGINEERING.md)                                                 | The quality bar and the pre-pull-request checklist  | linked                            |
+| [sgauth-design/SGAuth-design-summary.md](sgauth-design/SGAuth-design-summary.md) | The settled architecture                            | linked                            |
+| [sgauth-design/SGAuth-red-team.md](sgauth-design/SGAuth-red-team.md)             | The threat review                                   | linked                            |
+| [ENVIRONMENTS.md](ENVIRONMENTS.md)                                               | Environments, variables, cookies, jobs and gates    | linked                            |
+| [SESSION-COOKIE.md](SESSION-COOKIE.md)                                           | The cookie contract and session lifetime            | linked                            |
+| [SESSION-ENDPOINT.md](SESSION-ENDPOINT.md)                                       | The product session endpoint contract               | linked                            |
+| [RATE-LIMITING.md](RATE-LIMITING.md)                                             | Limits, and what happens when Upstash is down       | linked                            |
+| [EMAIL.md](EMAIL.md)                                                             | The Resend account, DNS, keys and templates         | linked                            |
+| [CORS.md](CORS.md)                                                               | Browser calls from registered products              | linked                            |
+| [LOGOUT.md](LOGOUT.md)                                                           | Logout and session revocation contract              | linked                            |
+| [ROLLOUT.md](ROLLOUT.md)                                                         | The rollout plan and user communications            | linked                            |
+| [MIGRATIONS.md](MIGRATIONS.md)                                                   | Where each schema command may run                   | linked                            |
+| [CONTRIBUTING.md](../CONTRIBUTING.md)                                            | CI checks and branch protection                     | linked                            |
+| [runbooks/neon-restore.md](runbooks/neon-restore.md)                             | Restoring Neon data                                 | linked                            |
+| [runbooks/neon-upgrade.md](runbooks/neon-upgrade.md)                             | Moving to the Launch plan                           | linked                            |
+| [runbooks/on-call.md](runbooks/on-call.md)                                       | Notes for whoever is watching SGAuth                | linked                            |
+| [runbooks/positions-sync.md](runbooks/positions-sync.md)                         | Syncing the curated position list                   | linked                            |
+| [runbooks/break-glass.md](runbooks/break-glass.md)                               | Primary Admin recovery                              | linked                            |
+| [runbooks/launch-checklist.md](runbooks/launch-checklist.md)                     | Launch checklist and Primary Admin bootstrap        | linked                            |
+| [runbooks/subdomain-review.md](runbooks/subdomain-review.md)                     | Inventorying and cleaning `northeasternsga.com` DNS | linked                            |
+| [runbooks/legacy-bcrypt.md](runbooks/legacy-bcrypt.md)                           | Tracking imported bcrypt hashes                     | linked                            |
+| Neon product guide                                                               | Integrating a Neon-backed product                   | planned, SGAOperations/auth#92    |
+| Supabase product guide                                                           | Integrating a Supabase-backed product               | planned, SGAOperations/auth#93    |
+| Admin runbooks                                                                   | Day-to-day admin tasks                              | planned, SGAOperations/auth#94    |
+| `runbooks/rotate-secrets.md`                                                     | Secret and JWKS rotation                            | planned, SGAOperations/auth#81    |
+| `DATA_HANDLING.md`                                                               | The privacy notice and data handling                | planned, SGAOperations/auth#95    |
+| SDK README                                                                       | Using `@nusgaops/sgauth`                            | planned, SGAOperations/auth-sdk#6 |
 
 ## Known limitations
 
