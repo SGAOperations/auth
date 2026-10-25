@@ -16,7 +16,7 @@ import {
 
 // The part of Better Auth's hook context these adapters read. Declared here so
 // they do not depend on the internal context types.
-interface HookContext {
+export interface HookContext {
   path?: string;
   headers?: Headers;
   request?: Request;
@@ -29,12 +29,12 @@ interface HookContext {
   };
 }
 
-interface HookUser {
+export interface HookUser {
   id: string;
   twoFactorEnabled?: boolean | null;
 }
 
-interface HookSession {
+export interface HookSession {
   id: string;
   userId: string;
   ipAddress?: string | null;
@@ -45,11 +45,11 @@ const bodyWithEmail = z.looseObject({ email: z.string() });
 const changePasswordBody = z.looseObject({
   revokeOtherSessions: z.boolean().optional(),
 });
-const errorBody = z.looseObject({ code: z.string() });
+export const errorBody = z.looseObject({ code: z.string() });
 const userBody = z.looseObject({ user: z.looseObject({ id: z.string() }) });
 const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
 
-const LOGIN_METHODS: Record<
+export const LOGIN_METHODS: Record<
   string,
   "password" | "email_verification" | "totp" | "backup_code"
 > = {

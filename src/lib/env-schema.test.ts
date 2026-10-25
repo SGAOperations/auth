@@ -209,6 +209,23 @@ describe("parseServerEnv", () => {
     });
   });
 
+  describe("POSTHOG_DISABLED", () => {
+    it.each(["true", "false"])("accepts %s", (value) => {
+      const env = parseServerEnv({ ...valid, POSTHOG_DISABLED: value });
+      expect(env.POSTHOG_DISABLED).toBe(value);
+    });
+
+    it("is optional", () => {
+      expect(parseServerEnv(valid).POSTHOG_DISABLED).toBeUndefined();
+    });
+
+    it.each(["yes", "1"])("rejects %s", (value) => {
+      expect(messageOf({ ...valid, POSTHOG_DISABLED: value })).toContain(
+        "POSTHOG_DISABLED",
+      );
+    });
+  });
+
   describe("SGAUTH_EMAIL_DAILY_CAP", () => {
     it("defaults to 500", () => {
       expect(parseServerEnv(valid).SGAUTH_EMAIL_DAILY_CAP).toBe(500);

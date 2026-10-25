@@ -51,6 +51,7 @@ export const serverShape = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
   POSTHOG_HOST: z.url().optional(),
+  POSTHOG_DISABLED: z.enum(["true", "false"]).optional(),
   CRON_SECRET: z.string().min(32).optional(),
   SEED_PRIMARY_ADMIN_EMAIL: z
     .string()

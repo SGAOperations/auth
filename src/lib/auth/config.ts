@@ -1,5 +1,6 @@
 import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { analytics } from "@/lib/analytics";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { buildAuthOptions } from "@/lib/auth/options";
@@ -37,15 +38,28 @@ export const auth = betterAuth({
     secrets: settings.secrets,
     trustedOrigins: getTrustedOrigins,
     advanced,
+    analytics,
   }),
-  // Better Auth's own lines go through the structured, redacting logger.
+  // Better Auth's own lines go through the structured, redacting logger. An
+  // error-level line that carries an Error is also sent to error tracking:
+  // Better Auth turns most internal failures into a handled 500, so
+  // `onRequestError` never sees them.
   logger:
     logLevel === "silent"
       ? { disabled: true }
       : {
           level: logLevel,
-          log: (level, message, ...args: unknown[]) =>
-            logger[level](message, args.length > 0 ? { args } : undefined),
+          log: (level, message, ...args: unknown[]) => {
+            logger[level](message, args.length > 0 ? { args } : undefined);
+            if (level !== "error") return;
+            const err = args.find((arg) => arg instanceof Error);
+            if (err)
+              void analytics.captureError(
+                err,
+                { source: "better-auth" },
+                { defer: true },
+              );
+          },
         },
   // Upstash limits in src/lib/rate-limit (AUTH-T63); the built-in limiter stays off (docs/ENGINEERING.md §3).
   rateLimit: { enabled: false },
