@@ -217,8 +217,9 @@ describe("deleting a position (AC 2)", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.metadata).toMatchObject({
       before: { key: position.key, name: position.name },
-      holderIds: [u1.id, u2.id].sort(),
     });
+    const metadata = rows[0]?.metadata as { holderIds: string[] };
+    expect([...metadata.holderIds].sort()).toEqual([u1.id, u2.id].sort());
 
     const again = await deletePositionRoute(
       json("DELETE", url, { confirmKey: position.key }),
