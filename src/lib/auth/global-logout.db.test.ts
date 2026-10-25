@@ -7,6 +7,7 @@ import { buildCookieOptions, resolveCookiePolicy } from "@/lib/auth/cookies";
 import { createLogoutHandler, createRevokeAllHandler } from "@/lib/auth/logout";
 import { buildAuthOptions } from "@/lib/auth/options";
 import { revokeAllSessionsForUser } from "@/lib/auth/revocation";
+import { testLockout } from "@/test/lockout-options";
 
 // eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
 const url = process.env.TEST_DATABASE_URL;
@@ -30,6 +31,7 @@ describe.skipIf(!url)("global logout and revocation", () => {
         ...buildCookieOptions(resolveCookiePolicy("production")),
         disableOriginCheck: false,
       },
+      lockout: testLockout(),
     }),
     session: { cookieCache: { enabled: false } },
   });

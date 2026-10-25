@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { betterAuth } from "better-auth";
 import { prisma } from "@/lib/prisma";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { createRateLimiter } from "@/lib/rate-limit/limiter";
 import { createMemoryBackend } from "@/lib/rate-limit/memory-backend";
 import {
@@ -27,7 +28,12 @@ const FORBIDDEN_KEY = /password|token|secret|backup|hash|ip|agent/i;
 
 // The real Better Auth options, so the real hooks run (as audit-hooks.db.test.ts).
 const auth = betterAuth(
-  buildAuthOptions({ prisma, baseURL: BASE_URL, secret: SECRET }),
+  buildAuthOptions({
+    prisma,
+    baseURL: BASE_URL,
+    secret: SECRET,
+    lockout: testLockout(),
+  }),
 );
 const endpoint = createSessionEndpoint(
   buildSessionEndpointDeps({

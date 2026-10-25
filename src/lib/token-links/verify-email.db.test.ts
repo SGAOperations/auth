@@ -4,6 +4,7 @@ import { createEmailVerificationToken } from "better-auth/api";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { createTokenActionHandler } from "@/lib/token-links/handler";
 import { scannerResponse } from "@/lib/token-links/scanner";
 import {
@@ -28,7 +29,12 @@ describe.skipIf(!url)("scanner-safe verify-email link", () => {
     adapter: new PrismaPg({ connectionString: url }),
   });
   const auth = betterAuth(
-    buildAuthOptions({ prisma, baseURL: BASE_URL, secret: SECRET }),
+    buildAuthOptions({
+      prisma,
+      baseURL: BASE_URL,
+      secret: SECRET,
+      lockout: testLockout(),
+    }),
   );
 
   const rand = Math.random().toString(36).slice(2, 10);

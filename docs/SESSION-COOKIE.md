@@ -37,6 +37,24 @@ The source of truth is `src/lib/sessions/own-sessions.ts`.
 - `lastActiveAt` is `Session.updatedAt`, which Better Auth bumps only on the daily sliding refresh, so it is accurate to about a day.
 - DELETE checks `Origin` (or the origin of `Referer`) locally against Better Auth's trusted origins, until #77 generalizes it.
 
+## Known-device cookie
+
+A second cookie lets the real owner past an account lockout (docs/LOCKOUT.md). It is set after every completed login and carries no session.
+
+| Environment | Name                             |
+| ----------- | -------------------------------- |
+| production  | `__Secure-sgauth.device`         |
+| dev         | `__Secure-sgauth-dev.device`     |
+| preview     | `__Secure-sgauth-preview.device` |
+| local       | `sgauth-local.device`            |
+
+- **Host-only.** No `Domain`, even where the session cookie is parent-domain. Only the auth host ever reads it, and a product site must never see it, so it is not set through Better Auth's cross-subdomain machinery. `HttpOnly`, `Secure` (except local), `SameSite=Lax`, `Path=/`.
+- **Signed.** The value is `<token>.<HMAC>` under the auth secret (Better Auth's signed-cookie helpers), so a forged or edited cookie is rejected before any database read.
+- **Hashed at rest.** The token is 32 random bytes, base64url. `KnownDevice.tokenHash` stores its lower-case hex SHA-256, and the lookup is by hash alone, never by email.
+- **One year, rolling.** Each login re-sets the cookie, so the year restarts. A device idle for a year, and any beyond a user's 20 most recent, are pruned when a new one is created.
+- **Bound to an account.** A cookie counts only for the account whose `KnownDevice` row holds it. Another user's cookie is treated as no cookie.
+- **Earned by a login.** An attacker who knows an address cannot get one without the password, so it cannot be used to dodge a lock they caused. A second user signing in on a shared browser replaces the cookie, and the first user loses the exemption on that browser only.
+
 ## Why not `__Host-`
 
 Browsers reject a `__Host-` cookie that has a `Domain` attribute (it also requires `Path=/` and `Secure`). A cookie shared across subdomains needs `Domain`, so `__Secure-` is the strongest prefix available.

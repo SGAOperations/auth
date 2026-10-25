@@ -119,6 +119,7 @@ export const AUDIT_CATALOG = {
         "INVALID_EMAIL_OR_PASSWORD",
         "EMAIL_NOT_VERIFIED",
         "ACCOUNT_DEACTIVATED",
+        "ACCOUNT_LOCKED",
         "INVALID_TWO_FACTOR_CODE",
         "OTHER",
       ]),
@@ -193,8 +194,22 @@ export const AUDIT_CATALOG = {
       }),
     ]),
   },
-  ACCOUNT_LOCKED: userTarget,
-  ACCOUNT_UNLOCKED: userTarget,
+  // Written when a failure takes the lock (docs/LOCKOUT.md). Numbers only, so
+  // the row carries no address.
+  ACCOUNT_LOCKED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      lockLevel: z.int().min(1),
+      durationMinutes: z.int().positive(),
+    }),
+  },
+  // `admin` is reserved for the admin unlock endpoint.
+  ACCOUNT_UNLOCKED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      method: z.enum(["email_link", "password_reset", "admin"]),
+    }),
+  },
   MFA_ENROLLED: userTarget,
   MFA_DISABLED: userTarget,
   MFA_BACKUP_USED: userTarget,

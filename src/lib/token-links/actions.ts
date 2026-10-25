@@ -33,7 +33,7 @@ export const TOKEN_ACTIONS = {
   "account-unlock": {
     path: "/unlock",
     owner: "AUTH-T64 #76",
-    status: "pending",
+    status: "live",
   },
   "pa-transfer-accept": {
     path: "/admin/transfer/accept",

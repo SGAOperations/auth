@@ -33,6 +33,21 @@ export async function issueUnlockToken(
 }
 
 /**
+ * Marks every unused token of the user as used, so an older emailed link dies
+ * once any unlock path (link, password reset, admin) has run.
+ */
+export async function revokeUnlockTokens(
+  db: UnlockTokenDb,
+  userId: string,
+  now: Date = new Date(),
+): Promise<void> {
+  await db.unlockToken.updateMany({
+    where: { userId, usedAt: null },
+    data: { usedAt: now },
+  });
+}
+
+/**
  * Marks the token used and returns its `userId`. Unknown, used and expired
  * tokens all return `null`, so a caller cannot tell them apart.
  */

@@ -38,6 +38,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "delegated",
     to: "better-auth",
   },
+  // The unlock link's POST writes ACCOUNT_UNLOCKED in its own transaction.
+  "src/app/unlock/confirm/route.ts": {
+    kind: "audited",
+    events: ["ACCOUNT_UNLOCKED"],
+  },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",
     reason:
@@ -78,7 +83,12 @@ const NO_OTP =
 export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   "/sign-in/email": {
     kind: "audited",
-    events: ["LOGIN_SUCCESS", "LOGIN_FAILED", "PASSWORD_REHASHED"],
+    events: [
+      "LOGIN_SUCCESS",
+      "LOGIN_FAILED",
+      "PASSWORD_REHASHED",
+      "ACCOUNT_LOCKED",
+    ],
   },
   "/sign-up/email": { kind: "audited", events: ["USER_CREATED"] },
   "/sign-out": { kind: "audited", events: ["LOGOUT"] },
@@ -92,7 +102,10 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["PASSWORD_RESET_REQUESTED"],
   },
-  "/reset-password": { kind: "audited", events: ["PASSWORD_RESET"] },
+  "/reset-password": {
+    kind: "audited",
+    events: ["PASSWORD_RESET", "ACCOUNT_UNLOCKED"],
+  },
   "/change-password": { kind: "audited", events: ["PASSWORD_CHANGED"] },
   "/revoke-session": { kind: "audited", events: ["SESSION_REVOKED"] },
   "/revoke-sessions": { kind: "audited", events: ["SESSIONS_REVOKED"] },

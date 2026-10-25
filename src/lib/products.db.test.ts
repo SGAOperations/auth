@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { betterAuth } from "better-auth";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { logger } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { createProductRegistry } from "@/lib/product-registry";
@@ -35,6 +36,7 @@ describe("product registry through Better Auth's origin check", () => {
       // Better Auth skips the Origin check under Vitest unless this is set
       // explicitly, which would leave the registry unconsulted.
       advanced: { disableOriginCheck: false },
+      lockout: testLockout(),
     }),
   );
 

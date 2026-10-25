@@ -23,6 +23,9 @@ import {
   rehashLegacyPassword,
   verifyPassword,
 } from "@/lib/auth/legacy-password";
+import { createLockoutHooks, type Defer } from "@/lib/auth/lockout-hooks";
+import type { DeviceCookie } from "@/lib/auth/known-device";
+import type { Mailer } from "@/lib/email/mailer";
 import { setRequestUserId } from "@/lib/log/context";
 
 /**
@@ -44,6 +47,14 @@ interface AuthOptionsInput {
   advanced?: BetterAuthOptions["advanced"];
   /** Defaults to a no-op, so tests and scripts never send. */
   analytics?: Analytics;
+  /** Account lockout and the known-device exemption (docs/LOCKOUT.md). */
+  lockout: {
+    /** Sends the lock notice and the unlock link. */
+    mailer: Mailer;
+    deviceCookie: DeviceCookie;
+    /** Runs a task after the response; the default runs it inline. */
+    defer?: Defer;
+  };
 }
 
 // Lenient on purpose: anything that does not parse is left to the endpoint's
@@ -72,9 +83,18 @@ export function buildAuthOptions({
   trustedOrigins,
   advanced,
   analytics = NOOP_ANALYTICS,
+  lockout,
 }: AuthOptionsInput) {
   const auditHooks = createAuthAuditHooks(prisma);
   const analyticsHooks = createAuthAnalyticsHooks(analytics);
+  const lockoutHooks = createLockoutHooks({
+    prisma,
+    mailer: lockout.mailer,
+    deviceCookie: lockout.deviceCookie,
+    linkOrigin: new URL(baseURL).origin,
+    defer: lockout.defer,
+    auditHooks,
+  });
 
   // Runs only after a successful sign-in, so a wrong, unverified or
   // deactivated sign-in never re-hashes. The sign-in has already succeeded:
@@ -139,6 +159,7 @@ export function buildAuthOptions({
         request?: Request,
       ) => {
         await auditHooks.passwordReset(data, request);
+        await lockoutHooks.passwordReset(data, request);
         analyticsHooks.passwordReset(data);
       },
       // `hash` stays unset so new hashes use Better Auth's default scrypt.
@@ -174,6 +195,10 @@ export function buildAuthOptions({
           throw domainNotAllowed();
         }
 
+        if (ctx.path === "/sign-in/email") {
+          await lockoutHooks.beforeSignIn(ctx, normalized);
+        }
+
         return {
           context: { body: { ...parsed.data, email: normalized } },
         };
@@ -188,7 +213,10 @@ export function buildAuthOptions({
           // revoke-sessions deletes the current row too; expire its cookie.
           deleteSessionCookie(ctx);
         }
-        if (ctx.path === "/sign-in/email") await rehashAfterSignIn(ctx);
+        if (ctx.path === "/sign-in/email") {
+          await lockoutHooks.afterSignIn(ctx);
+          await rehashAfterSignIn(ctx);
+        }
         if (ctx.path !== "/get-session") return;
         const parsed = sessionResult.safeParse(ctx.context.returned);
         if (!parsed.success || parsed.data.user.status === "ACTIVE") return;
@@ -256,6 +284,7 @@ export function buildAuthOptions({
             // A rotation, or the interim session of a sign-in that still owes
             // its second factor, is not a login.
             if (!(await auditHooks.isLoginSession(session, ctx))) return;
+            await lockoutHooks.sessionCreated(session, ctx);
             try {
               await prisma.user.update({
                 where: { id: session.userId },

@@ -1,5 +1,6 @@
 import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { after } from "next/server";
 import { analytics } from "@/lib/analytics";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
@@ -11,7 +12,9 @@ import { toAuthSettings } from "@/lib/auth/settings";
 import {
   assertSecureCookieConfig,
   buildCookieOptions,
+  deviceCookieName,
 } from "@/lib/auth/cookies";
+import { mailer } from "@/lib/email/server";
 
 const settings = toAuthSettings(env);
 
@@ -39,6 +42,16 @@ export const auth = betterAuth({
     trustedOrigins: getTrustedOrigins,
     advanced,
     analytics,
+    lockout: {
+      mailer,
+      deviceCookie: {
+        name: deviceCookieName(settings.cookies),
+        secure: settings.cookies.secure,
+      },
+      // `after` keeps the Vercel function alive until the task settles, so the
+      // counter write, the lock and its emails finish after the response.
+      defer: (task) => after(task),
+    },
   }),
   // Better Auth's own lines go through the structured, redacting logger. An
   // error-level line that carries an Error is also sent to error tracking:

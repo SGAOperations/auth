@@ -48,6 +48,19 @@ export function sessionCookieName(policy: CookiePolicy): string {
   return `${policy.secure ? "__Secure-" : ""}${policy.prefix}.session_token`;
 }
 
+/** One year, per AUTH-T64. Each login re-sets the cookie, so the year rolls. */
+export const DEVICE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+
+/**
+ * The known-device cookie (docs/SESSION-COOKIE.md, "Known-device cookie").
+ * Unlike the session cookie it is host-only even where the session cookie is
+ * parent-domain: only the auth host ever reads it, and a product site must
+ * never see it.
+ */
+export function deviceCookieName(policy: CookiePolicy): string {
+  return `${policy.secure ? "__Secure-" : ""}${policy.prefix}.device`;
+}
+
 type CookieOptions = Pick<
   NonNullable<BetterAuthOptions["advanced"]>,
   | "cookiePrefix"

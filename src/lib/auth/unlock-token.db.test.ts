@@ -5,6 +5,7 @@ import {
   consumeUnlockToken,
   hashUnlockToken,
   issueUnlockToken,
+  revokeUnlockTokens,
 } from "@/lib/auth/unlock-token";
 
 // eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
@@ -90,6 +91,20 @@ describe.skipIf(!url)("unlock tokens in the database", () => {
       new Date(Date.now() - 2 * HOUR_MS),
     );
     expect(await consumeUnlockToken(prisma, raw)).toBeNull();
+  });
+
+  it("revokes every unused token of the user and no one else's", async () => {
+    const user = await createUser("revoke");
+    const other = await createUser("revoke-other");
+    const first = await issueUnlockToken(prisma, user.id);
+    const second = await issueUnlockToken(prisma, user.id);
+    const theirs = await issueUnlockToken(prisma, other.id);
+
+    await revokeUnlockTokens(prisma, user.id);
+
+    expect(await consumeUnlockToken(prisma, first)).toBeNull();
+    expect(await consumeUnlockToken(prisma, second)).toBeNull();
+    expect(await consumeUnlockToken(prisma, theirs)).toBe(other.id);
   });
 
   it("returns null for an unknown token", async () => {

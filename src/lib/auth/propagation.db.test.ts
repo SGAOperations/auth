@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { createLocalJWKSet, errors, jwtVerify } from "jose";
 import { prisma } from "@/lib/prisma";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { buildJwtPlugin } from "@/lib/auth/jwt";
 import { JWT_AUDIENCE, JWT_EXPIRATION } from "@/lib/auth/jwt-constants";
 import { createRateLimiter } from "@/lib/rate-limit/limiter";
@@ -31,7 +32,12 @@ const MAX_TOKEN_LIFETIME_SECONDS = 600;
 
 // The live plugin list minus nextCookies, which needs a Next.js request scope.
 const auth = betterAuth({
-  ...buildAuthOptions({ prisma, baseURL: BASE_URL, secret: SECRET }),
+  ...buildAuthOptions({
+    prisma,
+    baseURL: BASE_URL,
+    secret: SECRET,
+    lockout: testLockout(),
+  }),
   plugins: [buildJwtPlugin({ prisma, issuer: BASE_URL })],
 });
 const endpoint = createSessionEndpoint(

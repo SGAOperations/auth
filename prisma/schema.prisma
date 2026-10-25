@@ -120,6 +120,12 @@ model KnownDevice {
   createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
 
+  /// Failed sign-ins from this device, counted apart from the account's own
+  /// counter. A device lock never escalates and sends no email.
+  failedCount     Int       @default(0)
+  windowStartedAt DateTime?
+  lockedUntil     DateTime?
+
   @@index([userId])
 }
 

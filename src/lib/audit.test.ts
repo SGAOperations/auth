@@ -108,6 +108,77 @@ describe("parseAuditEvent", () => {
     ).not.toThrow();
   });
 
+  describe("lockout events", () => {
+    const target = { targetType: "USER", targetId: "u1" };
+
+    it("accepts ACCOUNT_LOCKED with a level and a duration", () => {
+      expect(() =>
+        parseAuditEvent({
+          type: "ACCOUNT_LOCKED",
+          actorType: "SYSTEM",
+          ...target,
+          metadata: { lockLevel: 1, durationMinutes: 15 },
+        }),
+      ).not.toThrow();
+    });
+
+    it.each([
+      {},
+      { lockLevel: 1 },
+      { lockLevel: 0, durationMinutes: 15 },
+      { lockLevel: 1, durationMinutes: 0 },
+      { lockLevel: 1, durationMinutes: 15, email: "x@northeastern.edu" },
+    ])("rejects ACCOUNT_LOCKED metadata %j", (metadata) => {
+      expect(() =>
+        parseAuditEvent({
+          type: "ACCOUNT_LOCKED",
+          actorType: "SYSTEM",
+          ...target,
+          metadata,
+        }),
+      ).toThrow(ZodError);
+    });
+
+    it.each(["email_link", "password_reset", "admin"])(
+      "accepts ACCOUNT_UNLOCKED by %s",
+      (method) => {
+        expect(() =>
+          parseAuditEvent({
+            type: "ACCOUNT_UNLOCKED",
+            actorType: "USER",
+            actorUserId: "u1",
+            ...target,
+            metadata: { method },
+          }),
+        ).not.toThrow();
+      },
+    );
+
+    it("rejects ACCOUNT_UNLOCKED without a known method", () => {
+      const base = {
+        type: "ACCOUNT_UNLOCKED",
+        actorType: "USER",
+        actorUserId: "u1",
+        ...target,
+      };
+      expect(() => parseAuditEvent(base)).toThrow(ZodError);
+      expect(() =>
+        parseAuditEvent({ ...base, metadata: { method: "magic" } }),
+      ).toThrow(ZodError);
+    });
+
+    it("accepts LOGIN_FAILED for a locked account", () => {
+      expect(() =>
+        parseAuditEvent({
+          type: "LOGIN_FAILED",
+          actorType: "SYSTEM",
+          ...target,
+          metadata: { reason: "ACCOUNT_LOCKED" },
+        }),
+      ).not.toThrow();
+    });
+  });
+
   it("rejects a USER actor without an id and a SYSTEM actor with one", () => {
     expect(() =>
       parseAuditEvent({

@@ -77,7 +77,7 @@ The links are registered in `TOKEN_ACTIONS` in `src/lib/token-links/actions.ts`:
 | `verify-email`       | `/verify-email`          | T103, T18, T24 | live    |
 | `reset-password`     | `/reset-password`        | T19 #31        | pending |
 | `set-password`       | `/set-password`          | T22 #34        | pending |
-| `account-unlock`     | `/unlock`                | T64 #76        | pending |
+| `account-unlock`     | `/unlock`                | T64 #76        | live    |
 | `pa-transfer-accept` | `/admin/transfer/accept` | T37 #49        | pending |
 | `pa-transfer-cancel` | `/admin/transfer/cancel` | T37 #49        | pending |
 

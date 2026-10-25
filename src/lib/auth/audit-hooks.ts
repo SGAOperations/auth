@@ -11,6 +11,7 @@ import {
   audit,
   auditIp,
   type AuditCall,
+  type AuditDb,
   type AuditEventType,
 } from "@/lib/audit";
 
@@ -269,6 +270,67 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
         targetType: "USER",
         targetId: userId,
       });
+    },
+
+    /**
+     * A sign-in the lockout refused. A throwing `before` hook skips Better
+     * Auth's `after` hooks, so `afterSignInEmail` never sees the refusal and
+     * this is the only record of it.
+     */
+    async signInRefused(ctx: HookContext, userId: string) {
+      await emit(ctx, {
+        type: "LOGIN_FAILED",
+        actorType: "SYSTEM",
+        metadata: { reason: "ACCOUNT_LOCKED" },
+        targetType: "USER",
+        targetId: userId,
+      });
+    },
+
+    /**
+     * The lock itself. Unlike the adapters above it writes through the lock's
+     * own transaction and throws, so a lock and its audit row commit together
+     * or not at all.
+     */
+    async accountLocked(
+      db: AuditDb,
+      userId: string,
+      lock: { level: number; durationMinutes: number; ip: string | null },
+    ) {
+      await audit(
+        {
+          type: "ACCOUNT_LOCKED",
+          actorType: "SYSTEM",
+          targetType: "USER",
+          targetId: userId,
+          ip: lock.ip,
+          metadata: {
+            lockLevel: lock.level,
+            durationMinutes: lock.durationMinutes,
+          },
+        },
+        { db },
+      );
+    },
+
+    /** An unlock by the account's owner through a password reset. */
+    async accountUnlocked(
+      db: AuditDb,
+      userId: string,
+      method: "password_reset",
+      request?: Request,
+    ) {
+      await audit(
+        {
+          type: "ACCOUNT_UNLOCKED",
+          actorType: "USER",
+          actorUserId: userId,
+          targetType: "USER",
+          targetId: userId,
+          metadata: { method },
+        },
+        { db, headers: request?.headers },
+      );
     },
 
     /** `databaseHooks.session.create.after`: every login path. */

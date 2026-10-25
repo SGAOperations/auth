@@ -3,8 +3,10 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { getCookies, parseSetCookieHeader } from "better-auth/cookies";
 import { describe, expect, it } from "vitest";
 import {
+  DEVICE_COOKIE_MAX_AGE_SECONDS,
   assertSecureCookieConfig,
   buildCookieOptions,
+  deviceCookieName,
   resolveCookiePolicy,
   sessionCookieName,
 } from "@/lib/auth/cookies";
@@ -87,6 +89,30 @@ describe("sessionCookieName", () => {
     expect(sessionCookieName(resolveCookiePolicy("preview"))).toBe(
       "__Secure-sgauth-preview.session_token",
     );
+  });
+});
+
+describe("deviceCookieName", () => {
+  it("names the production cookie exactly", () => {
+    expect(deviceCookieName(resolveCookiePolicy("production"))).toBe(
+      "__Secure-sgauth.device",
+    );
+  });
+
+  it("follows each environment's prefix and Secure rule", () => {
+    expect(deviceCookieName(resolveCookiePolicy("dev"))).toBe(
+      "__Secure-sgauth-dev.device",
+    );
+    expect(deviceCookieName(resolveCookiePolicy("preview"))).toBe(
+      "__Secure-sgauth-preview.device",
+    );
+    expect(deviceCookieName(resolveCookiePolicy("local"))).toBe(
+      "sgauth-local.device",
+    );
+  });
+
+  it("lasts one year", () => {
+    expect(DEVICE_COOKIE_MAX_AGE_SECONDS).toBe(31_536_000);
   });
 });
 
