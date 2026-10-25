@@ -6,6 +6,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { createAdminGuard } from "@/lib/auth/admin-guard";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { buildAuthPlugins } from "@/lib/auth/plugins";
 import { currentTotpStep, hotp } from "@/lib/auth/totp";
 
@@ -23,7 +24,12 @@ describe.skipIf(!url)("TOTP multi-factor authentication", () => {
     adapter: new PrismaPg({ connectionString: url }),
   });
   const auth = betterAuth({
-    ...buildAuthOptions({ prisma, baseURL: BASE_URL, secret: SECRET }),
+    ...buildAuthOptions({
+      prisma,
+      baseURL: BASE_URL,
+      secret: SECRET,
+      lockout: testLockout(),
+    }),
     plugins: buildAuthPlugins({
       signupAllowlist: null,
       prisma,

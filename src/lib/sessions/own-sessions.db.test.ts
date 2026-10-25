@@ -4,6 +4,7 @@ import { createEmailVerificationToken } from "better-auth/api";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import {
   betterAuthSessionDeps,
   createOwnSessionHandlers,
@@ -21,7 +22,12 @@ describe.skipIf(!url)("own session endpoints", () => {
     adapter: new PrismaPg({ connectionString: url }),
   });
   const auth = betterAuth(
-    buildAuthOptions({ prisma, baseURL: BASE_URL, secret: SECRET }),
+    buildAuthOptions({
+      prisma,
+      baseURL: BASE_URL,
+      secret: SECRET,
+      lockout: testLockout(),
+    }),
   );
   const handlers = createOwnSessionHandlers(
     betterAuthSessionDeps(auth, prisma),

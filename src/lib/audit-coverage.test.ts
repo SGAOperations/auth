@@ -6,6 +6,7 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { AUDIT_CATALOG, AUDIT_EVENT_TYPES } from "@/lib/audit";
 import { APP_ROUTE_AUDIT, AUTH_ENDPOINT_AUDIT } from "@/lib/audit-routes";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { buildAuthPlugins } from "@/lib/auth/plugins";
 
 const FIX =
@@ -55,6 +56,7 @@ function authEndpoints() {
       prisma,
       baseURL: "http://localhost:3000",
       secret: "s".repeat(32),
+      lockout: testLockout(),
     }),
     plugins: buildAuthPlugins({
       signupAllowlist: {

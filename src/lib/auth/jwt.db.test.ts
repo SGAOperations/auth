@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { createLocalJWKSet, decodeProtectedHeader, jwtVerify } from "jose";
 import { prisma } from "@/lib/prisma";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { buildJwtPlugin } from "@/lib/auth/jwt";
 import { createPosition, createUser } from "@/test/factories";
 
@@ -15,6 +16,7 @@ const auth = betterAuth({
     prisma,
     baseURL: ISSUER,
     secret: "s".repeat(32),
+    lockout: testLockout(),
   }),
   plugins: [buildJwtPlugin({ prisma, issuer: ISSUER })],
 });

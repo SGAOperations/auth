@@ -11,6 +11,7 @@ import {
 import nextConfig from "../../../next.config";
 import { prisma } from "@/lib/prisma";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { buildJwtPlugin, buildOpenIdConfiguration } from "@/lib/auth/jwt";
 import {
   activateStagedKey,
@@ -33,7 +34,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 // The live plugin list minus nextCookies, which needs a Next.js request scope.
 const auth = betterAuth({
-  ...buildAuthOptions({ prisma, baseURL: ISSUER, secret: SECRET }),
+  ...buildAuthOptions({
+    prisma,
+    baseURL: ISSUER,
+    secret: SECRET,
+    lockout: testLockout(),
+  }),
   plugins: [buildJwtPlugin({ prisma, issuer: ISSUER })],
 });
 

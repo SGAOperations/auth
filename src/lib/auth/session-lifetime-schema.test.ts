@@ -4,6 +4,7 @@ import { createEmailVerificationToken } from "better-auth/api";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { buildAuthOptions } from "@/lib/auth/options";
+import { testLockout } from "@/test/lockout-options";
 import { SESSION_ABSOLUTE_MAX_AGE_MS } from "@/lib/auth/session-lifetime";
 
 // eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
@@ -22,7 +23,12 @@ describe.skipIf(!url)("session lifetime", () => {
     adapter: new PrismaPg({ connectionString: url }),
   });
   const auth = betterAuth(
-    buildAuthOptions({ prisma, baseURL: BASE_URL, secret: SECRET }),
+    buildAuthOptions({
+      prisma,
+      baseURL: BASE_URL,
+      secret: SECRET,
+      lockout: testLockout(),
+    }),
   );
 
   const rand = Math.random().toString(36).slice(2, 10);

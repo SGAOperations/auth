@@ -32,9 +32,13 @@ describe("sealRedirect and openRedirect", () => {
 
   it("rejects a tampered token", async () => {
     const token = await sealRedirect(TARGET, SECRET);
-    const last = token.at(-1) === "A" ? "B" : "A";
+    const middle = Math.floor(token.length / 2);
+    const swapped = token[middle] === "A" ? "B" : "A";
     expect(
-      await openRedirect(`${token.slice(0, -1)}${last}`, SECRET),
+      await openRedirect(
+        `${token.slice(0, middle)}${swapped}${token.slice(middle + 1)}`,
+        SECRET,
+      ),
     ).toBeNull();
   });
 
