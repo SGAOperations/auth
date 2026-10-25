@@ -255,9 +255,17 @@ describe("GET /api/sgauth/session against the database", () => {
 
     it("with a tampered cookie value", async () => {
       const { cookie } = await signedInUser();
-      const separator = cookie.indexOf("=");
-      const value = cookie.slice(separator + 1);
-      const tampered = `${cookie.slice(0, separator + 1)}${value[0] === "x" ? "y" : "x"}${value.slice(1)}`;
+      // Sign-in sets more than one cookie; only the session token counts.
+      const tampered = cookie
+        .split("; ")
+        .map((entry) => {
+          if (!entry.startsWith(`${tokenCookieName}=`)) return entry;
+          const middle = Math.floor(entry.length / 2);
+          const swapped = entry[middle] === "x" ? "y" : "x";
+          return `${entry.slice(0, middle)}${swapped}${entry.slice(middle + 1)}`;
+        })
+        .join("; ");
+      expect(tampered).not.toBe(cookie);
       await expectUnauthenticated(await call(tampered));
     });
 
