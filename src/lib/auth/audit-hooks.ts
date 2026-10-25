@@ -3,6 +3,10 @@ import { isAPIError } from "better-auth/api";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
+  resolveChallengeUserId,
+  type ChallengeContext,
+} from "@/lib/auth/two-factor-challenge";
+import {
   AUDIT_CATALOG,
   audit,
   auditIp,
@@ -27,6 +31,7 @@ interface HookContext {
 
 interface HookUser {
   id: string;
+  twoFactorEnabled?: boolean | null;
 }
 
 interface HookSession {
@@ -41,12 +46,23 @@ const changePasswordBody = z.looseObject({
   revokeOtherSessions: z.boolean().optional(),
 });
 const errorBody = z.looseObject({ code: z.string() });
+const userBody = z.looseObject({ user: z.looseObject({ id: z.string() }) });
 const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
 
-const LOGIN_METHODS: Record<string, "password" | "email_verification"> = {
+const LOGIN_METHODS: Record<
+  string,
+  "password" | "email_verification" | "totp" | "backup_code"
+> = {
   "/sign-in/email": "password",
   "/verify-email": "email_verification",
+  "/two-factor/verify-totp": "totp",
+  "/two-factor/verify-backup-code": "backup_code",
 };
+
+const WRONG_SECOND_FACTOR_CODES: readonly string[] = [
+  "INVALID_CODE",
+  "INVALID_BACKUP_CODE",
+];
 
 /**
  * Adapters from Better Auth hooks to catalog events. Auth state has already
@@ -141,11 +157,88 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
     });
   }
 
+  // A second-factor request with no session is the sign-in step, so a failure
+  // is a failed login. With a session it is enrollment, which is not.
+  async function afterSecondFactorVerify(
+    ctx: HookContext & ChallengeContext,
+    path: "/two-factor/verify-totp" | "/two-factor/verify-backup-code",
+  ) {
+    const returned = ctx.context.returned;
+    if (isAPIError(returned)) {
+      if (ctx.context.session) return;
+      const code = errorBody.safeParse(returned.body);
+      const reason = WRONG_SECOND_FACTOR_CODES.includes(
+        code.success ? code.data.code : "",
+      )
+        ? "INVALID_TWO_FACTOR_CODE"
+        : "OTHER";
+      const userId = await resolveChallengeUserId(ctx);
+      await emit(ctx, {
+        type: "LOGIN_FAILED",
+        actorType: "SYSTEM",
+        metadata: { reason },
+        ...(userId ? { targetType: "USER" as const, targetId: userId } : {}),
+      });
+      return;
+    }
+    if (path !== "/two-factor/verify-backup-code") return;
+    const user = userBody.safeParse(returned);
+    if (!user.success) return;
+    await emit(ctx, {
+      type: "MFA_BACKUP_USED",
+      actorType: "USER",
+      actorUserId: user.data.user.id,
+      targetType: "USER",
+      targetId: user.data.user.id,
+    });
+  }
+
+  async function afterGenerateBackupCodes(ctx: HookContext) {
+    const session = ctx.context.session;
+    if (!session) return;
+    await emit(ctx, {
+      type: "MFA_BACKUP_CODES_REGENERATED",
+      actorType: "USER",
+      actorUserId: session.user.id,
+      targetType: "USER",
+      targetId: session.user.id,
+    });
+  }
+
+  /**
+   * Whether a new session is a login. Rotations are not: enrolling, disabling
+   * and changing a password all replace the session of a signed-in user. Nor is
+   * the interim session of a password sign-in that still owes a second factor,
+   * which the twoFactor plugin deletes straight away.
+   */
+  async function isLoginSession(
+    session: HookSession,
+    ctx: HookContext | null,
+  ): Promise<boolean> {
+    if (ctx?.context.session) return false;
+    if (ctx?.path === "/sign-in/email") {
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { twoFactorEnabled: true },
+      });
+      if (user?.twoFactorEnabled) return false;
+    }
+    return true;
+  }
+
   return {
+    isLoginSession,
+
     /** `hooks.after`: every endpoint, success or failure. */
-    async afterEndpoint(ctx: HookContext) {
+    async afterEndpoint(ctx: HookContext & ChallengeContext) {
       try {
         switch (ctx.path) {
+          case "/two-factor/verify-totp":
+          case "/two-factor/verify-backup-code":
+            return await afterSecondFactorVerify(ctx, ctx.path);
+          case "/two-factor/generate-backup-codes":
+            if (isAPIError(ctx.context.returned)) return;
+            return await afterGenerateBackupCodes(ctx);
           case "/sign-in/email":
             return await afterSignInEmail(ctx);
           case "/request-password-reset":
@@ -207,6 +300,29 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
         actorUserId: session.userId,
         targetType: "SESSION",
         targetId: session.id,
+      });
+    },
+
+    /**
+     * `databaseHooks.user.update.after`. The twoFactor plugin updates the user
+     * only on the enroll and disable transitions.
+     */
+    async userUpdated(user: HookUser, ctx: HookContext | null) {
+      const type =
+        ctx?.path === "/two-factor/verify-totp" &&
+        user.twoFactorEnabled === true
+          ? "MFA_ENROLLED"
+          : ctx?.path === "/two-factor/disable" &&
+              user.twoFactorEnabled === false
+            ? "MFA_DISABLED"
+            : null;
+      if (!type) return;
+      await emit(ctx, {
+        type,
+        actorType: "USER",
+        actorUserId: user.id,
+        targetType: "USER",
+        targetId: user.id,
       });
     },
 

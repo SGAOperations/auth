@@ -51,5 +51,7 @@ export const auth = betterAuth({
     signupAllowlist: settings.signupAllowlist,
     prisma,
     issuer: settings.baseURL,
+    secret: settings.secret,
+    sgauthEnv: settings.sgauthEnv,
   }),
 });

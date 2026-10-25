@@ -178,6 +178,8 @@ model TwoFactor {
   verified                Boolean   @default(true)
   failedVerificationCount Int       @default(0)
   lockedUntil             DateTime?
+  /// last accepted TOTP counter (unix seconds / 30); a code at or below it is a replay (AUTH-T67)
+  lastTotpStep            Int?
 
   @@index([secret])
   @@index([userId])

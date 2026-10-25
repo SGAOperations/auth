@@ -78,6 +78,36 @@ describe("parseAuditEvent", () => {
     ).not.toThrow();
   });
 
+  it("accepts the second-factor login methods, failure reason and event", () => {
+    const user = {
+      actorType: "USER",
+      actorUserId: "u1",
+      targetType: "USER",
+      targetId: "u1",
+    };
+    for (const method of ["totp", "backup_code"]) {
+      expect(() =>
+        parseAuditEvent({
+          type: "LOGIN_SUCCESS",
+          ...user,
+          metadata: { method },
+        }),
+      ).not.toThrow();
+    }
+    expect(() =>
+      parseAuditEvent({
+        type: "LOGIN_FAILED",
+        actorType: "SYSTEM",
+        targetType: "USER",
+        targetId: "u1",
+        metadata: { reason: "INVALID_TWO_FACTOR_CODE" },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      parseAuditEvent({ type: "MFA_BACKUP_CODES_REGENERATED", ...user }),
+    ).not.toThrow();
+  });
+
   it("rejects a USER actor without an id and a SYSTEM actor with one", () => {
     expect(() =>
       parseAuditEvent({
