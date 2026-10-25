@@ -147,6 +147,17 @@ model UnlockToken {
   @@index([userId])
 }
 
+/// A used Better Auth email-verification JWT, claimed before verification runs.
+model UsedEmailVerificationToken {
+  /// lower-case hex SHA-256 of the JWT; the token itself is never stored
+  tokenHash String   @id
+  /// the JWT's `exp`; a row past it is pruned, since the JWT is dead anyway
+  expiresAt DateTime
+  usedAt    DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 model Jwks {
   id         String    @id @default(uuid(7))
   publicKey  String

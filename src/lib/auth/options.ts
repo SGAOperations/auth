@@ -105,6 +105,9 @@ export function buildAuthOptions({
     baseURL,
     secret,
     trustedOrigins,
+    // Disabled so a GET never consumes the token; the /verify-email page and
+    // its POST call `auth.api.verifyEmail` in-process instead.
+    disabledPaths: ["/verify-email"],
     session: SESSION_OPTIONS,
     advanced: {
       ...advanced,

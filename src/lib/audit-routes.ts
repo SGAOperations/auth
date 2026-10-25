@@ -32,6 +32,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "delegated",
     to: "better-auth",
   },
+  // EMAIL_VERIFIED and LOGIN_SUCCESS come from the Better Auth hooks that the
+  // POST reaches through auth.api.verifyEmail.
+  "src/app/verify-email/confirm/route.ts": {
+    kind: "delegated",
+    to: "better-auth",
+  },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",
     reason:
@@ -73,6 +79,8 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   },
   "/sign-up/email": { kind: "audited", events: ["USER_CREATED"] },
   "/sign-out": { kind: "audited", events: ["LOGOUT"] },
+  // HTTP-disabled (disabledPaths): reached only in-process, by the POST at
+  // src/app/verify-email/confirm/route.ts.
   "/verify-email": {
     kind: "audited",
     events: ["EMAIL_VERIFIED", "LOGIN_SUCCESS"],
