@@ -376,6 +376,58 @@ describe("parseAuditEvent", () => {
   });
 });
 
+describe("position lifecycle metadata", () => {
+  const snapshot = {
+    key: "vp-finance",
+    name: "VP Finance",
+    category: null,
+    description: "Runs the budget",
+  };
+  const event = (type: string, metadata: unknown) => ({
+    type,
+    actorType: "USER",
+    actorUserId: "u1",
+    targetType: "POSITION",
+    targetId: "p1",
+    metadata,
+  });
+  const HOLDER = "0194f4a4-6b1e-7c3a-9d52-3f8a1b2c4d5e";
+  const deleted = {
+    before: snapshot,
+    after: { deletedAt: "2026-10-25T12:00:00.000Z" },
+    holderIds: [HOLDER],
+  };
+
+  it.each([
+    ["POSITION_CREATED", { after: snapshot }],
+    [
+      "POSITION_UPDATED",
+      { before: { name: "Old" }, after: { name: "New Name" } },
+    ],
+    [
+      "POSITION_UPDATED",
+      { before: { category: null }, after: { category: "Finance" } },
+    ],
+    ["POSITION_DELETED", deleted],
+    ["POSITION_DELETED", { ...deleted, holderIds: [] }],
+  ])("accepts %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();
+  });
+
+  it.each([
+    ["POSITION_CREATED", { after: snapshot, extra: 1 }],
+    ["POSITION_CREATED", {}],
+    ["POSITION_UPDATED", { before: {}, after: {} }],
+    ["POSITION_UPDATED", { before: { name: "Old" }, after: { category: "x" } }],
+    ["POSITION_UPDATED", { before: { key: "a" }, after: { key: "b" } }],
+    ["POSITION_DELETED", { ...deleted, holderIds: ["not-a-uuid"] }],
+    ["POSITION_DELETED", { ...deleted, after: { deletedAt: "yesterday" } }],
+    ["POSITION_DELETED", { ...deleted, extra: 1 }],
+  ])("rejects %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
+  });
+});
+
 describe("writeAuditEvent", () => {
   it("does not touch the database for an unknown type", async () => {
     const { db, create } = fakeDb();
