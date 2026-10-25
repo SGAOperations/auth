@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { symmetricEncrypt } from "better-auth/crypto";
 import {
   JWKS_GRACE_PERIOD_SECONDS,
   STAGED_KEY_CREATED_AT,
@@ -6,8 +7,10 @@ import {
 import {
   JwksRotationError,
   classifyKeys,
+  describeCipher,
   formatKeyStatus,
   planActivate,
+  planRetire,
   planStage,
   type KeyRow,
 } from "./jwks-rotation";
@@ -120,7 +123,123 @@ describe("planActivate", () => {
   });
 });
 
+describe("planActivate with published ids", () => {
+  const keys = classifyKeys(
+    [row("a"), row("s", { createdAt: STAGED_KEY_CREATED_AT })],
+    NOW,
+  );
+
+  it("passes when the staged key is served", () => {
+    expect(planActivate(keys, new Set(["a", "s"]))).toEqual({
+      activeId: "a",
+      stagedId: "s",
+    });
+  });
+
+  it("refuses when the staged key is not served yet", () => {
+    expect(() => planActivate(keys, new Set(["a"]))).toThrow(
+      /not in the public JWKS/,
+    );
+  });
+});
+
+describe("planRetire", () => {
+  const retired = row("old", {
+    createdAt: new Date(NOW.getTime() - 90 * DAY_MS),
+    expiresAt: new Date(NOW.getTime() - GRACE_MS),
+  });
+
+  it("names a key past its grace period", () => {
+    const keys = classifyKeys([row("a"), retired], NOW);
+    expect(planRetire(keys, "old")).toEqual({ retireId: "old" });
+  });
+
+  it("refuses an unknown key", () => {
+    expect(() => planRetire(classifyKeys([row("a")], NOW), "nope")).toThrow(
+      /no key nope/,
+    );
+  });
+
+  it("refuses the active key", () => {
+    expect(() => planRetire(classifyKeys([row("a")], NOW), "a")).toThrow(
+      /is active, not retired/,
+    );
+  });
+
+  it("refuses a staged key", () => {
+    const keys = classifyKeys(
+      [row("a"), row("s", { createdAt: STAGED_KEY_CREATED_AT })],
+      NOW,
+    );
+    expect(() => planRetire(keys, "s")).toThrow(/is staged, not retired/);
+  });
+
+  it("refuses a key still inside its grace period", () => {
+    const retiring = row("r", {
+      expiresAt: new Date(NOW.getTime() - GRACE_MS + 1),
+    });
+    const keys = classifyKeys([row("a"), retiring], NOW);
+    expect(() => planRetire(keys, "r")).toThrow(/is retiring, not retired/);
+  });
+
+  it("refuses when no active signer would remain", () => {
+    expect(() => planRetire(classifyKeys([retired], NOW), "old")).toThrow(
+      /no active signing key/,
+    );
+  });
+});
+
+describe("describeCipher", () => {
+  const SECRET = "s".repeat(32);
+  const OTHER = "t".repeat(32);
+
+  const config = (secret: string, version: number) => ({
+    keys: new Map([[version, secret]]),
+    currentVersion: version,
+    legacySecret: SECRET,
+  });
+
+  it("reads a versioned envelope and a matching secret", async () => {
+    const stored = JSON.stringify(
+      await symmetricEncrypt({ key: config(OTHER, 2), data: "{}" }),
+    );
+    expect(await describeCipher(stored, config(OTHER, 2))).toEqual({
+      cipher: "v2",
+      decrypts: true,
+    });
+  });
+
+  it("reports a bare ciphertext as legacy and opens it with the legacy secret", async () => {
+    const stored = JSON.stringify(
+      await symmetricEncrypt({ key: SECRET, data: "{}" }),
+    );
+    expect(await describeCipher(stored, config(OTHER, 2))).toEqual({
+      cipher: "legacy",
+      decrypts: true,
+    });
+  });
+
+  it("reports decrypts=no for the wrong secret, without throwing", async () => {
+    const stored = JSON.stringify(
+      await symmetricEncrypt({ key: SECRET, data: "{}" }),
+    );
+    expect(await describeCipher(stored, OTHER)).toEqual({
+      cipher: "legacy",
+      decrypts: false,
+    });
+  });
+});
+
 describe("formatKeyStatus", () => {
+  it("adds the cipher and decrypt result when known, never key material", () => {
+    const keys = classifyKeys([row("a")], NOW);
+    const text = formatKeyStatus(
+      keys,
+      new Map([["a", { cipher: "v2", decrypts: true }]]),
+    );
+    expect(text).toContain("cipher=v2  decrypts=yes");
+  });
+
   it("prints ids, states and dates, never key material", () => {
     const keys = classifyKeys(
       [

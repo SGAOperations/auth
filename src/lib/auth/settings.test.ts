@@ -151,6 +151,51 @@ describe("parseAuthEnv", () => {
   });
 });
 
+describe("parseAuthEnv secrets", () => {
+  const NEW = "n".repeat(32);
+  const OLD = "o".repeat(32);
+  const base = { SGAUTH_ENV: "local", BETTER_AUTH_SECRET: SECRET };
+
+  it("signs with the single secret when no versions are set", () => {
+    const result = parseAuthEnv(base);
+    expect(result.secret).toBe(SECRET);
+    expect(result.legacySecret).toBe(SECRET);
+    expect(result.secrets).toBeUndefined();
+  });
+
+  it("treats an empty BETTER_AUTH_SECRETS as unset", () => {
+    const result = parseAuthEnv({ ...base, BETTER_AUTH_SECRETS: "" });
+    expect(result.secrets).toBeUndefined();
+    expect(result.secret).toBe(SECRET);
+  });
+
+  it("signs with the first version and keeps the legacy secret to decrypt", () => {
+    const result = parseAuthEnv({
+      ...base,
+      BETTER_AUTH_SECRETS: `2:${NEW},1:${OLD}`,
+    });
+    expect(result.secrets).toEqual([
+      { version: 2, value: NEW },
+      { version: 1, value: OLD },
+    ]);
+    expect(result.secret).toBe(NEW);
+    expect(result.legacySecret).toBe(SECRET);
+  });
+
+  it("refuses a bad entry by position, never echoing the value", () => {
+    const bad = "t".repeat(31);
+    let message = "";
+    try {
+      parseAuthEnv({ ...base, BETTER_AUTH_SECRETS: `1:${NEW},2:${bad}` });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/Invalid auth environment:/);
+    expect(message).toContain("BETTER_AUTH_SECRETS: entry #2");
+    expect(message).not.toContain(bad);
+  });
+});
+
 describe("parseAuthEnv gates", () => {
   const PASSWORD = "p".repeat(16);
   const base = { BETTER_AUTH_SECRET: SECRET, VERCEL_URL: "deploy.vercel.app" };

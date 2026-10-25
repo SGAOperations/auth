@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseServerEnv } from "@/lib/env-schema";
+import { parseServerEnv, parseVersionedSecrets } from "@/lib/env-schema";
 
 const SECRET = "a".repeat(32);
 const DATABASE_URL = "postgresql://runtime:pw@ep-x-pooler.neon.tech/neondb";
@@ -325,5 +325,74 @@ describe("parseServerEnv", () => {
         expect(message).not.toContain(seed.SEED_PRIMARY_ADMIN_PASSWORD);
       },
     );
+  });
+
+  describe("BETTER_AUTH_SECRETS", () => {
+    it("is optional, and empty counts as unset", () => {
+      expect(parseServerEnv(valid).BETTER_AUTH_SECRETS).toBeUndefined();
+      expect(
+        parseServerEnv({ ...valid, BETTER_AUTH_SECRETS: "" })
+          .BETTER_AUTH_SECRETS,
+      ).toBeUndefined();
+    });
+
+    it("accepts a well-formed list", () => {
+      const raw = `2:${"x".repeat(32)},1:${"y".repeat(32)}`;
+      expect(
+        parseServerEnv({ ...valid, BETTER_AUTH_SECRETS: raw })
+          .BETTER_AUTH_SECRETS,
+      ).toBe(raw);
+    });
+
+    it("names the variable and the entry, never the value", () => {
+      const bad = "q".repeat(31);
+      const message = messageOf({
+        ...valid,
+        BETTER_AUTH_SECRETS: `2:${SECRET},1:${bad}`,
+      });
+      expect(message).toContain("BETTER_AUTH_SECRETS: entry #2");
+      expect(message).not.toContain(bad);
+    });
+  });
+});
+
+describe("parseVersionedSecrets", () => {
+  const a = "a".repeat(32);
+  const b = "b".repeat(32);
+
+  it("parses entries in order, trimming whitespace", () => {
+    expect(parseVersionedSecrets(` 2:${a} , 1:${b}`)).toEqual([
+      { version: 2, value: a },
+      { version: 1, value: b },
+    ]);
+  });
+
+  it("keeps a colon inside the secret", () => {
+    const withColon = `${a}:${b}`;
+    expect(parseVersionedSecrets(`0:${withColon}`)).toEqual([
+      { version: 0, value: withColon },
+    ]);
+  });
+
+  it.each([
+    ["a missing colon", `1${a}`],
+    ["a non-numeric version", `x:${a}`],
+    ["a negative version", `-1:${a}`],
+    ["a fractional version", `1.5:${a}`],
+    ["an empty version", `:${a}`],
+    ["a 31-character secret", `1:${"s".repeat(31)}`],
+    ["an empty entry", `1:${a},`],
+    ["a duplicate version", `1:${a},1:${b}`],
+  ])("rejects %s by entry position without echoing the value", (_, raw) => {
+    let message = "";
+    try {
+      parseVersionedSecrets(raw);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/^entry #\d+: /);
+    expect(message).not.toContain(a);
+    expect(message).not.toContain(b);
+    expect(message).not.toContain("s".repeat(31));
   });
 });

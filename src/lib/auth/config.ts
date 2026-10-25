@@ -32,7 +32,9 @@ export const auth = betterAuth({
   ...buildAuthOptions({
     prisma,
     baseURL: settings.baseURL,
-    secret: settings.secret,
+    // secrets[0] signs; secret only decrypts pre-rotation data
+    secret: settings.legacySecret,
+    secrets: settings.secrets,
     trustedOrigins: getTrustedOrigins,
     advanced,
   }),
