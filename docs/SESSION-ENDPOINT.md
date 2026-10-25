@@ -46,12 +46,12 @@ Example `200` from `/api/sgauth/session/minimal`:
 
 ## Status codes
 
-| Status | Body                                           | When                                                                                                                                                                        |
-| ------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `200`  | the response above                             | a valid session                                                                                                                                                             |
-| `401`  | `{"error":"unauthenticated"}`                  | no session cookie, a bad signature, an unknown, revoked, idle-expired or past-the-cap session, or a user who is deactivated, deleted or missing. The body never says which. |
-| `429`  | `{"code":"TOO_MANY_REQUESTS","message":"..."}` | more than 120 calls a minute for one session token on one instance. Carries `Retry-After`. See [RATE-LIMITING.md](RATE-LIMITING.md).                                        |
-| `5xx`  | none promised                                  | an unexpected error. It is never turned into a `401`, so a product's stale-if-error path can tell "SGAuth is down" from "the user is signed out".                           |
+| Status | Body                                           | When                                                                                                                                                                                                                  |
+| ------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `200`  | the response above                             | a valid session                                                                                                                                                                                                       |
+| `401`  | `{"error":"unauthenticated"}`                  | no session cookie, more than one copy of the session cookie, a bad signature, an unknown, revoked, idle-expired or past-the-cap session, or a user who is deactivated, deleted or missing. The body never says which. |
+| `429`  | `{"code":"TOO_MANY_REQUESTS","message":"..."}` | more than 120 calls a minute for one session token on one instance. Carries `Retry-After`. See [RATE-LIMITING.md](RATE-LIMITING.md).                                                                                  |
+| `5xx`  | none promised                                  | an unexpected error. It is never turned into a `401`, so a product's stale-if-error path can tell "SGAuth is down" from "the user is signed out".                                                                     |
 
 Deactivation and revocation show up on the very next call: nothing is cached on SGAuth's side.
 

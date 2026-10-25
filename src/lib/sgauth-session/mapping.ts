@@ -25,8 +25,9 @@ export interface SessionRow {
 
 /**
  * Keeps only the `name=value` pairs whose name is in `names`, in the original
- * order and duplicates included, so Better Auth resolves duplicates exactly as
- * it does on /get-session. `names[0]` is the session token: without it the
+ * order. The handler refuses a request with more than one session-token pair
+ * before calling this, so at most one reaches it; a repeated `dont_remember`
+ * pair is passed through. `names[0]` is the session token: without it the
  * result is `null`, so a lone `dont_remember` never reaches the database.
  */
 export function pickSessionCookies(

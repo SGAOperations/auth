@@ -48,6 +48,7 @@ const endpoint = createSessionEndpoint(
       backend: createMemoryBackend(),
       log: { error: () => undefined },
     }),
+    log: { warn: () => undefined },
   }),
 );
 

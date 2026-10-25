@@ -73,10 +73,31 @@ Preview could technically use `__Host-`. It keeps `__Secure-` so every environme
   - subdomain hygiene ([SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md), #80, AUTH-T68);
   - Origin enforcement on mutations (see **Origin enforcement** below);
   - showing the signed-in identity on account pages;
-  - real browser observation in the [cross-subdomain cookie spike](ENVIRONMENTS.md#cross-subdomain-cookie-spike-auth-t104) (#115).
+  - real browser observation in the [cross-subdomain cookie spike](ENVIRONMENTS.md#cross-subdomain-cookie-spike-auth-t104) (#115);
+  - refusing a request that carries more than one session cookie (see **Duplicate session cookies** below, #213).
 - **SameSite=Lax** stops cross-site subresource and POST requests. Sibling subdomains are same-site, so their POSTs still carry the cookie, and Origin enforcement is the control.
 - **Dev and production coexist.** The names differ, so each server reads only its own cookie, and a dev session token means nothing to production's database, or the reverse. The dev cookie also reaches production hosts, where it is never read.
 - **Preview** cookies never reach `northeasternsga.com`, which is why `*.vercel.app` previews cannot use product SSO.
+
+### Duplicate session cookies
+
+A sibling host can plant a second copy of the session cookie beside the victim's, as a `Path` copy or a host-only copy ([#115](ENVIRONMENTS.md#cross-subdomain-cookie-spike-auth-t104)). The browser sends both. A product that forwards raw pairs could be confused about which one it holds.
+
+**The rule:** a request whose `Cookie` header carries the session-token name (`sessionCookieName`, for example `__Secure-sgauth-dev.session_token`) more than once is signed out. Every copy counts, an empty value included. The name is trimmed and compared exactly, case-sensitively and without decoding, so a near name such as `__Secure-sgauth.session_token` against `__Secure-sgauth-dev.session_token` is not a copy. A repeated `dont_remember` cookie beside one session token is ignored.
+
+| Endpoint                                                    | With two or more copies                                                                  |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `GET /api/sgauth/session` and `/api/sgauth/session/minimal` | `401 {"error":"unauthenticated"}`, before any rate limit, Better Auth or database call   |
+| `GET` or `POST /api/auth/get-session`                       | `200` with body `null`. The session row is not read and the sliding window does not move |
+| `GET /api/auth/token`                                       | `401`, rate limited as today                                                             |
+
+On the Better Auth route, `createDuplicateCookieGuard` (`src/lib/security/duplicate-cookie.ts`) strips every session-token pair before Better Auth sees the request, so Better Auth gives its own signed-out answer. Other Better Auth endpoints are not guarded: refusing sign-out could stop a victim from signing out. In-process `auth.api.getSession` callers are not guarded either.
+
+- **Log:** one `warn` line, `Refused duplicate session cookie`, with `data: { path, copies }` and the request context. Never a cookie name or value, the header or the query string.
+- **No `AuditEvent`:** any sibling host can trigger a refusal at will, so an audit row would put attacker-driven database writes on the session hot path. The Origin rejection above follows the same rule.
+- **Cookies are not cleared:** a host-only copy on a sibling host cannot be cleared from SGAuth, and a `Set-Cookie` could only remove the victim's own copy.
+- **Not covered:** `parent-root`, where the planted cookie replaces the victim's so only one copy exists. That is login CSRF, which pre-login binding would address and this rule does not.
+- **SDK:** `getSession()` and `getAccessToken()` apply the same rule before forwarding or consulting their cache. It ships separately in `SGAOperations/auth-sdk#19`.
 
 ### Origin enforcement
 

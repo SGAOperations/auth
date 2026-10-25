@@ -117,7 +117,7 @@ Run each check in Chrome, Firefox and Safari (macOS) unless it says otherwise, i
 6. **Cookie tossing.** In a second profile sign in as `attacker` and copy its `session_token` value. In the victim's browser, toss it once per variant at `https://stub-dev.northeasternsga.com/toss`, clearing tossed cookies and signing in as `victim` again between variants. Record, per variant:
    - `parent-path`: stub-dev still shows one copy (`victim`). In the Network panel for `auth-dev`'s `/api/auth/get-session`, record whether the Cookie header carries two copies, which is first, and whose session SGAuth resolved.
    - `parent-root`: stub-dev shows one copy, expected to resolve to `attacker` (the victim's cookie was replaced). Record what `auth-dev` shows.
-   - `host-only`: stub-dev shows two copies; record the order and what each resolves to. `auth-dev` should still show `victim`.
+   - `host-only`: stub-dev shows two copies; record the order and what each resolves to. `auth-dev` should still show `victim`. After #213, stub-dev's "All copies as the browser sent them" line must read `no session`, not `victim`, because SGAuth refuses a request with two session cookies.
    - `sibling-host`: record whether the browser stored it (no new `auth-dev` cookie, Set-Cookie marked rejected) and whether `auth-dev` still shows `victim`.
 
    Sum up each browser in one line, for example "parent-path copy sent first; Better Auth resolved attacker, so login CSRF is confirmed".
