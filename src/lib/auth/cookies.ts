@@ -48,7 +48,7 @@ export function sessionCookieName(policy: CookiePolicy): string {
   return `${policy.secure ? "__Secure-" : ""}${policy.prefix}.session_token`;
 }
 
-/** One year, per AUTH-T64. Each login re-sets the cookie, so the year rolls. */
+/** One year; each login re-sets it. */
 export const DEVICE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 /**

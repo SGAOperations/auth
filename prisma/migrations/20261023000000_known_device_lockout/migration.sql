@@ -1,4 +1,3 @@
--- AUTH-T64: per-device failure counter for the known-device lockout exemption.
 -- Expand-only: every new column is nullable or has a default.
 
 -- AlterTable
