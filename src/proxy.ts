@@ -11,6 +11,7 @@ import {
   verifyGateCookie,
 } from "@/lib/preview-gate";
 import { getTrustedOrigins } from "@/lib/products";
+import { REDIRECT_ENTRY_PATHS, captureRedirect } from "@/lib/redirect/cookie";
 import { isCorsPreflight } from "@/lib/security/cors";
 import {
   CSP_REPORT_GROUP,
@@ -98,12 +99,23 @@ export async function proxy(request: NextRequest) {
   const blocked = gate(request);
   if (blocked) return blocked;
 
-  if (request.nextUrl.pathname.startsWith("/api/")) {
+  const { pathname } = request.nextUrl;
+  if (pathname.startsWith("/api/")) {
     const rejected = await guardOrigin(request);
     if (rejected) return rejected;
     return NextResponse.next();
   }
-  return withCsp(request);
+
+  const response = withCsp(request);
+  if (request.method === "GET" && REDIRECT_ENTRY_PATHS.includes(pathname)) {
+    await captureRedirect(request, response, {
+      secret: settings.secret,
+      baseURL: settings.baseURL,
+      sgauthOrigin: new URL(settings.baseURL).origin,
+      allowHttpProducts: settings.sgauthEnv === "local",
+    });
+  }
+  return response;
 }
 
 export const config = {
