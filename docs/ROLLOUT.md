@@ -158,4 +158,79 @@ SGA {sender role}
 
 ## 7. Post-launch reviews
 
-Filled in by AUTH-T92 ([#104](https://github.com/SGAOperations/auth/issues/104)) two weeks after each cutover.
+Fourteen days after each cutover (the T+14 step in §3), the SGAuth operator and the product owner fill in a copy of the template below for that product and commit it here.
+
+Tracked by AUTH-T92 ([#104](https://github.com/SGAOperations/auth/issues/104)), which stays open until every row of the tracker is `Done`.
+
+### 7.1 Review tracker
+
+`Status` is `Not started`, `In review` or `Done`. `Done` means the review is committed and the cleanup sub-issue is closed.
+
+| Product            | Cutover date | Review due (cutover + 14 d) | Reviewed on | Cleanup sub-issue | Outcome | Status |
+| ------------------ | ------------ | --------------------------- | ----------- | ----------------- | ------- | ------ |
+| VaultZ             | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
+| Chambers           | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
+| Aplio              | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
+| SenatePath         | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
+| Attendance Manager | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
+
+### 7.2 Review template
+
+Copy this block under §7.4, as a heading `### 7.<n> <Product> — reviewed <YYYY-MM-DD>`. Record counts only, never user emails or names. Where a source has not shipped, write `n/a — <ticket> not shipped` instead of a value.
+
+```markdown
+**Window:** <cutover deploy date> to <cutover deploy date + 14 days>
+
+#### Metrics
+
+| Metric                                    | Source                                                                                                                 | Value | Flag? |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| Sign-ins (daily, 14 d)                    | PostHog auth dashboard (AUTH-T75), `login_succeeded`                                                                   |       |       |
+| Sign-in failure rate                      | PostHog (AUTH-T75): `login_failed` / (`login_succeeded` + `login_failed`), broken down by reason category              |       |       |
+| Failed logins                             | `AuditEvent` `LOGIN_FAILED` count in the window, and the peak 15-minute count (AUTH-T73)                               |       |       |
+| Lockouts                                  | `AuditEvent` `ACCOUNT_LOCKED` count in the window, and the peak hourly count (AUTH-T73)                                |       |       |
+| Threshold alerts fired                    | AUTH-T77 alert emails during the window                                                                                |       |       |
+| Support requests                          | Count kept by the named support contact (§5), by triage row                                                            |       |       |
+| Imported users signed in                  | Imported users with a `LOGIN_SUCCESS` in the window, out of the number imported (from the import report)               |       |       |
+| Chambers only: `bcrypt$` hashes remaining | AUTH-T21 metric. Fallback, read-only on production: `SELECT count(*) FROM "Account" WHERE "password" LIKE 'bcrypt$%';` |       |       |
+| Chambers only: re-hashes                  | `PASSWORD_REHASHED` count                                                                                              |       |       |
+
+Skip the two Chambers-only rows for every other product.
+
+**Flag rule.** Mark `Flag?` as yes when the peak counts reached the AUTH-T77 alert thresholds (more than 50 `LOGIN_FAILED` in 15 minutes, more than 5 `ACCOUNT_LOCKED` in an hour), a rollback happened, or a support triage row recurred for 3 or more people. Do not invent other numeric thresholds.
+
+#### Findings
+
+- What went wrong:
+- What users hit:
+- What we would change for the next cutover:
+
+#### Legacy cleanup
+
+Link evidence for each item: a PR, a commit, or a screenshot of the deleted resource.
+
+- [ ] The legacy auth code was deleted from the product (login UI, local session or role logic, auth-provider SDK calls).
+- [ ] Legacy auth secrets and env vars were removed from Vercel (all environments) and from `.env.example`.
+- [ ] Legacy auth data was deleted, or the auth project was retired, only after the §4 "Legacy auth kept for" window ended.
+- [ ] The rollback flag or path from §4 was removed, or marked retired.
+- [ ] The cleanup sub-issue is linked: `<repo>#<n>`.
+
+#### Follow-ups
+
+- Issues filed because of this review:
+
+#### Sign-off
+
+- SGAuth operator: <name>, <YYYY-MM-DD>
+- Product owner: <name>, <YYYY-MM-DD>
+```
+
+### 7.3 bcrypt verify path removal
+
+The Chambers-only bcrypt verify path (AUTH-T21, [#33](https://github.com/SGAOperations/auth/issues/33)) is removed by its own follow-up ticket, not by a review. Its gate is a `bcrypt$` count of zero in production. Accounts still on bcrypt at the Chambers review are reset or left to expire, which the follow-up decides. The Chambers review records the count and links the follow-up issue.
+
+Never remove the path while the count is above zero, or before Chambers' 7-day legacy window (§4) has ended. See [legacy-bcrypt.md](runbooks/legacy-bcrypt.md).
+
+### 7.4 Completed reviews
+
+None yet.
