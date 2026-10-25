@@ -5,7 +5,13 @@ import {
   parseSignupAllowlist,
   type SignupAllowlist,
 } from "@/lib/auth/signup-allowlist";
-import { authEnvSchema, normalizeEnv, type SgauthEnv } from "@/lib/env-schema";
+import {
+  authEnvSchema,
+  normalizeEnv,
+  parseVersionedSecrets,
+  type SgauthEnv,
+  type VersionedSecret,
+} from "@/lib/env-schema";
 
 export type { SgauthEnv };
 
@@ -67,6 +73,15 @@ export function toAuthSettings(env: z.infer<typeof authEnvSchema>) {
     vercelUrl: env.VERCEL_URL,
   });
 
+  let secrets: VersionedSecret[] | undefined;
+  if (env.BETTER_AUTH_SECRETS !== undefined) {
+    try {
+      secrets = parseVersionedSecrets(env.BETTER_AUTH_SECRETS);
+    } catch (error) {
+      throw invalidEnv([`- BETTER_AUTH_SECRETS: ${(error as Error).message}`]);
+    }
+  }
+
   let signupAllowlist: SignupAllowlist | null = null;
   if (env.SGAUTH_ENV !== "production") {
     try {
@@ -91,7 +106,11 @@ export function toAuthSettings(env: z.infer<typeof authEnvSchema>) {
     sgauthEnv: env.SGAUTH_ENV,
     vercelEnv: env.VERCEL_ENV,
     cookies: resolveCookiePolicy(env.SGAUTH_ENV),
-    secret: env.BETTER_AUTH_SECRET,
+    // The secret that signs now, which the preview gate follows through a
+    // rotation. Better Auth gets `legacySecret` and `secrets` instead.
+    secret: secrets?.[0].value ?? env.BETTER_AUTH_SECRET,
+    legacySecret: env.BETTER_AUTH_SECRET,
+    secrets,
     baseURL,
     signupAllowlist,
     previewGate,
