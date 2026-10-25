@@ -191,6 +191,17 @@ describe("createVerifyEmailConsumer", () => {
     expect(verifyEmail).toHaveBeenCalledOnce();
   });
 
+  it("still returns the session headers when resolving the redirect throws", async () => {
+    const { consume, resolveRedirect, headers } = setup();
+    resolveRedirect.mockRejectedValueOnce(new Error("registry down"));
+    const token = await live();
+    expect(await consume({ token, fields: {}, request })).toEqual({
+      result: "done",
+      headers,
+      redirectTo: undefined,
+    });
+  });
+
   it("answers an already-verified address used, with no claim and no verify", async () => {
     const { consume, mocks, verifyEmail } = setup({ verified: true });
     const token = await live();

@@ -169,7 +169,17 @@ export function createVerifyEmailConsumer({
       if (isAPIError(error)) return { result: "invalid" };
       throw error;
     }
-    return { result: "done", headers, redirectTo: await resolveRedirect() };
+
+    // The address is verified and the session headers are in hand, so a throw
+    // here must not lose them. Without a `redirectTo` the handler lands on its
+    // own done page, still carrying the session cookies.
+    let redirectTo: string | undefined;
+    try {
+      redirectTo = await resolveRedirect();
+    } catch {
+      redirectTo = undefined;
+    }
+    return { result: "done", headers, redirectTo };
   };
 }
 
