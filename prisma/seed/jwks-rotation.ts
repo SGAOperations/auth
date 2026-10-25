@@ -1,4 +1,9 @@
-import { symmetricEncrypt } from "better-auth/crypto";
+import {
+  parseEnvelope,
+  symmetricDecrypt,
+  symmetricEncrypt,
+  type SecretConfig,
+} from "better-auth/crypto";
 import { generateExportedKeyPair } from "better-auth/plugins/jwt";
 import type { Prisma, PrismaClient } from "../../src/generated/prisma/index.js";
 import {
@@ -95,8 +100,15 @@ export function planStage(keys: ClassifiedKey[]): void {
   }
 }
 
-/** The key to expire and the key to start signing with, or a refusal. */
-export function planActivate(keys: ClassifiedKey[]): {
+/**
+ * The key to expire and the key to start signing with, or a refusal. With
+ * `publishedIds` (the key ids the public JWKS serves right now), the staged key
+ * must be among them: signing must not move to a key no verifier can fetch.
+ */
+export function planActivate(
+  keys: ClassifiedKey[],
+  publishedIds?: ReadonlySet<string>,
+): {
   activeId: string;
   stagedId: string;
 } {
@@ -113,11 +125,75 @@ export function planActivate(keys: ClassifiedKey[]): {
   if (!active) {
     throw new JwksRotationError("There is no active signing key to replace.");
   }
+  if (publishedIds && !publishedIds.has(staged[0].id)) {
+    throw new JwksRotationError(
+      `The staged key ${staged[0].id} is not in the public JWKS yet. Wait for the deployment that serves it before activating.`,
+    );
+  }
   return { activeId: active.id, stagedId: staged[0].id };
 }
 
+/**
+ * The key to delete, or a refusal. Only a key past its grace period qualifies:
+ * it is no longer published, so deleting it changes nothing for a verifier, and
+ * a live signer must remain.
+ */
+export function planRetire(
+  keys: ClassifiedKey[],
+  keyId: string,
+): { retireId: string } {
+  const target = keys.find((key) => key.row.id === keyId);
+  if (!target) {
+    throw new JwksRotationError(`There is no key ${keyId}.`);
+  }
+  if (target.state !== "retired") {
+    throw new JwksRotationError(
+      `Key ${keyId} is ${target.state}, not retired. A key can be removed only once it is expired and past its ${JWKS_GRACE_PERIOD_SECONDS / 86_400}-day grace period.`,
+    );
+  }
+  if (keysIn(keys, "active").length === 0) {
+    throw new JwksRotationError(
+      "There is no active signing key; refusing to remove another key.",
+    );
+  }
+  return { retireId: target.row.id };
+}
+
+/** How a key's private half is encrypted, and whether the secrets open it. */
+export type KeyCipher = { cipher: string; decrypts: boolean };
+
+/**
+ * Reads the stored envelope: `$ba$<n>$` is version n, anything else is the
+ * legacy bare format. `decrypts` tries every secret in `secret`. Never returns
+ * or logs key material.
+ */
+export async function describeCipher(
+  storedPrivateKey: string,
+  secret: string | SecretConfig,
+): Promise<KeyCipher> {
+  let ciphertext = storedPrivateKey;
+  try {
+    // The plugin stores the encrypted string JSON-encoded.
+    const parsed: unknown = JSON.parse(storedPrivateKey);
+    if (typeof parsed === "string") ciphertext = parsed;
+  } catch {
+    // Not JSON: use the column as is.
+  }
+  const envelope = parseEnvelope(ciphertext);
+  const cipher = envelope ? `v${envelope.version}` : "legacy";
+  try {
+    await symmetricDecrypt({ key: secret, data: ciphertext });
+    return { cipher, decrypts: true };
+  } catch {
+    return { cipher, decrypts: false };
+  }
+}
+
 /** One line per key. Ids and dates only: never key material. */
-export function formatKeyStatus(keys: ClassifiedKey[]): string {
+export function formatKeyStatus(
+  keys: ClassifiedKey[],
+  ciphers: ReadonlyMap<string, KeyCipher> = new Map(),
+): string {
   if (keys.length === 0) {
     return "No signing keys yet. The first call to /api/auth/jwks creates one.";
   }
@@ -126,9 +202,31 @@ export function formatKeyStatus(keys: ClassifiedKey[]): string {
   return keys
     .map(({ row, state }) => {
       const created = isStagedRow(row) ? "staged" : date(row.createdAt);
-      return `${row.id}  ${state.padEnd(10)}  alg=${row.alg ?? "none"}  created=${created}  expires=${date(row.expiresAt)}`;
+      const cipher = ciphers.get(row.id);
+      const encryption = cipher
+        ? `  cipher=${cipher.cipher}  decrypts=${cipher.decrypts ? "yes" : "no"}`
+        : "";
+      return `${row.id}  ${state.padEnd(10)}  alg=${row.alg ?? "none"}  created=${created}  expires=${date(row.expiresAt)}${encryption}`;
     })
     .join("\n");
+}
+
+/** Ciphers of every ES256 key, read from the stored private keys. */
+export async function readCiphers(
+  db: Pick<Prisma.TransactionClient, "jwks">,
+  secret: string | SecretConfig,
+): Promise<Map<string, KeyCipher>> {
+  const rows = await db.jwks.findMany({
+    where: { alg: JWT_ALG },
+    select: { id: true, privateKey: true },
+  });
+  const entries = await Promise.all(
+    rows.map(
+      async (row) =>
+        [row.id, await describeCipher(row.privateKey, secret)] as const,
+    ),
+  );
+  return new Map(entries);
 }
 
 type Reader = Pick<Prisma.TransactionClient, "jwks">;
@@ -147,12 +245,14 @@ export async function readKeys(db: Reader, now: Date) {
 /**
  * Creates a staged ES256 key, stored exactly the way the plugin's createJwk
  * stores one (encrypted private key), except for the sentinel `createdAt`.
- * `secret` is BETTER_AUTH_SECRET. The state is read, planned and written inside
- * a serializable transaction, so two operators cannot both stage.
+ * `secret` is BETTER_AUTH_SECRET, or the versioned config built from
+ * BETTER_AUTH_SECRETS, which encrypts under its current version. The state is
+ * read, planned and written inside a serializable transaction, so two
+ * operators cannot both stage.
  */
 export async function stageKey(
   db: Pick<PrismaClient, "$transaction">,
-  secret: string,
+  secret: string | SecretConfig,
   now: Date,
 ): Promise<string> {
   const { publicWebKey, privateWebKey } = await generateExportedKeyPair({
@@ -192,10 +292,11 @@ export async function stageKey(
 export async function activateStagedKey(
   db: Pick<PrismaClient, "$transaction">,
   now: Date,
+  publishedIds?: ReadonlySet<string>,
 ): Promise<{ activeId: string; stagedId: string }> {
   return db.$transaction(
     async (tx) => {
-      const plan = planActivate(await readKeys(tx, now));
+      const plan = planActivate(await readKeys(tx, now), publishedIds);
       await tx.jwks.update({
         where: { id: plan.activeId },
         data: { expiresAt: now },
@@ -210,6 +311,26 @@ export async function activateStagedKey(
         data: { type: "JWKS_ROTATED", actorType: "SYSTEM", metadata: {} },
       });
       return plan;
+    },
+    { isolationLevel: "Serializable" },
+  );
+}
+
+/**
+ * Deletes a key that is past its grace period. Re-read and re-planned inside a
+ * serializable transaction, like the other writes. No audit event: the key was
+ * already unpublished, so nothing a verifier sees changes.
+ */
+export async function retireKey(
+  db: Pick<PrismaClient, "$transaction">,
+  keyId: string,
+  now: Date,
+): Promise<string> {
+  return db.$transaction(
+    async (tx) => {
+      const plan = planRetire(await readKeys(tx, now), keyId);
+      await tx.jwks.delete({ where: { id: plan.retireId } });
+      return plan.retireId;
     },
     { isolationLevel: "Serializable" },
   );

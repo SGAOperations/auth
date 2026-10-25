@@ -25,6 +25,8 @@ export const serverShape = z.object({
     .default("development"),
   DATABASE_URL: postgresUrl,
   BETTER_AUTH_SECRET: z.string().min(32),
+  // Set only from the first rotation onward; see parseVersionedSecrets.
+  BETTER_AUTH_SECRETS: z.string().optional(),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error", "silent"]).optional(),
   VERCEL_ENV: z.string().optional(),
   VERCEL_BRANCH_URL: z.string().optional(),
@@ -65,6 +67,7 @@ export const serverShape = z.object({
 export const authEnvSchema = serverShape.pick({
   SGAUTH_ENV: true,
   BETTER_AUTH_SECRET: true,
+  BETTER_AUTH_SECRETS: true,
   VERCEL_ENV: true,
   VERCEL_BRANCH_URL: true,
   VERCEL_URL: true,
@@ -72,6 +75,44 @@ export const authEnvSchema = serverShape.pick({
   SGAUTH_PREVIEW_GATE_PASSWORD: true,
   SGAUTH_PREVIEW_GATE: true,
 });
+
+export interface VersionedSecret {
+  version: number;
+  value: string;
+}
+
+const SECRET_MIN_LENGTH = 32;
+
+/**
+ * Parses `BETTER_AUTH_SECRETS`: `<version>:<secret>` entries, comma-separated,
+ * current first. Errors name the entry by position and never carry a value.
+ */
+export function parseVersionedSecrets(raw: string): VersionedSecret[] {
+  const seen = new Set<number>();
+  return raw.split(",").map((part, index) => {
+    const entry = part.trim();
+    const fail = (reason: string) =>
+      new Error(`entry #${index + 1}: ${reason}`);
+    const separator = entry.indexOf(":");
+    if (separator === -1) {
+      throw fail('expected "<version>:<secret>"');
+    }
+    const versionText = entry.slice(0, separator).trim();
+    if (!/^\d{1,9}$/.test(versionText)) {
+      throw fail("the version must be a non-negative integer");
+    }
+    const version = Number(versionText);
+    if (seen.has(version)) {
+      throw fail("the version is used by an earlier entry");
+    }
+    seen.add(version);
+    const value = entry.slice(separator + 1).trim();
+    if (value.length < SECRET_MIN_LENGTH) {
+      throw fail(`the secret must be at least ${SECRET_MIN_LENGTH} characters`);
+    }
+    return { version, value };
+  });
+}
 
 // A service is configured completely or not at all. Consumer tickets that
 // need a service make its keys required.
@@ -110,6 +151,18 @@ export const serverSchema = serverShape.superRefine((env, ctx) => {
         code: "custom",
         path: [name],
         message: `required when SGAUTH_ENV=${env.SGAUTH_ENV}`,
+      });
+    }
+  }
+
+  if (env.BETTER_AUTH_SECRETS !== undefined) {
+    try {
+      parseVersionedSecrets(env.BETTER_AUTH_SECRETS);
+    } catch (error) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["BETTER_AUTH_SECRETS"],
+        message: (error as Error).message,
       });
     }
   }

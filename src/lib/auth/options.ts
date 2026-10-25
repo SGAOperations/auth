@@ -37,6 +37,8 @@ interface AuthOptionsInput {
   prisma: PrismaClient;
   baseURL: string;
   secret: string;
+  /** Versioned secrets, current first; see `BETTER_AUTH_SECRETS`. */
+  secrets?: { version: number; value: string }[];
   trustedOrigins?: BetterAuthOptions["trustedOrigins"];
   /** Cookie attributes from `buildCookieOptions`; config.ts supplies them. */
   advanced?: BetterAuthOptions["advanced"];
@@ -66,6 +68,7 @@ export function buildAuthOptions({
   prisma,
   baseURL,
   secret,
+  secrets,
   trustedOrigins,
   advanced,
   analytics = NOOP_ANALYTICS,
@@ -110,6 +113,7 @@ export function buildAuthOptions({
     database: prismaAdapter(prisma, { provider: "postgresql" }),
     baseURL,
     secret,
+    ...(secrets ? { secrets } : {}),
     trustedOrigins,
     // Disabled so a GET never consumes the token; the /verify-email page and
     // its POST call `auth.api.verifyEmail` in-process instead.
@@ -216,6 +220,9 @@ export function buildAuthOptions({
             analyticsHooks.userCreated(user, ctx);
           },
         },
+        update: {
+          after: auditHooks.userUpdated,
+        },
       },
       session: {
         create: {
@@ -246,6 +253,9 @@ export function buildAuthOptions({
           after: async (session, ctx) => {
             // Request log lines for sign-in and sign-up carry the user id.
             setRequestUserId(session.userId);
+            // A rotation, or the interim session of a sign-in that still owes
+            // its second factor, is not a login.
+            if (!(await auditHooks.isLoginSession(session, ctx))) return;
             try {
               await prisma.user.update({
                 where: { id: session.userId },

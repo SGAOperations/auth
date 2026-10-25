@@ -54,9 +54,17 @@ export function createAuthAnalyticsHooks(
     /** `databaseHooks.session.create.after`: every login path. */
     sessionCreated(session: HookSession, ctx: HookContext | null): void {
       try {
+        // The event schema only knows password and email verification, so the
+        // two-factor methods are reported as "other" until it is extended.
+        const method = LOGIN_METHODS[ctx?.path ?? ""];
         analytics.capture("login_succeeded", {
           userId: session.userId,
-          properties: { method: LOGIN_METHODS[ctx?.path ?? ""] ?? "other" },
+          properties: {
+            method:
+              method === "password" || method === "email_verification"
+                ? method
+                : "other",
+          },
         });
       } catch {
         // See afterEndpoint.
