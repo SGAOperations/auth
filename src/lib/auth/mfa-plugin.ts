@@ -55,9 +55,14 @@ export function sgauthMfa({
             if (!userId) return noTrust;
             const row = await prisma.twoFactor.findFirst({
               where: { userId },
-              select: { id: true, secret: true },
+              select: { id: true, secret: true, lockedUntil: true },
             });
             if (!row) return noTrust;
+            // A locked account is rejected by the plugin whatever the code, so
+            // a claim here would only burn a valid code for its ~90s window.
+            if (row.lockedUntil && row.lockedUntil.getTime() > Date.now()) {
+              return noTrust;
+            }
 
             const totpSecret = await symmetricDecrypt({
               key: ctx.context.secretConfig,
