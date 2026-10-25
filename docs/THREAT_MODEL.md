@@ -45,7 +45,7 @@ Trust boundaries:
 - `#80 (AUTH-T68)` DNS inventory, dangling-record removal and the no-wildcard subdomain policy ([SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md)).
 - `#68 (AUTH-T56)` product registry at runtime: no wildcard trusted origin and no `*.vercel.app`.
 - `#77 (AUTH-T65)` Origin enforcement on every mutation.
-- `#115 (AUTH-T104)` spike observing real cookie behaviour and tossing in three browsers.
+- `#115 (AUTH-T104)` spike observing real cookie behaviour and tossing in three browsers. The spike has run; its go/no-go sign-off by the SGAuth lead is still a launch item (PL-02).
 - `#78 (AUTH-T66)` HSTS without `includeSubDomains`, so SGAuth does not force HTTPS-only on hosts it has not inventoried.
 
 **Residual risk.** A subdomain SGA controls and later loses, or a host that is inventoried and compromised, still receives the cookie and can plant one. This is inherent to the parent-domain cookie decision.
@@ -301,7 +301,7 @@ An item is closed when its check passes, or when its threat has an accepted-risk
 
 The ids start at PL-02 and stay stable. PL-01, the production cookie attributes, is checked in [launch-checklist.md](runbooks/launch-checklist.md), section 9, so it is not repeated here.
 
-- [ ] **PL-02** — The #115 (AUTH-T104) cookie spike has a recorded go/no-go signed off by the SGAuth lead (TM-01; verify on #115).
+- [ ] **PL-02** — The #115 (AUTH-T104) cookie spike, which has been run, has a recorded go/no-go signed off by the SGAuth lead (TM-01; verify on #115).
 - [ ] **PL-03** — The DNS inventory has zero dangling records and the production registry has no wildcard origin (TM-01; verify via [runbooks/subdomain-review.md](runbooks/subdomain-review.md) and the `Product` rows).
 - [ ] **PL-04** — The session token value changes across sign-in: a token present before sign-in is not the one present after (TM-02; verify in dev tools on the real domain).
 - [ ] **PL-05** — After "sign out everywhere", the session endpoint returns no session from a sibling subdomain (TM-02; verify with the product smoke test, [launch-checklist.md](runbooks/launch-checklist.md) section 9).
@@ -328,23 +328,21 @@ The ids start at PL-02 and stay stable. PL-01, the production cookie attributes,
 
 The controls below are cited above but their issues were open on 2026-10-25, so the checklist items that depend on them cannot pass yet.
 
-| Issue              | Control                                        | Affects                    |
-| ------------------ | ---------------------------------------------- | -------------------------- |
-| `#115 (AUTH-T104)` | Cross-subdomain cookie spike                   | TM-01, PL-02               |
-| `#44 (AUTH-T32)`   | Re-authentication for sensitive actions        | TM-02, TM-04, TM-05        |
-| `#90 (AUTH-T78)`   | Session purge by `createdAt`                   | TM-02, PL-06               |
-| `#81 (AUTH-T69)`   | Secrets and JWKS rotation procedures           | TM-03, TM-09, PL-10        |
-| `#93 (AUTH-T81)`   | RLS guide for Supabase-backed products         | TM-03                      |
-| `#36 (AUTH-T24)`   | Admin email-change rules                       | TM-04, TM-05               |
-| `#48 (AUTH-T36)`   | Admin user-management endpoints                | TM-04                      |
-| `#52 (AUTH-T40)`   | Primary Admin protection tests                 | TM-04, PL-14               |
-| `#79 (AUTH-T67)`   | TOTP, required for admins                      | TM-04, TM-05, PL-12        |
-| `#49 (AUTH-T37)`   | Primary Admin transfer flow                    | TM-05, PL-14, PL-15        |
-| `#76 (AUTH-T64)`   | Escalating lockout with known-device exemption | TM-08                      |
-| `#82 (AUTH-T70)`   | Enumeration resistance                         | TM-08                      |
-| `#89 (AUTH-T77)`   | Threshold alerts                               | TM-04, TM-06, TM-08, PL-21 |
-| `#114 (AUTH-T103)` | Scanner-safe email links                       | TM-07, PL-17, PL-18        |
-| `#87 (AUTH-T75)`   | PostHog on authenticated pages only            | Other threats considered   |
+| Issue            | Control                                        | Affects                    |
+| ---------------- | ---------------------------------------------- | -------------------------- |
+| `#44 (AUTH-T32)` | Re-authentication for sensitive actions        | TM-02, TM-04, TM-05        |
+| `#90 (AUTH-T78)` | Session purge by `createdAt`                   | TM-02, PL-06               |
+| `#81 (AUTH-T69)` | Secrets and JWKS rotation procedures           | TM-03, TM-09, PL-10        |
+| `#93 (AUTH-T81)` | RLS guide for Supabase-backed products         | TM-03                      |
+| `#36 (AUTH-T24)` | Admin email-change rules                       | TM-04, TM-05               |
+| `#48 (AUTH-T36)` | Admin user-management endpoints                | TM-04                      |
+| `#52 (AUTH-T40)` | Primary Admin protection tests                 | TM-04, PL-14               |
+| `#79 (AUTH-T67)` | TOTP, required for admins                      | TM-04, TM-05, PL-12        |
+| `#49 (AUTH-T37)` | Primary Admin transfer flow                    | TM-05, PL-14, PL-15        |
+| `#76 (AUTH-T64)` | Escalating lockout with known-device exemption | TM-08                      |
+| `#82 (AUTH-T70)` | Enumeration resistance                         | TM-08                      |
+| `#89 (AUTH-T77)` | Threshold alerts                               | TM-04, TM-06, TM-08, PL-21 |
+| `#87 (AUTH-T75)` | PostHog on authenticated pages only            | Other threats considered   |
 
 ## Review sign-off
 
