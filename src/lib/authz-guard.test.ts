@@ -90,7 +90,7 @@ function importsAndCalls(
   name: string,
   module: string,
 ): boolean {
-  const escapedModule = module.replace(/[/]/g, "\\/");
+  const escapedModule = module.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
   const imported = new RegExp(
     `import\\s*\\{[^}]*\\b${name}\\b[^}]*\\}\\s*from\\s*["']${escapedModule}["']`,
   ).test(source);
