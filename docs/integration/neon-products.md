@@ -81,6 +81,8 @@ export function proxy(request: NextRequest) {
 }
 ```
 
+`sgaProxy` sets an `x-sgauth-return-to` header on the request it forwards, so that `requireSession()` can send the user back to the page they asked for after sign-in. `productProxy(request)` builds its own response and does not carry that header. Unless `productProxy` forwards it, the user lands on `https://<host>/` after sign-in instead of the deep link. If the product proxy returns `NextResponse.next()`, have it forward the request headers it receives, including `x-sgauth-return-to`, with `NextResponse.next({ request: { headers: new Headers(request.headers) } })`, after copying that header onto the request.
+
 > **The proxy is not authorization.** A request that carries any cookie value gets through. Every page, action and route handler still calls `requireSession()` or `getServerSession()`.
 
 ## Read the session
