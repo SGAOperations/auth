@@ -32,7 +32,7 @@ export const auth = betterAuth({
   ...buildAuthOptions({
     prisma,
     baseURL: settings.baseURL,
-    // With secrets set, Better Auth signs with secrets[0] and keeps secret only to decrypt pre-rotation data (docs/runbooks/rotate-secrets.md).
+    // secrets[0] signs; secret only decrypts pre-rotation data
     secret: settings.legacySecret,
     secrets: settings.secrets,
     trustedOrigins: getTrustedOrigins,

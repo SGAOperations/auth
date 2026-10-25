@@ -18,7 +18,7 @@ import {
 // SUPABASE_ACCESS_TOKEN: never in CI, never on Vercel. It is the one place SGAuth
 // talks to the Supabase Management API, a product-integration tooling exception
 // (plain fetch, no @supabase/* dependency, nothing under src/), the same as
-// #93's registration script. Dry run by default; `--apply` writes.
+// scripts/supabase-register-tpa.ts. Dry run by default; `--apply` writes.
 // See docs/runbooks/rotate-secrets.md.
 
 const USAGE =
