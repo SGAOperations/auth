@@ -2,6 +2,7 @@ import "server-only";
 import type { BetterAuthOptions } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
+import { deleteSessionCookie } from "better-auth/cookies";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
@@ -157,6 +158,13 @@ export function buildAuthOptions({
       }),
       after: createAuthMiddleware(async (ctx) => {
         await auditHooks.afterEndpoint(ctx);
+        if (
+          ctx.path === "/revoke-sessions" &&
+          !isAPIError(ctx.context.returned)
+        ) {
+          // revoke-sessions deletes the current row too; expire its cookie.
+          deleteSessionCookie(ctx);
+        }
         if (ctx.path === "/sign-in/email") await rehashAfterSignIn(ctx);
         if (ctx.path !== "/get-session") return;
         const parsed = sessionResult.safeParse(ctx.context.returned);
