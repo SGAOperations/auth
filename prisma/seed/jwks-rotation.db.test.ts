@@ -7,9 +7,12 @@ import { buildJwtPlugin } from "@/lib/auth/jwt";
 import {
   JwksRotationError,
   activateStagedKey,
+  readCiphers,
   readKeys,
+  retireKey,
   stageKey,
 } from "./jwks-rotation";
+import { buildSecretConfig } from "../../scripts/rotation/jwks-cli";
 
 const ISSUER = "http://localhost:3000";
 const SECRET = "s".repeat(32);
@@ -90,6 +93,59 @@ describe("staged JWKS rotation", () => {
       data: { expiresAt: new Date(Date.now() - 7 * DAY_MS - 60_000) },
     });
     expect(await publishedKids()).toEqual([stagedKid]);
+
+    // 5. The unpublished old key can now be deleted; the new one keeps signing
+    // and no third key appears.
+    await retireKey(prisma, String(oldKid), new Date());
+    expect(await prisma.jwks.count()).toBe(1);
+    expect(kidOf(await sign("user-a"))).toBe(stagedKid);
+    expect(await prisma.jwks.count()).toBe(1);
+  });
+
+  it("refuses to retire the signing key or a key inside its grace period", async () => {
+    const active = kidOf(await sign("user-d"));
+    await expect(
+      retireKey(prisma, String(active), new Date()),
+    ).rejects.toBeInstanceOf(JwksRotationError);
+
+    await stageKey(prisma, SECRET, new Date());
+    await activateStagedKey(prisma, new Date());
+    await expect(
+      retireKey(prisma, String(active), new Date()),
+    ).rejects.toBeInstanceOf(JwksRotationError);
+    expect(await prisma.jwks.count()).toBe(2);
+  });
+
+  it("rotates under versioned secrets, encrypting the staged key with the current version", async () => {
+    const secrets = [{ version: 2, value: "v".repeat(32) }];
+    const versioned = betterAuth({
+      database: prismaAdapter(prisma, { provider: "postgresql" }),
+      advanced: { database: { generateId: false } },
+      secret: SECRET,
+      secrets,
+      baseURL: ISSUER,
+      plugins: [buildJwtPlugin({ prisma, issuer: ISSUER })],
+    });
+    const config = buildSecretConfig(SECRET, secrets);
+
+    const { token: first } = await versioned.api.signJWT({
+      body: { payload: { sub: "user-e" } },
+    });
+    const stagedKid = await stageKey(prisma, config, new Date());
+    const ciphers = await readCiphers(prisma, config);
+    expect(ciphers.get(stagedKid)).toEqual({ cipher: "v2", decrypts: true });
+    expect(ciphers.get(String(kidOf(first)))).toEqual({
+      cipher: "v2",
+      decrypts: true,
+    });
+
+    // Signing with the staged key proves the server decrypts what the script
+    // wrote.
+    await activateStagedKey(prisma, new Date());
+    const { token: second } = await versioned.api.signJWT({
+      body: { payload: { sub: "user-e" } },
+    });
+    expect(kidOf(second)).toBe(stagedKid);
   });
 
   it("refuses to activate with nothing staged", async () => {

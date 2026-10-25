@@ -1,6 +1,5 @@
 import "dotenv/config";
 import pg from "pg";
-import { z } from "zod";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import {
@@ -8,98 +7,103 @@ import {
   activateStagedKey,
   formatKeyStatus,
   planActivate,
+  planRetire,
   planStage,
+  readCiphers,
   readKeys,
+  retireKey,
   stageKey,
 } from "../prisma/seed/jwks-rotation.js";
 import { UsageError, describeTarget } from "../prisma/seed/sync-env.js";
+import { parseRotateArgs, parseRotateEnv } from "./rotation/jwks-cli.js";
+import { jwksUrlFor, kidsOf } from "./rotation/supabase-tpa.js";
 
 // Standalone ops script: parses its own env and builds its own client, the same
 // exception as scripts/positions-sync.ts. Dry run by default; `--apply` writes.
 // Allowed in production. See docs/runbooks/rotate-secrets.md.
 
-const USAGE = "Usage: npm run jwks:rotate [-- status|stage|activate] [--apply]";
+const USAGE =
+  "Usage: npm run jwks:rotate [-- status | stage | activate --issuer <https-origin> | retire --kid <id>] [--apply]";
 
-const COMMANDS = ["status", "stage", "activate"] as const;
-type Command = (typeof COMMANDS)[number];
-
-function parseArgs(argv: string[]): { command: Command; apply: boolean } {
-  const apply = argv.includes("--apply");
-  const rest = argv.filter((arg) => arg !== "--apply");
-  if (rest.length > 1) {
-    throw new UsageError(`Unknown argument: ${rest.slice(1).join(" ")}`);
-  }
-  const command = rest[0] ?? "status";
-  if (!(COMMANDS as readonly string[]).includes(command)) {
-    throw new UsageError(`Unknown command: ${command}`);
-  }
-  return { command: command as Command, apply };
-}
-
-const envSchema = z.object({
-  DIRECT_URL: z
-    .string()
-    .min(1)
-    .refine((value) => URL.canParse(value)),
-  SGAUTH_ENV: z.enum(["production", "dev", "preview", "local"]),
-  BETTER_AUTH_SECRET: z.string().min(32),
-});
-
-// Names only: DIRECT_URL carries the migration role's password and the secret
-// decrypts every signing key.
-function parseEnv(raw: Record<string, string | undefined>) {
-  const parsed = envSchema.safeParse(raw);
-  if (!parsed.success) {
-    const names = [
-      ...new Set(parsed.error.issues.map((issue) => issue.path.join("."))),
-    ];
-    throw new UsageError(
-      `Invalid environment (DIRECT_URL, SGAUTH_ENV and BETTER_AUTH_SECRET of at least 32 characters are required). Problem with: ${names.join(", ")}`,
+async function fetchPublishedKids(issuer: string): Promise<Set<string>> {
+  const response = await fetch(jwksUrlFor(issuer));
+  if (!response.ok) {
+    throw new JwksRotationError(
+      `${jwksUrlFor(issuer)} answered ${response.status}; cannot confirm the staged key is public.`,
     );
   }
-  return parsed.data;
+  return new Set(kidsOf(await response.json()));
 }
 
 async function main() {
-  const { command, apply } = parseArgs(process.argv.slice(2));
-  const env = parseEnv(process.env);
+  const args = parseRotateArgs(process.argv.slice(2));
+  const env = parseRotateEnv(process.env);
 
   console.log(
-    `Target: ${describeTarget(env.DIRECT_URL)} (SGAUTH_ENV=${env.SGAUTH_ENV})`,
+    `Target: ${describeTarget(env.directUrl)} (SGAUTH_ENV=${env.sgauthEnv})`,
   );
 
-  const pool = new pg.Pool({ connectionString: env.DIRECT_URL });
+  const pool = new pg.Pool({ connectionString: env.directUrl });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
   try {
-    const keys = await readKeys(prisma, new Date());
-    console.log(formatKeyStatus(keys));
-    if (command === "status") return;
+    const now = new Date();
+    const keys = await readKeys(prisma, now);
+    const ciphers = await readCiphers(prisma, env.secret);
+    console.log(formatKeyStatus(keys, ciphers));
+    if (args.command === "status") return;
 
-    if (command === "stage") {
+    // A secret that cannot open the signing key is not the one the server uses:
+    // a key staged under it would be unreadable to the server.
+    const signer = keys.find((key) => key.state === "active");
+    if (signer && !ciphers.get(signer.row.id)?.decrypts) {
+      throw new JwksRotationError(
+        "The secret in this environment does not decrypt the signing key, so it is not the one the server uses. Check BETTER_AUTH_SECRET and BETTER_AUTH_SECRETS. Nothing was changed.",
+      );
+    }
+
+    if (args.command === "stage") {
       planStage(keys);
-      if (!apply) {
+      if (!args.apply) {
         console.log(
           "Dry run. Would create a staged key: published in the JWKS, not signing. Re-run with --apply.",
         );
         return;
       }
-      const id = await stageKey(prisma, env.BETTER_AUTH_SECRET, new Date());
+      const id = await stageKey(prisma, env.secret, now);
       console.log(
-        `Staged key ${id}. Push the combined JWKS to every Supabase project before activating.`,
+        `Staged key ${id}. Push the combined JWKS to every Supabase project (npm run supabase:push-jwks) before activating.`,
       );
       return;
     }
 
-    const plan = planActivate(keys);
-    if (!apply) {
+    if (args.command === "activate") {
+      const issuer = args.issuer as string;
+      const published = await fetchPublishedKids(issuer);
+      const plan = planActivate(keys, published);
+      if (!args.apply) {
+        console.log(
+          `Dry run. Would switch signing to ${plan.stagedId} and expire ${plan.activeId} (published for 7 more days). Re-run with --apply.`,
+        );
+        return;
+      }
+      const applied = await activateStagedKey(prisma, now, published);
       console.log(
-        `Dry run. Would switch signing to ${plan.stagedId} and expire ${plan.activeId} (published for 7 more days). Re-run with --apply.`,
+        `Activated ${applied.stagedId}. ${applied.activeId} is expired and stays published for 7 days. Retire it on or after ${new Date(now.getTime() + 7 * 86_400_000).toISOString().slice(0, 10)}.`,
       );
       return;
     }
-    const applied = await activateStagedKey(prisma, new Date());
+
+    const kid = args.kid as string;
+    const plan = planRetire(keys, kid);
+    if (!args.apply) {
+      console.log(
+        `Dry run. Would delete key ${plan.retireId}. Re-run with --apply.`,
+      );
+      return;
+    }
+    await retireKey(prisma, kid, now);
     console.log(
-      `Activated ${applied.stagedId}. ${applied.activeId} is expired and stays published for 7 days.`,
+      `Deleted key ${kid}. Run npm run supabase:push-jwks again so inline integrations drop it.`,
     );
   } finally {
     await prisma.$disconnect();
