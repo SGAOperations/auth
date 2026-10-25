@@ -25,6 +25,27 @@ alerts are sent. The secrets (`NEON_API_KEY`, `NEON_PROJECT_ID`,
 `RESEND_API_KEY`, `NEON_QUOTA_ALERT_TO`) live in the repository's Actions
 secrets, and the values are in the team password manager.
 
+## Security alert emails
+
+A job every 15 minutes (`POST /api/jobs/alerts`) counts security events and
+emails every active, verified admin one summary covering each condition it
+found. Each condition is reported at most once an hour. A condition that
+appears during that hour is reported by the first run after it.
+
+| Condition                                | What it means                                                       | First step                                                                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Failed sign-in spike (over 50 in 15 min) | Credential stuffing or a broken client.                             | Check Vercel logs for `[ALERT] rate-limit` and the sign-in 429 rate. Look for one IP or one account.       |
+| Account lockout spike (over 5 in 1 h)    | Several accounts were locked after repeated failures.               | Check the audit log for `ACCOUNT_LOCKED` targets. Same address range, or a targeted account?               |
+| Break-glass recovery used                | The Primary Admin was recovered outside the normal transfer.        | Confirm with the Primary Admin immediately. See [break-glass.md](break-glass.md).                          |
+| Primary Admin transfer started           | A transfer was initiated.                                           | Confirm it was expected. The cooling period lets the sender cancel.                                        |
+| Signing keys rotated                     | The token signing keys changed.                                     | Confirm the rotation was planned. Products refetch the JWKS on their own.                                  |
+| Scheduled job failed                     | A job route threw. The email names the job.                         | Open the failed run in GitHub Actions and the Vercel logs for `job.failed`.                                |
+| Upstash fail-open                        | Rate limits or email caps were not enforced while Upstash was down. | Check Upstash status and the `UPSTASH_REDIS_REST_*` settings. See [RATE-LIMITING.md](../RATE-LIMITING.md). |
+
+If an alert cannot be delivered (no eligible admin, or every send failed), the
+job fails and the Actions run turns red. The condition is not marked as
+reported, so the next run tries again.
+
 ## Never add keep-warm pings
 
 Do not schedule or poll database traffic to keep the compute awake. Scale-to-zero

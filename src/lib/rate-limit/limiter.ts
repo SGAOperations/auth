@@ -82,15 +82,27 @@ function identifierFor(by: RuleKey, raw: string): string {
 
 const ALERT_INTERVAL_MS = 60_000;
 
+export interface FailOpenEvent {
+  policy: PolicyName;
+  rule: string;
+  reason: "timeout" | "error";
+}
+
 interface RateLimiterOptions {
   backend: RateLimitBackend;
   log: AlertLog;
+  /**
+   * Called right after a fail-open line is written, so at most once per rule
+   * per minute per instance. A throwing callback is swallowed.
+   */
+  onFailOpen?: (event: FailOpenEvent) => void;
   now?: () => number;
 }
 
 export function createRateLimiter({
   backend,
   log,
+  onFailOpen,
   now = Date.now,
 }: RateLimiterOptions) {
   const lastAlert = new Map<string, { at: number; suppressed: number }>();
@@ -120,6 +132,11 @@ export function createRateLimiter({
         ? { suppressed: previous.suppressed }
         : {}),
     });
+    try {
+      onFailOpen?.({ policy, rule: rule.id, reason });
+    } catch {
+      // A signal must never fail a request.
+    }
   }
 
   async function check(

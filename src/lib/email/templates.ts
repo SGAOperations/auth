@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RULE_KEYS, type RuleKey } from "@/lib/alerts/rules";
 import { formatDuration, formatEt, renderLayout } from "./layout";
 
 // Pure on purpose, like layout.ts: no `server-only`, no env. Each template is a
@@ -79,6 +80,55 @@ const SECURITY_EVENTS = {
       `This happened at ${when}. If this wasn't you, reset your password right away and contact SGA.`,
   },
 } as const;
+
+const ALERT_HEADLINES: Record<RuleKey, string> = {
+  "login-failed-spike": "SGA Auth: failed sign-in spike",
+  "account-locked-spike": "SGA Auth: account lockout spike",
+  "break-glass": "SGA Auth: break-glass recovery used",
+  "pa-transfer-initiated": "SGA Auth: Primary Admin transfer started",
+  "jwks-rotated": "SGA Auth: signing keys rotated",
+  "job-failed": "SGA Auth: scheduled job failed",
+  "upstash-fail-open": "SGA Auth: Upstash fail-open",
+};
+
+function times(count: number): string {
+  return count === 1 ? "1 time" : `${count} times`;
+}
+
+const alertItem = z.object({
+  rule: z.enum(RULE_KEYS),
+  count: z.number().int().min(1),
+  since: z.date().optional(),
+  jobs: z
+    .array(z.string().regex(/^[a-z][a-z0-9-]{0,63}$/))
+    .max(5)
+    .optional(),
+});
+
+type AlertItem = z.infer<typeof alertItem>;
+
+function alertBullet(item: AlertItem): string {
+  const since = item.since ? ` since ${formatEt(item.since)}` : "";
+  const n = item.count;
+  switch (item.rule) {
+    case "login-failed-spike":
+      return `${n} failed sign-ins in the last 15 minutes (alert threshold: 50).`;
+    case "account-locked-spike":
+      return `${n} accounts locked in the last hour (alert threshold: 5).`;
+    case "break-glass":
+      return `Break-glass Primary Admin recovery was used ${times(n)}${since}.`;
+    case "pa-transfer-initiated":
+      return `${n} Primary Admin ${n === 1 ? "transfer" : "transfers"} started${since}.`;
+    case "jwks-rotated":
+      return `The token signing keys were rotated ${times(n)}${since}.`;
+    case "job-failed": {
+      const jobs = item.jobs?.length ? `: ${item.jobs.join(", ")}` : "";
+      return `${n} scheduled job ${n === 1 ? "run" : "runs"} failed${since}${jobs}.`;
+    }
+    case "upstash-fail-open":
+      return `Upstash was unreachable ${times(n)}${since}, so rate limits or email caps were not enforced.`;
+  }
+}
 
 export const TEMPLATES = {
   "verify-email": defineTemplate({
@@ -328,6 +378,33 @@ export const TEMPLATES = {
         ],
         action: { label: "Sign in", url: d.signInUrl },
       }),
+  }),
+
+  "security-alert": defineTemplate({
+    schema: z.object({
+      name,
+      checkedAt: z.date(),
+      items: z.array(alertItem).min(1).max(RULE_KEYS.length),
+    }),
+    links: [],
+    render: (d) => {
+      const subject =
+        d.items.length === 1
+          ? ALERT_HEADLINES[d.items[0].rule]
+          : `SGA Auth security alert: ${d.items.length} conditions`;
+      return compose(subject, {
+        preheader: "SGAuth found conditions that need a look.",
+        heading: "Security alert",
+        paragraphs: [
+          greeting(d.name),
+          `The alert check at ${formatEt(d.checkedAt)} found:`,
+          ...d.items.map((item) => `- ${alertBullet(item)}`),
+        ],
+        afterAction: [
+          "Each condition is reported at most once an hour. If any of this is unexpected, check the audit log and Vercel logs, and see the on-call runbook.",
+        ],
+      });
+    },
   }),
 } as const;
 

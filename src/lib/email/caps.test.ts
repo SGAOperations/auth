@@ -148,6 +148,39 @@ describe("fail-open", () => {
     });
   });
 
+  it("calls onFailOpen once per written line and never for a suppressed one", async () => {
+    const onFailOpen = vi.fn();
+    const clock = { now: Date.UTC(2026, 9, 16, 10, 0, 0) };
+    const caps = createEmailCaps({
+      store: failing,
+      dailyCap: 500,
+      log: { error: vi.fn() },
+      onFailOpen,
+      now: () => clock.now,
+    });
+
+    await caps.check("a");
+    await caps.check("a");
+    expect(onFailOpen).toHaveBeenCalledTimes(1);
+    expect(onFailOpen).toHaveBeenCalledWith({ reason: "error" });
+
+    clock.now += 61_000;
+    await caps.check("a");
+    expect(onFailOpen).toHaveBeenCalledTimes(2);
+  });
+
+  it("still allows the send when onFailOpen throws", async () => {
+    const caps = createEmailCaps({
+      store: failing,
+      dailyCap: 500,
+      log: { error: vi.fn() },
+      onFailOpen: () => {
+        throw new Error("boom");
+      },
+    });
+    expect(await caps.check("a")).toEqual({ allowed: true });
+  });
+
   it("never logs the error message or the hash", async () => {
     const { caps, log } = setup({ store: failing });
     await caps.check("hash-value");

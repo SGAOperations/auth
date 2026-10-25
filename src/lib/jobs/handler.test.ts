@@ -119,6 +119,50 @@ describe("createJobHandler", () => {
     });
   });
 
+  it("calls onFailure with the job name when the job throws, and not otherwise", async () => {
+    const onFailure = vi.fn();
+    const run = vi.fn(async () => ({ ok: 1 }));
+    const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const handler = createJobHandler({
+      name: "demo",
+      run,
+      secret: SECRET,
+      log,
+      onFailure,
+    });
+
+    await handler(request(`Bearer ${SECRET}`));
+    await handler(request());
+    expect(onFailure).not.toHaveBeenCalled();
+
+    run.mockRejectedValueOnce(new Error("boom"));
+    const response = await handler(request(`Bearer ${SECRET}`));
+    expect(response.status).toBe(500);
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith("demo");
+  });
+
+  it("still answers 500 when onFailure throws", async () => {
+    const run = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const handler = createJobHandler({
+      name: "demo",
+      run,
+      secret: SECRET,
+      log,
+      onFailure: () => {
+        throw new Error("hook");
+      },
+    });
+    const response = await handler(request(`Bearer ${SECRET}`));
+    expect(response.status).toBe(500);
+    expect(log.error).toHaveBeenCalledWith(
+      "job.on_failure_failed",
+      expect.objectContaining({ job: "demo" }),
+    );
+  });
+
   it("marks every response no-store", async () => {
     const { handler, run } = setup();
     run.mockRejectedValueOnce(new Error("boom"));

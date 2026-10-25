@@ -318,3 +318,21 @@ model AuditEvent {
   @@index([actorUserId, createdAt])
   @@index([targetType, targetId, createdAt])
 }
+
+/// Operational signals that are not audit events (job failures, Upstash fail-open). Read by the security-alert job.
+model OpsSignal {
+  id        String   @id @default(uuid(7))
+  /// validated against OPS_SIGNAL_CATALOG in src/lib/alerts/signals.ts; no DB CHECK, same as AuditEvent.type
+  kind      String
+  detail    Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
+
+/// One row per alert rule: when it last sent and how far its "any" rules have already reported.
+model AlertState {
+  ruleKey        String    @id
+  lastSentAt     DateTime?
+  coveredThrough DateTime?
+}

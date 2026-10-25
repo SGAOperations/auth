@@ -1,5 +1,6 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
+import { deferSignal } from "@/lib/alerts/signals";
 import { toAuthSettings } from "@/lib/auth/settings";
 import { env } from "@/lib/env";
 import {
@@ -51,6 +52,8 @@ export const mailer = createMailer({
     store: buildCapStore(),
     dailyCap: env.SGAUTH_EMAIL_DAILY_CAP,
     log: logger,
+    onFailOpen: (detail) =>
+      deferSignal({ kind: "EMAIL_CAP_FAIL_OPEN", detail }),
   }),
   from: `SGAuth <${env.RESEND_FROM_EMAIL ?? DEFAULT_FROM_ADDRESS}>`,
   linkOrigin: new URL(toAuthSettings(env).baseURL).origin,

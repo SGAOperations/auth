@@ -1,6 +1,7 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
 import { env } from "@/lib/env";
+import { deferSignal } from "@/lib/alerts/signals";
 import { resolveCookiePolicy, sessionCookieName } from "@/lib/auth/cookies";
 import { logger } from "@/lib/log";
 import { createAuthRouteLimiter } from "@/lib/rate-limit/auth-route";
@@ -30,7 +31,11 @@ function buildBackend(): RateLimitBackend {
   return createMemoryBackend();
 }
 
-const limiter = createRateLimiter({ backend: buildBackend(), log: logger });
+const limiter = createRateLimiter({
+  backend: buildBackend(),
+  log: logger,
+  onFailOpen: (detail) => deferSignal({ kind: "RATE_LIMIT_FAIL_OPEN", detail }),
+});
 
 /** For handlers that key a policy on one id, such as re-auth and admin. */
 export const limitRequest = limiter.limitRequest;

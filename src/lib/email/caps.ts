@@ -125,6 +125,11 @@ interface EmailCapsOptions {
   store: CapStore;
   dailyCap: number;
   log: CapLog;
+  /**
+   * Called right after the fail-open line is written, so at most once a minute
+   * per instance. A throwing callback is swallowed.
+   */
+  onFailOpen?: (event: { reason: "timeout" | "error" }) => void;
   now?: () => number;
 }
 
@@ -132,6 +137,7 @@ export function createEmailCaps({
   store,
   dailyCap,
   log,
+  onFailOpen,
   now = Date.now,
 }: EmailCapsOptions) {
   let lastFailOpenAlert: { at: number; suppressed: number } | null = null;
@@ -149,11 +155,17 @@ export function createEmailCaps({
     }
     const suppressed = lastFailOpenAlert?.suppressed ?? 0;
     lastFailOpenAlert = { at: nowMs, suppressed: 0 };
+    const reason = error instanceof CapStoreTimeoutError ? "timeout" : "error";
     log.error("[ALERT] email cap fail-open", {
-      reason: error instanceof CapStoreTimeoutError ? "timeout" : "error",
+      reason,
       ...(error instanceof Error ? { errorName: error.name } : {}),
       ...(suppressed > 0 ? { suppressed } : {}),
     });
+    try {
+      onFailOpen?.({ reason });
+    } catch {
+      // A signal must never fail a send.
+    }
   }
 
   async function check(recipientHash: string): Promise<CapDecision> {
