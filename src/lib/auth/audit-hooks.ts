@@ -40,7 +40,7 @@ const bodyWithEmail = z.looseObject({ email: z.string() });
 const changePasswordBody = z.looseObject({
   revokeOtherSessions: z.boolean().optional(),
 });
-const errorBody = z.looseObject({ code: z.string() });
+export const errorBody = z.looseObject({ code: z.string() });
 const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
 
 export const LOGIN_METHODS: Record<string, "password" | "email_verification"> =

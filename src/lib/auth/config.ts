@@ -52,7 +52,11 @@ export const auth = betterAuth({
             if (level !== "error") return;
             const err = args.find((arg) => arg instanceof Error);
             if (err)
-              void analytics.captureError(err, { source: "better-auth" });
+              void analytics.captureError(
+                err,
+                { source: "better-auth" },
+                { defer: true },
+              );
           },
         },
   // Upstash limits in src/lib/rate-limit (AUTH-T63); the built-in limiter stays off (docs/ENGINEERING.md §3).

@@ -1,16 +1,15 @@
 import "server-only";
 import { isAPIError } from "better-auth/api";
-import { z } from "zod";
 import type { Analytics } from "@/lib/analytics/analytics";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import {
   LOGIN_METHODS,
+  errorBody,
   type HookContext,
   type HookSession,
   type HookUser,
 } from "@/lib/auth/audit-hooks";
 
-const errorBody = z.looseObject({ code: z.string() });
 const loginFailedReason = ANALYTICS_EVENTS.login_failed.shape.reason;
 
 /**

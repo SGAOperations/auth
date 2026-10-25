@@ -127,13 +127,15 @@ export function createAnalytics({
     },
 
     /**
-     * Sends a sanitized copy of `err` to error tracking. Awaits the send
-     * directly: `onRequestError` can run outside a request scope. Never
-     * throws.
+     * Sends a sanitized copy of `err` to error tracking. By default awaits the
+     * send directly, because `onRequestError` can run outside a request scope.
+     * With `defer`, the send is scheduled after the response like `capture`, for
+     * callers inside a request that do not await it. Never throws.
      */
     async captureError(
       err: unknown,
       context: CaptureErrorContext,
+      options: { defer?: boolean } = {},
     ): Promise<void> {
       if (!client) return;
       try {
@@ -151,11 +153,25 @@ export function createAnalytics({
           source: context.source,
           ...(userId ? {} : { $process_person_profile: false }),
         };
-        await client.captureExceptionImmediate(
-          sanitizeError(err),
-          userId ?? crypto.randomUUID(),
-          properties,
-        );
+        const sender = client;
+        const clean = sanitizeError(err);
+        const distinctId = userId ?? crypto.randomUUID();
+        const send = async () => {
+          try {
+            await sender.captureExceptionImmediate(
+              clean,
+              distinctId,
+              properties,
+            );
+          } catch (sendErr) {
+            log.warn("analytics.send_failed", {
+              event: "$exception",
+              errName: errorName(sendErr),
+            });
+          }
+        };
+        if (options.defer) schedule(send);
+        else await send();
       } catch (sendErr) {
         log.warn("analytics.send_failed", {
           event: "$exception",

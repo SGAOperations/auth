@@ -228,6 +228,35 @@ describe("captureError", () => {
     expect(properties?.method).toBe("GET");
   });
 
+  it("hands the send to the scheduler only when deferred", async () => {
+    const { client, exceptions } = fakeClient();
+    const { log } = fakeLog();
+    const queued: (() => Promise<void>)[] = [];
+    const analytics = createAnalytics({
+      client,
+      env: "dev",
+      log,
+      schedule: (task) => {
+        queued.push(task);
+      },
+    });
+    await analytics.captureError(
+      new Error("x"),
+      { source: "better-auth" },
+      {
+        defer: true,
+      },
+    );
+    expect(exceptions).toHaveLength(0);
+    expect(queued).toHaveLength(1);
+    await queued[0]?.();
+    expect(exceptions).toHaveLength(1);
+
+    await analytics.captureError(new Error("y"), { source: "request" });
+    expect(queued).toHaveLength(1);
+    expect(exceptions).toHaveLength(2);
+  });
+
   it("makes no calls without a client", async () => {
     const { analytics } = build(null);
     await expect(
