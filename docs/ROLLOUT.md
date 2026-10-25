@@ -160,19 +160,19 @@ SGA {sender role}
 
 Fourteen days after each cutover (the T+14 step in §3), the SGAuth operator and the product owner fill in a copy of the template below for that product and commit it here.
 
-Tracked by AUTH-T92 ([#104](https://github.com/SGAOperations/auth/issues/104)), which stays open until every row of the tracker is `Done`.
+Tracked by AUTH-T92 ([#104](https://github.com/SGAOperations/auth/issues/104)) and its per-product cleanup sub-issues.
 
 ### 7.1 Review tracker
 
 `Status` is `Not started`, `In review` or `Done`. `Done` means the review is committed and the cleanup sub-issue is closed.
 
-| Product            | Cutover date | Review due (cutover + 14 d) | Reviewed on | Cleanup sub-issue | Outcome | Status |
-| ------------------ | ------------ | --------------------------- | ----------- | ----------------- | ------- | ------ |
-| VaultZ             | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
-| Chambers           | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
-| Aplio              | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
-| SenatePath         | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
-| Attendance Manager | TBD          | TBD                         | TBD         | TBD               | TBD     | TBD    |
+| Product            | Cutover date | Review due (cutover + 14 d) | Reviewed on | Cleanup sub-issue                                                          | Outcome | Status |
+| ------------------ | ------------ | --------------------------- | ----------- | -------------------------------------------------------------------------- | ------- | ------ |
+| VaultZ             | TBD          | TBD                         | TBD         | [vaultz#758](https://github.com/SGAOperations/vaultz/issues/758)           | TBD     | TBD    |
+| Chambers           | TBD          | TBD                         | TBD         | [chambers#250](https://github.com/SGAOperations/chambers/issues/250)       | TBD     | TBD    |
+| Aplio              | TBD          | TBD                         | TBD         | [aplio#888](https://github.com/SGAOperations/aplio/issues/888)             | TBD     | TBD    |
+| SenatePath         | TBD          | TBD                         | TBD         | [senate-path#103](https://github.com/SGAOperations/senate-path/issues/103) | TBD     | TBD    |
+| Attendance Manager | TBD          | TBD                         | TBD         | Not filed (waits on the directive)                                         | TBD     | TBD    |
 
 ### 7.2 Review template
 
@@ -183,17 +183,17 @@ Copy this block under §7.4, as a heading `### 7.<n> <Product> — reviewed <YYY
 
 #### Metrics
 
-| Metric                                    | Source                                                                                                                 | Value | Flag? |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| Sign-ins (daily, 14 d)                    | PostHog auth dashboard (AUTH-T75), `login_succeeded`                                                                   |       |       |
-| Sign-in failure rate                      | PostHog (AUTH-T75): `login_failed` / (`login_succeeded` + `login_failed`), broken down by reason category              |       |       |
-| Failed logins                             | `AuditEvent` `LOGIN_FAILED` count in the window, and the peak 15-minute count (AUTH-T73)                               |       |       |
-| Lockouts                                  | `AuditEvent` `ACCOUNT_LOCKED` count in the window, and the peak hourly count (AUTH-T73)                                |       |       |
-| Threshold alerts fired                    | AUTH-T77 alert emails during the window                                                                                |       |       |
-| Support requests                          | Count kept by the named support contact (§5), by triage row                                                            |       |       |
-| Imported users signed in                  | Imported users with a `LOGIN_SUCCESS` in the window, out of the number imported (from the import report)               |       |       |
-| Chambers only: `bcrypt$` hashes remaining | AUTH-T21 metric. Fallback, read-only on production: `SELECT count(*) FROM "Account" WHERE "password" LIKE 'bcrypt$%';` |       |       |
-| Chambers only: re-hashes                  | `PASSWORD_REHASHED` count                                                                                              |       |       |
+| Metric                                    | Source                                                                                                   | Value | Flag? |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| Sign-ins (daily, 14 d)                    | PostHog "Daily logins" insight, `login_succeeded` ([POSTHOG.md](POSTHOG.md), AUTH-T75)                   |       |       |
+| Sign-in failure rate                      | PostHog "Failure rate" insight (AUTH-T75), broken down by `reason`                                       |       |       |
+| Failed logins                             | `AuditEvent` `LOGIN_FAILED` count in the window, and the peak 15-minute count (AUTH-T73)                 |       |       |
+| Lockouts                                  | `AuditEvent` `ACCOUNT_LOCKED` count in the window, and the peak hourly count (AUTH-T73)                  |       |       |
+| Threshold alerts fired                    | AUTH-T77 alert emails during the window                                                                  |       |       |
+| Support requests                          | Count kept by the named support contact (§5), by triage row                                              |       |       |
+| Imported users signed in                  | Imported users with a `LOGIN_SUCCESS` in the window, out of the number imported (from the import report) |       |       |
+| Chambers only: `bcrypt$` hashes remaining | "Remaining hashes" query in [legacy-bcrypt.md](runbooks/legacy-bcrypt.md), run read-only on production   |       |       |
+| Chambers only: re-hashes                  | "Re-hash rate" query in [legacy-bcrypt.md](runbooks/legacy-bcrypt.md), summed over the window            |       |       |
 
 Skip the two Chambers-only rows for every other product.
 
@@ -227,9 +227,9 @@ Link evidence for each item: a PR, a commit, or a screenshot of the deleted reso
 
 ### 7.3 bcrypt verify path removal
 
-The Chambers-only bcrypt verify path (AUTH-T21, [#33](https://github.com/SGAOperations/auth/issues/33)) is removed by its own follow-up ticket, not by a review. Its gate is a `bcrypt$` count of zero in production. Accounts still on bcrypt at the Chambers review are reset or left to expire, which the follow-up decides. The Chambers review records the count and links the follow-up issue.
+The Chambers-only bcrypt verify path (AUTH-T21, [#33](https://github.com/SGAOperations/auth/issues/33)) is removed by its own follow-up ticket, not by a review. The gate and the list of files to delete are the "Removal criterion" in [legacy-bcrypt.md](runbooks/legacy-bcrypt.md). The Chambers review records the remaining count and links the follow-up issue.
 
-Never remove the path while the count is above zero, or before Chambers' 7-day legacy window (§4) has ended. See [legacy-bcrypt.md](runbooks/legacy-bcrypt.md).
+Never remove the path while the count is above zero (unless the remaining accounts are deliberately cleared, as the runbook allows), or before Chambers' 7-day legacy window (§4) has ended.
 
 ### 7.4 Completed reviews
 
