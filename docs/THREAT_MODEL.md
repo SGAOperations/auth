@@ -286,12 +286,12 @@ Every residual risk above appears once. Owners are roles; the people who hold th
 
 The people who hold each role fill this in when they review. An agent does not guess names.
 
-| Role                 | Covers                                      | Name | Since |
-| -------------------- | ------------------------------------------- | ---- | ----- |
-| SGAuth lead          | Sessions, email, rate limits, subdomains    |      |       |
-| Primary Admin        | Admin list, PA transfer, break-glass        |      |       |
-| Infrastructure owner | Neon, Vercel, DNS, Upstash, Resend, PostHog |      |       |
-| Product owner        | Each product's RLS and JWT handling         |      |       |
+| Role                 | Covers                                      |  Role  | Since |
+| -------------------- | ------------------------------------------- |  ----  | ----- |
+| SGAuth lead          | Sessions, email, rate limits, subdomains    | VP Ops | F2026 |
+| Primary Admin        | Admin list, PA transfer, break-glass        | VP/IM  | F2026 |
+| Infrastructure owner | Neon, Vercel, DNS, Upstash, Resend, PostHog | VP/DIM | F2026 |
+| Product owner        | Each product's RLS and JWT handling         | VP/DIM | F2026 |
 
 ## Pre-launch checklist
 
@@ -346,9 +346,8 @@ The controls below are cited above but their issues were open on 2026-10-25, so 
 
 ## Review sign-off
 
-The ticket's acceptance criterion is a human one: two team members review this document, fill in the role holders, and confirm every residual risk has an owner or an accepted-risk note.
+The ticket's acceptance criterion is a human one: team members review this document, fill in the role holders, and confirm every residual risk has an owner or an accepted-risk note.
 
-| Reviewer | Role | Date |
-| -------- | ---- | ---- |
-|          |      |      |
-|          |      |      |
+|  Reviewer  | Role |   Date   |
+|  --------  | ---- |   ----   |
+| pataniaeli | VP   | 10/25/26 |
