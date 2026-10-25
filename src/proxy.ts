@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { toAuthSettings } from "@/lib/auth/settings";
 import { env } from "@/lib/env";
+import { logger } from "@/lib/log";
 import {
   GATE_COOKIE,
   GATE_PATH,
@@ -9,6 +10,7 @@ import {
   isGatePath,
   verifyGateCookie,
 } from "@/lib/preview-gate";
+import { getTrustedOrigins } from "@/lib/products";
 import { isCorsPreflight } from "@/lib/security/cors";
 import {
   CSP_REPORT_GROUP,
@@ -17,12 +19,19 @@ import {
   cspHeaderName,
   generateNonce,
 } from "@/lib/security/csp";
+import { createOriginGuard } from "@/lib/security/origin";
 
 // A bad environment throws at import, so every request fails closed.
 const settings = toAuthSettings(env);
 const key = settings.previewGate
   ? deriveGateKey(settings.secret, settings.previewGate.password)
   : null;
+
+// Passing the request keeps SGAUTH_ENV=local echoing *.sga.localhost origins.
+const guardOrigin = createOriginGuard({
+  trustedOrigins: (request) => getTrustedOrigins(request),
+  log: logger,
+});
 
 const HARDENING_HEADERS = {
   "Cache-Control": "no-store",
@@ -85,11 +94,15 @@ function withCsp(request: NextRequest): NextResponse {
   return response;
 }
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const blocked = gate(request);
   if (blocked) return blocked;
 
-  if (request.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    const rejected = await guardOrigin(request);
+    if (rejected) return rejected;
+    return NextResponse.next();
+  }
   return withCsp(request);
 }
 
