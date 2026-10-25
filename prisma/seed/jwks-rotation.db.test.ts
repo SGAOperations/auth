@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { createLocalJWKSet, decodeProtectedHeader, jwtVerify } from "jose";
@@ -49,6 +49,14 @@ async function publishedKids() {
 }
 
 describe("staged JWKS rotation", () => {
+  // Every test mints its own keys; none inherits another's.
+  beforeEach(async () => {
+    await prisma.jwks.deleteMany();
+  });
+  afterAll(async () => {
+    await prisma.jwks.deleteMany();
+  });
+
   it("stages, activates and retires a key", async () => {
     // 1. The first call mints the key that signs.
     const tokenA = await sign("user-a");
