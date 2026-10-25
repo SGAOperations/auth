@@ -196,6 +196,8 @@ $$;
 
 Example table and policies. Replace `treasurer` with your own position key.
 
+> **Prerequisite:** `expense_reports.owner_id` references `public.users`. Create that table first, using the DDL in [section 5](#5-decoupling-from-authusers), or this SQL fails when applied in order.
+
 ```sql
 create table public.expense_reports (
   id uuid primary key default gen_random_uuid(),
