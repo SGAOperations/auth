@@ -12,7 +12,7 @@ import {
 
 // The part of Better Auth's hook context these adapters read. Declared here so
 // they do not depend on the internal context types.
-interface HookContext {
+export interface HookContext {
   path?: string;
   headers?: Headers;
   request?: Request;
@@ -25,11 +25,11 @@ interface HookContext {
   };
 }
 
-interface HookUser {
+export interface HookUser {
   id: string;
 }
 
-interface HookSession {
+export interface HookSession {
   id: string;
   userId: string;
   ipAddress?: string | null;
@@ -43,10 +43,11 @@ const changePasswordBody = z.looseObject({
 const errorBody = z.looseObject({ code: z.string() });
 const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
 
-const LOGIN_METHODS: Record<string, "password" | "email_verification"> = {
-  "/sign-in/email": "password",
-  "/verify-email": "email_verification",
-};
+export const LOGIN_METHODS: Record<string, "password" | "email_verification"> =
+  {
+    "/sign-in/email": "password",
+    "/verify-email": "email_verification",
+  };
 
 /**
  * Adapters from Better Auth hooks to catalog events. Auth state has already

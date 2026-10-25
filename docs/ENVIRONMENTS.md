@@ -33,6 +33,9 @@ Every variable set in Vercel, by scope. "Preview (`dev`)" is the branch-specific
 | `RESEND_FROM_EMAIL` ([#32](https://github.com/SGAOperations/auth/issues/32))              | Bare sender address. The `SGAuth` display name is added in code. Required on `production` and `dev`.                                                                | `no-reply@auth.northeasternsga.com` | `no-reply@auth.northeasternsga.com` | not set                | not set       | manual | no     |
 | `SGAUTH_EMAIL_DAILY_CAP` ([#32](https://github.com/SGAOperations/auth/issues/32))         | Optional global daily send cap (default 500). Set it at or under the Resend plan's daily limit.                                                                     | optional                            | optional                            | not set                | not set       | manual | no     |
 | `CRON_SECRET` ([#50](https://github.com/SGAOperations/auth/issues/50))                    | Bearer secret for the `/api/jobs/*` routes. Required on `production` and `dev`. See [Scheduled jobs](#scheduled-jobs).                                              | distinct value                      | distinct value                      | not set                | not set       | manual | yes    |
+| `POSTHOG_KEY` ([#87](https://github.com/SGAOperations/auth/issues/87)) | PostHog project key for server-side analytics and error tracking. One project for all environments, events tagged by `sgauth_env`. See [POSTHOG.md](POSTHOG.md). Not a secret, but never `NEXT_PUBLIC_`. | set | set | not set | not set | manual | no |
+| `POSTHOG_HOST` ([#87](https://github.com/SGAOperations/auth/issues/87)) | PostHog ingestion host, for example `https://us.i.posthog.com`. Set together with the key. | set | set | not set | not set | manual | no |
+| `POSTHOG_DISABLED` ([#87](https://github.com/SGAOperations/auth/issues/87)) | `true` turns all PostHog capture off. Local `.env` only. | never set | never set | never set | not set | manual | no |
 | `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`                  | Read by `settings.ts` (preview `baseURL`, the `local`-on-Vercel assertion) and by `scripts/vercel-build.mjs`. `VERCEL_GIT_COMMIT_SHA` is the `/api/health` version. | system                              | system                              | system                 | n/a           | Vercel | no     |
 | `VERCEL_AUTOMATION_BYPASS_SECRET`                                                         | Exposes one bypass secret. Listed for reference only. Never copied into another product.                                                                            | system                              | system                              | system                 | n/a           | Vercel | yes    |
 
@@ -41,7 +44,6 @@ Notes:
 - The `VERCEL_*` variables require "Automatically expose System Environment Variables" to stay on.
 - `TEST_DATABASE_URL` and `TEST_DIRECT_URL` are local and CI only. They are never set in Vercel.
 - The Development scope is either filled as shown or left empty. Local development uses `.env`.
-- Later tickets add their own rows (PostHog).
 
 Rules:
 

@@ -16,6 +16,8 @@ import {
   SESSION_OPTIONS,
   initialSessionWindow,
 } from "@/lib/auth/session-lifetime";
+import { NOOP_ANALYTICS, type Analytics } from "@/lib/analytics/analytics";
+import { createAuthAnalyticsHooks } from "@/lib/auth/analytics-hooks";
 import { createAuthAuditHooks } from "@/lib/auth/audit-hooks";
 import {
   rehashLegacyPassword,
@@ -38,6 +40,8 @@ interface AuthOptionsInput {
   trustedOrigins?: BetterAuthOptions["trustedOrigins"];
   /** Cookie attributes from `buildCookieOptions`; config.ts supplies them. */
   advanced?: BetterAuthOptions["advanced"];
+  /** Defaults to a no-op, so tests and scripts never send. */
+  analytics?: Analytics;
 }
 
 // Lenient on purpose: anything that does not parse is left to the endpoint's
@@ -64,8 +68,10 @@ export function buildAuthOptions({
   secret,
   trustedOrigins,
   advanced,
+  analytics = NOOP_ANALYTICS,
 }: AuthOptionsInput) {
   const auditHooks = createAuthAuditHooks(prisma);
+  const analyticsHooks = createAuthAnalyticsHooks(analytics);
 
   // Runs only after a successful sign-in, so a wrong, unverified or
   // deactivated sign-in never re-hashes. The sign-in has already succeeded:
@@ -124,7 +130,13 @@ export function buildAuthOptions({
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       requireEmailVerification: true,
       autoSignIn: false,
-      onPasswordReset: auditHooks.passwordReset,
+      onPasswordReset: async (
+        data: { user: { id: string } },
+        request?: Request,
+      ) => {
+        await auditHooks.passwordReset(data, request);
+        analyticsHooks.passwordReset(data);
+      },
       // `hash` stays unset so new hashes use Better Auth's default scrypt.
       password: { verify: verifyPassword },
     },
@@ -140,7 +152,10 @@ export function buildAuthOptions({
       beforeEmailVerification: async (user) => {
         await prisma.session.deleteMany({ where: { userId: user.id } });
       },
-      afterEmailVerification: auditHooks.emailVerified,
+      afterEmailVerification: async (user, request) => {
+        await auditHooks.emailVerified(user, request);
+        analyticsHooks.emailVerified(user);
+      },
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
@@ -161,6 +176,7 @@ export function buildAuthOptions({
       }),
       after: createAuthMiddleware(async (ctx) => {
         await auditHooks.afterEndpoint(ctx);
+        analyticsHooks.afterEndpoint(ctx);
         if (
           ctx.path === "/revoke-sessions" &&
           !isAPIError(ctx.context.returned)
@@ -195,7 +211,10 @@ export function buildAuthOptions({
             }
             return { data: { ...user, email: normalizeEmail(user.email) } };
           },
-          after: auditHooks.userCreated,
+          after: async (user, ctx) => {
+            await auditHooks.userCreated(user, ctx);
+            analyticsHooks.userCreated(user, ctx);
+          },
         },
       },
       session: {
@@ -236,6 +255,7 @@ export function buildAuthOptions({
               ctx?.context.logger.error("Failed to record lastLoginAt", error);
             }
             await auditHooks.sessionCreated(session, ctx);
+            analyticsHooks.sessionCreated(session, ctx);
           },
         },
         delete: {
