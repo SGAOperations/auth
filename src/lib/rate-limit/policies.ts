@@ -65,6 +65,10 @@ export function matchAuthRoute(
   if (verb !== "POST") return null;
   switch (path) {
     case "/sign-in/email":
+    // The second factor shares the sign-in IP budget, on top of the plugin's
+    // own per-challenge and per-account caps.
+    case "/two-factor/verify-totp":
+    case "/two-factor/verify-backup-code":
       return "signIn";
     case "/sign-up/email":
       return "signUp";

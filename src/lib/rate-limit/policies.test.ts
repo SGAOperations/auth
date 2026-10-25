@@ -4,6 +4,8 @@ import { POLICIES, matchAuthRoute } from "@/lib/rate-limit/policies";
 describe("matchAuthRoute", () => {
   it.each([
     ["POST", "/sign-in/email", "signIn"],
+    ["POST", "/two-factor/verify-totp", "signIn"],
+    ["POST", "/two-factor/verify-backup-code", "signIn"],
     ["POST", "/sign-up/email", "signUp"],
     ["POST", "/request-password-reset", "passwordReset"],
     ["POST", "/send-verification-email", "verificationResend"],
@@ -18,6 +20,8 @@ describe("matchAuthRoute", () => {
     ["POST", "/get-session"],
     ["GET", "/ok"],
     ["GET", "/sign-in/email"],
+    ["GET", "/two-factor/verify-totp"],
+    ["POST", "/two-factor/disable"],
     ["POST", "/sign-in/email/extra"],
     ["POST", "/sign-out"],
     ["POST", "/"],

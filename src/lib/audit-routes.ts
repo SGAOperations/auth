@@ -71,6 +71,9 @@ const NO_SOCIAL = "no social providers are configured";
 const NO_DELETE =
   "user.deleteUser is not enabled; users are never hard-deleted (ENGINEERING §2)";
 
+const NO_OTP =
+  "email and SMS OTP is not configured (no otpOptions.sendOTP); always fails";
+
 /** Every Better Auth endpoint of the live plugin list, by path. */
 export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   "/sign-in/email": {
@@ -94,6 +97,30 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   "/revoke-session": { kind: "audited", events: ["SESSION_REVOKED"] },
   "/revoke-sessions": { kind: "audited", events: ["SESSIONS_REVOKED"] },
   "/revoke-other-sessions": { kind: "audited", events: ["SESSIONS_REVOKED"] },
+  "/two-factor/verify-totp": {
+    kind: "audited",
+    events: ["LOGIN_SUCCESS", "LOGIN_FAILED", "MFA_ENROLLED"],
+  },
+  "/two-factor/verify-backup-code": {
+    kind: "audited",
+    events: ["LOGIN_SUCCESS", "LOGIN_FAILED", "MFA_BACKUP_USED"],
+  },
+  "/two-factor/disable": { kind: "audited", events: ["MFA_DISABLED"] },
+  "/two-factor/generate-backup-codes": {
+    kind: "audited",
+    events: ["MFA_BACKUP_CODES_REGENERATED"],
+  },
+  "/two-factor/enable": {
+    kind: "exempt",
+    reason:
+      "starts enrollment; nothing is enabled until /two-factor/verify-totp, which emits MFA_ENROLLED",
+  },
+  "/two-factor/get-totp-uri": {
+    kind: "exempt",
+    reason: "returns the enrollment URI; no state change",
+  },
+  "/two-factor/send-otp": { kind: "exempt", reason: NO_OTP },
+  "/two-factor/verify-otp": { kind: "exempt", reason: NO_OTP },
 
   "/get-session": {
     kind: "exempt",

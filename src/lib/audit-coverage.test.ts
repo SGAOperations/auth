@@ -63,6 +63,8 @@ function authEndpoints() {
       },
       prisma,
       issuer: "http://localhost:3000",
+      secret: "s".repeat(32),
+      sgauthEnv: "local",
     }),
   });
   return Object.values(auth.api).flatMap((endpoint) => {

@@ -197,6 +197,9 @@ export function buildAuthOptions({
           },
           after: auditHooks.userCreated,
         },
+        update: {
+          after: auditHooks.userUpdated,
+        },
       },
       session: {
         create: {
@@ -227,6 +230,9 @@ export function buildAuthOptions({
           after: async (session, ctx) => {
             // Request log lines for sign-in and sign-up carry the user id.
             setRequestUserId(session.userId);
+            // A rotation, or the interim session of a sign-in that still owes
+            // its second factor, is not a login.
+            if (!(await auditHooks.isLoginSession(session, ctx))) return;
             try {
               await prisma.user.update({
                 where: { id: session.userId },

@@ -41,6 +41,7 @@ export const AUDIT_EVENT_TYPES = [
   "MFA_ENROLLED",
   "MFA_DISABLED",
   "MFA_BACKUP_USED",
+  "MFA_BACKUP_CODES_REGENERATED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
 ] as const;
@@ -102,7 +103,13 @@ export const AUDIT_CATALOG = {
   LOGIN_SUCCESS: {
     targetType: "USER",
     metadata: z.strictObject({
-      method: z.enum(["password", "email_verification", "other"]),
+      method: z.enum([
+        "password",
+        "email_verification",
+        "totp",
+        "backup_code",
+        "other",
+      ]),
     }),
   },
   LOGIN_FAILED: {
@@ -112,6 +119,7 @@ export const AUDIT_CATALOG = {
         "INVALID_EMAIL_OR_PASSWORD",
         "EMAIL_NOT_VERIFIED",
         "ACCOUNT_DEACTIVATED",
+        "INVALID_TWO_FACTOR_CODE",
         "OTHER",
       ]),
     }),
@@ -190,6 +198,7 @@ export const AUDIT_CATALOG = {
   MFA_ENROLLED: userTarget,
   MFA_DISABLED: userTarget,
   MFA_BACKUP_USED: userTarget,
+  MFA_BACKUP_CODES_REGENERATED: userTarget,
   BULK_IMPORT: noTarget,
   JWKS_ROTATED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };
