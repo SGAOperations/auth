@@ -66,6 +66,31 @@ Each template is a zod schema plus a pure `render(data)` that returns `{ subject
 
 Layout, escaping and the Eastern-time formatting live in `layout.ts`. Every interpolated value is escaped there, so templates never escape. `samples.ts` holds fixed sample data for every template and variant, shared by the snapshot test and the preview script.
 
+## Emailed links (scanner-safe)
+
+Northeastern mail is Microsoft 365, and Defender Safe Links pre-fetches every link in an incoming message. A link that acted on GET would be consumed by the scanner before the person clicks it (AUTH-T103, #114). So every emailed token link follows one rule: the URL opens a page that shows what is about to happen and a button. The token is validated for display on GET and never consumed. It is consumed only by the button's POST, which is same-origin and Origin-checked. **Every emailed token link is single use**: its side effects run once, and the token is dead afterwards.
+
+The links are registered in `TOKEN_ACTIONS` in `src/lib/token-links/actions.ts`:
+
+| Action               | Page                     | Owner          | Status  |
+| -------------------- | ------------------------ | -------------- | ------- |
+| `verify-email`       | `/verify-email`          | T103, T18, T24 | live    |
+| `reset-password`     | `/reset-password`        | T19 #31        | pending |
+| `set-password`       | `/set-password`          | T22 #34        | pending |
+| `account-unlock`     | `/unlock`                | T64 #76        | pending |
+| `pa-transfer-accept` | `/admin/transfer/accept` | T37 #49        | pending |
+| `pa-transfer-cancel` | `/admin/transfer/cancel` | T37 #49        | pending |
+
+`TEMPLATE_LINK_TARGETS` maps each template's `links` field to one of these actions, or to a plain link with no token and no side effect (`sign-in`, used by `inactivity-notice`). `tokenLinkUrl(origin, action, token)` builds the URL, and the mailer refuses any link whose path is not the live target registered for its field. A `pending` action has no page: `tokenLinkUrl` throws for it, and the mailer throws for its templates, so nothing can mail a link to a missing page. A test enumerates every template link and every live page.
+
+**Adding a consumer.** Build `src/app/<path>/page.tsx` with `TokenActionPage`, and `src/app/<path>/confirm/route.ts` with `createTokenActionHandler` and a POST export only. Write a `consume` with an atomic single-use guard, add the route to `APP_ROUTE_AUDIT`, and flip the action from `pending` to `live`. A flip without both files fails `src/lib/token-links/templates.test.ts`.
+
+**How verify links are single use.** Better Auth's verify token is a stateless signed JWT, so SGAuth records each used one in `UsedEmailVerificationToken`, keyed by the SHA-256 of the JWT. The POST claims the row atomically (`INSERT ... ON CONFLICT DO NOTHING`) before it calls `auth.api.verifyEmail`. A second POST finds the row and gets the `used` outcome with no Better Auth call. A failure Better Auth reports releases the claim, so the same link can be retried. A process that dies between the claim and the verification leaves the link burned, and the person requests a new one: the fail-closed direction. Rows past the JWT's `exp` are pruned on each successful claim. Better Auth's own `GET /api/auth/verify-email` is closed with `disabledPaths`, because it would bypass the record. This covers sign-up, sign-in and change-email tokens alike.
+
+**HEAD and scanners.** The proxy answers HEAD on a token-link path, and GET with a known scanner User-Agent (or none), with a static 200 and no side effects. The User-Agent list is best effort, since Safe Links often fetches with a browser User-Agent. The guarantee is that GET never consumes.
+
+**Logs.** A throw in a `consume` logs `token_link_failed` with `action` and `errorName`, never the token or the message, and the person sees the generic `error` card. Outcomes `invalid`, `used` and `rate` are not logged or audited, matching how the rate limiter treats denials.
+
 ## Caps
 
 Tune the numbers in `src/lib/email/caps.ts`, nowhere else.

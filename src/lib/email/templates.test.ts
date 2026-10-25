@@ -68,9 +68,9 @@ describe("rendering", () => {
     for (const sample of SAMPLES) {
       const prepared = prepareTemplate(sample.template, sample.data);
       if (!prepared.ok) throw new Error(`sample ${sample.id} did not parse`);
-      for (const link of prepared.linkUrls) {
-        expect(prepared.content.html).toContain(link);
-        expect(prepared.content.text).toContain(link);
+      for (const { url } of prepared.links) {
+        expect(prepared.content.html).toContain(url);
+        expect(prepared.content.text).toContain(url);
       }
     }
   });

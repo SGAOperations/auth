@@ -1,3 +1,9 @@
+import {
+  TOKEN_ACTIONS,
+  plainLinkUrl,
+  tokenLinkUrl,
+  type TokenActionName,
+} from "@/lib/token-links/actions";
 import type { TemplateData, TemplateName } from "./templates";
 
 // Pure: fixed sample data for every template and every variant. Shared by the
@@ -19,13 +25,22 @@ const LATER = new Date("2026-10-17T19:00:00Z");
 const WEEK = new Date("2026-10-23T19:00:00Z");
 const EARLIER = new Date("2026-04-16T19:00:00Z");
 
+// Samples only render and are never sent, so a pending action, which
+// `tokenLinkUrl` refuses, still gets its registered path.
+function sampleTokenUrl(action: TokenActionName): string {
+  const entry: { path: string; status: string } = TOKEN_ACTIONS[action];
+  return entry.status === "live"
+    ? tokenLinkUrl(ORIGIN, action, "sample-token")
+    : `${ORIGIN}${entry.path}?token=sample-token`;
+}
+
 export const SAMPLES: readonly Sample[] = [
   {
     id: "verify-email",
     template: "verify-email",
     data: {
       name: "Avery",
-      url: `${ORIGIN}/verify?token=sample`,
+      url: sampleTokenUrl("verify-email"),
       expiresInMinutes: 1440,
     },
   },
@@ -35,7 +50,7 @@ export const SAMPLES: readonly Sample[] = [
     template: "verify-email",
     data: {
       name: "<script>alert(1)</script> & co",
-      url: `${ORIGIN}/verify?token=sample`,
+      url: sampleTokenUrl("verify-email"),
       expiresInMinutes: 1440,
     },
   },
@@ -44,7 +59,7 @@ export const SAMPLES: readonly Sample[] = [
     template: "reset-password",
     data: {
       name: "Avery",
-      url: `${ORIGIN}/reset-password?token=sample`,
+      url: sampleTokenUrl("reset-password"),
       expiresInMinutes: 60,
     },
   },
@@ -52,7 +67,7 @@ export const SAMPLES: readonly Sample[] = [
     id: "set-password-first-sign-in",
     template: "set-password",
     data: {
-      url: `${ORIGIN}/set-password?token=sample`,
+      url: sampleTokenUrl("set-password"),
       expiresInMinutes: 10080,
       kind: "first-sign-in",
     },
@@ -62,7 +77,7 @@ export const SAMPLES: readonly Sample[] = [
     template: "set-password",
     data: {
       name: "Avery",
-      url: `${ORIGIN}/set-password?token=sample`,
+      url: sampleTokenUrl("set-password"),
       expiresInMinutes: 10080,
       kind: "admin-invite",
     },
@@ -77,7 +92,7 @@ export const SAMPLES: readonly Sample[] = [
     template: "account-unlock",
     data: {
       name: "Avery",
-      url: `${ORIGIN}/unlock?token=sample`,
+      url: sampleTokenUrl("account-unlock"),
       expiresInMinutes: 60,
     },
   },
@@ -101,7 +116,7 @@ export const SAMPLES: readonly Sample[] = [
     template: "pa-transfer-initiated",
     data: {
       role: "recipient",
-      url: `${ORIGIN}/admin/transfer`,
+      url: sampleTokenUrl("pa-transfer-accept"),
       fromName: "Jordan Lee",
       acceptBy: WEEK,
     },
@@ -116,7 +131,7 @@ export const SAMPLES: readonly Sample[] = [
     template: "pa-transfer-accepted",
     data: {
       role: "initiator",
-      cancelUrl: `${ORIGIN}/admin/transfer`,
+      cancelUrl: sampleTokenUrl("pa-transfer-cancel"),
       toName: "Sam Rivera",
       executesAt: LATER,
     },
@@ -156,7 +171,7 @@ export const SAMPLES: readonly Sample[] = [
       name: "Avery",
       lastLoginAt: EARLIER,
       deactivateAfter: WEEK,
-      signInUrl: `${ORIGIN}/sign-in`,
+      signInUrl: plainLinkUrl(ORIGIN, "sign-in"),
     },
   },
 ];

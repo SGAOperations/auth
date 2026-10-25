@@ -20,6 +20,7 @@ import {
   generateNonce,
 } from "@/lib/security/csp";
 import { createOriginGuard } from "@/lib/security/origin";
+import { scannerResponse } from "@/lib/token-links/scanner";
 
 // A bad environment throws at import, so every request fails closed.
 const settings = toAuthSettings(env);
@@ -97,6 +98,16 @@ function withCsp(request: NextRequest): NextResponse {
 export async function proxy(request: NextRequest) {
   const blocked = gate(request);
   if (blocked) return blocked;
+
+  // HEAD and scanner GETs on an emailed link never reach the page (AUTH-T103).
+  // The body is static and script-free, so it needs no CSP nonce and gets no
+  // CSP header.
+  const scanned = scannerResponse(
+    request.method,
+    request.nextUrl.pathname,
+    request.headers.get("user-agent"),
+  );
+  if (scanned) return scanned;
 
   if (request.nextUrl.pathname.startsWith("/api/")) {
     const rejected = await guardOrigin(request);

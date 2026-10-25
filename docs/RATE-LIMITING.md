@@ -16,6 +16,7 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 | `verify:email:1h`           | `POST /api/auth/send-verification-email`                               | email         | 3     | 1 hour     |
 | `token:session:1m`          | `/api/auth/token` (any method)                                         | session token | 60    | 1 minute   |
 | `session-lookup:session:1m` | `GET /api/sgauth/session` and `/minimal` (in-memory only, never Redis) | session token | 120   | 1 minute   |
+| `token-link:ip:10m`         | `POST /<token-link>/confirm` (AUTH-T103)                               | IP            | 20    | 10 minutes |
 | `reauth:user:1m`            | re-auth handler (AUTH-T32)                                             | user id       | 5     | 1 minute   |
 | `admin:user:1m`             | admin mutation handlers (AUTH-T36)                                     | user id       | 100   | 1 minute   |
 
@@ -64,6 +65,7 @@ The free tier allows 500,000 commands a month. The alert threshold is **80%, whi
 | `token`                | 300 monthly active users, 20 active days, 1.5 h a day, one refresh about every 9 minutes | 60,000           | 1      | 240,000                 |
 | `sign-in`              | 8 sign-ins per user per month                                                            | 2,400            | 2      | 19,200                  |
 | sign-up, reset, resend | new users and the occasional reset                                                       | about 1,000      | 1 to 2 | about 6,000             |
+| `token-link`           | one confirm POST per emailed link, about 1,500 a month                                   | about 1,500      | 1      | about 6,000             |
 | email caps             | about 2,000 sends a month, 6 commands per send (see [EMAIL.md](EMAIL.md))                | about 2,000      | n/a    | about 12,000            |
 | **Total**              |                                                                                          |                  |        | **about 277,000 (55%)** |
 

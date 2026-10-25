@@ -35,6 +35,9 @@ const limiter = createRateLimiter({ backend: buildBackend(), log: logger });
 /** For handlers that key a policy on one id, such as re-auth and admin. */
 export const limitRequest = limiter.limitRequest;
 
+/** For handlers that key a policy on several identifiers, such as the IP. */
+export const checkRateLimit = limiter.check;
+
 export const withAuthRateLimit = createAuthRouteLimiter({
   limiter,
   sessionCookieName: sessionCookieName(resolveCookiePolicy(env.SGAUTH_ENV)),

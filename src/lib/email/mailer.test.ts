@@ -19,7 +19,7 @@ const verify = (to = "Avery@Northeastern.edu"): VerifyMessage => ({
   template: "verify-email",
   data: {
     name: "Avery",
-    url: `${ORIGIN}/verify?token=t`,
+    url: `${ORIGIN}/verify-email?token=t`,
     expiresInMinutes: 1440,
   },
 });
@@ -148,6 +148,53 @@ describe("sendEmail programmer errors", () => {
         },
       }),
     ).rejects.toThrow("Link for email template verify-email is not on");
+    expect(transport.send).not.toHaveBeenCalled();
+  });
+
+  it("sends a verify-email link on its registered page", async () => {
+    const { mailer, transport } = setup();
+    await mailer.sendEmail({
+      ...verify(),
+      data: {
+        url: `${ORIGIN}/verify-email?token=t`,
+        expiresInMinutes: 60,
+      },
+    });
+    expect(transport.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws on a link whose path is not the registered page", async () => {
+    const { mailer, transport } = setup();
+    await expect(
+      mailer.sendEmail({
+        ...verify(),
+        data: {
+          url: `${ORIGIN}/api/auth/verify-email?token=secret-token`,
+          expiresInMinutes: 60,
+        },
+      }),
+    ).rejects.toThrow(
+      "Email template verify-email link url is not a registered token-link page (path)",
+    );
+    expect(transport.send).not.toHaveBeenCalled();
+  });
+
+  it("throws on a link to a pending target, without the URL in the message", async () => {
+    const { mailer, transport } = setup();
+    const error = await mailer
+      .sendEmail({
+        to: "avery@northeastern.edu",
+        template: "reset-password",
+        data: {
+          url: `${ORIGIN}/reset-password?token=secret-token`,
+          expiresInMinutes: 60,
+        },
+      })
+      .catch((e: unknown) => e as Error);
+    expect((error as Error).message).toBe(
+      "Email template reset-password link url is not a registered token-link page (pending)",
+    );
+    expect((error as Error).message).not.toContain("secret-token");
     expect(transport.send).not.toHaveBeenCalled();
   });
 
