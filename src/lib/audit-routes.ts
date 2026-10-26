@@ -43,6 +43,14 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["ACCOUNT_UNLOCKED"],
   },
+  "src/app/api/sgauth/admin/positions/route.ts": {
+    kind: "audited",
+    events: ["POSITION_CREATED"],
+  },
+  "src/app/api/sgauth/admin/positions/[id]/route.ts": {
+    kind: "audited",
+    events: ["POSITION_UPDATED", "POSITION_DELETED"],
+  },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",
     reason:

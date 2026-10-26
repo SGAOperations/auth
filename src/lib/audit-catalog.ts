@@ -79,10 +79,6 @@ interface AuditEventSpec {
 const noMetadata = z.strictObject({});
 
 const userTarget = { targetType: "USER", metadata: noMetadata } as const;
-const positionTarget = {
-  targetType: "POSITION",
-  metadata: noMetadata,
-} as const;
 const productTarget = { targetType: "PRODUCT", metadata: noMetadata } as const;
 const transferTarget = {
   targetType: "TRANSFER",
@@ -95,6 +91,35 @@ const positionOnUser = {
   targetType: "USER",
   metadata: z.strictObject({ positionId: z.string().min(1) }),
 } as const;
+
+// Position metadata holds position fields only. User ids are the one piece of
+// person data, and only in POSITION_DELETED's holderIds (as in positionOnUser).
+const positionSnapshot = z.strictObject({
+  key: z.string(),
+  name: z.string(),
+  category: z.string().nullable(),
+  description: z.string().nullable(),
+});
+
+const positionChanges = z.strictObject({
+  name: z.string().optional(),
+  category: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+});
+
+const hasChange = (changes: Record<string, unknown>) =>
+  Object.keys(changes).length > 0;
+
+const positionUpdatedMetadata = z
+  .strictObject({ before: positionChanges, after: positionChanges })
+  .refine(({ after }) => hasChange(after), {
+    message: "a position update must change at least one field",
+  })
+  .refine(
+    ({ before, after }) =>
+      Object.keys(before).sort().join() === Object.keys(after).sort().join(),
+    { message: "before and after must name the same fields" },
+  );
 
 const breakGlassOperator = z.string().trim().min(1).max(100);
 const breakGlassReason = z.string().trim().min(10).max(500);
@@ -151,9 +176,22 @@ export const AUDIT_CATALOG = {
   USER_DELETED: userTarget,
   ADMIN_GRANTED: userTarget,
   ADMIN_REVOKED: userTarget,
-  POSITION_CREATED: positionTarget,
-  POSITION_UPDATED: positionTarget,
-  POSITION_DELETED: positionTarget,
+  POSITION_CREATED: {
+    targetType: "POSITION",
+    metadata: z.strictObject({ after: positionSnapshot }),
+  },
+  POSITION_UPDATED: {
+    targetType: "POSITION",
+    metadata: positionUpdatedMetadata,
+  },
+  POSITION_DELETED: {
+    targetType: "POSITION",
+    metadata: z.strictObject({
+      before: positionSnapshot,
+      after: z.strictObject({ deletedAt: z.iso.datetime() }),
+      holderIds: z.array(z.uuid()),
+    }),
+  },
   // Target the user so the user timeline can use the (targetType, targetId,
   // createdAt) index. Position-side history reads metadata.positionId.
   POSITION_ASSIGNED: positionOnUser,

@@ -7,6 +7,8 @@ import {
   PositionError,
   createPosition,
   toPositionError,
+  updatePosition,
+  updatePositionInputSchema,
 } from "@/lib/positions";
 
 // Shapes observed under @prisma/client 7.10 with adapter-pg, loaded the way the
@@ -108,6 +110,47 @@ describe("toPositionError", () => {
     ["null", null],
   ])("returns null for %s", (_label, err) => {
     expect(toPositionError(err)).toBeNull();
+  });
+});
+
+describe("updatePositionInputSchema", () => {
+  it("rejects an empty body and an unknown field", () => {
+    expect(updatePositionInputSchema.safeParse({}).success).toBe(false);
+    expect(
+      updatePositionInputSchema.safeParse({ name: "Okay", color: "red" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("turns a blank category or description into null", () => {
+    expect(
+      updatePositionInputSchema.parse({ category: "  ", description: "" }),
+    ).toEqual({ category: null, description: null });
+  });
+
+  it("leaves absent fields absent", () => {
+    expect(updatePositionInputSchema.parse({ name: " VP Finance " })).toEqual({
+      name: "VP Finance",
+    });
+  });
+});
+
+describe("updatePosition key immutability", () => {
+  const db = {} as unknown as PrismaClient;
+
+  it.each([
+    ["a new key", { key: "other" }],
+    ["the unchanged key", { key: "vp-finance", name: "VP Finance" }],
+  ])("throws KEY_IMMUTABLE for %s", async (_label, input) => {
+    await expect(
+      updatePosition("p1", input, null, { db }),
+    ).rejects.toMatchObject({ code: "KEY_IMMUTABLE" });
+  });
+
+  it("throws INVALID_INPUT for an empty body", async () => {
+    await expect(updatePosition("p1", {}, null, { db })).rejects.toMatchObject({
+      code: "INVALID_INPUT",
+    });
   });
 });
 

@@ -4,7 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Every mutating route or server action must import and call can() from
-// "@/lib/authz", or be listed here with the reason it is exempt.
+// "@/lib/authz" (or requireAdmin from "@/lib/admin-api", which runs can()
+// itself), or be listed here with the reason it is exempt.
 const EXEMPT: Record<string, string> = {
   "src/app/api/auth/[...all]/route.ts":
     "Better Auth's own handler: sign-in, sign-up and session flows act on the caller's own account, not on another user",
@@ -72,13 +73,28 @@ function startsWithUseServer(source: string): boolean {
   return /^(["'])use server\1/.test(withoutComments);
 }
 
-/** True when the file imports `can` from "@/lib/authz" and calls it. */
+/**
+ * True when the file imports `can` from "@/lib/authz" and calls it, or imports
+ * `requireAdmin` from "@/lib/admin-api" and calls it (requireAdmin runs the
+ * can() check itself before returning the actor).
+ */
 export function isGuarded(source: string): boolean {
-  const imported =
-    /import\s*\{[^}]*\bcan\b[^}]*\}\s*from\s*["']@\/lib\/authz["']/.test(
-      source,
-    );
-  return imported && /\bcan\s*\(/.test(source);
+  return (
+    importsAndCalls(source, "can", "@/lib/authz") ||
+    importsAndCalls(source, "requireAdmin", "@/lib/admin-api")
+  );
+}
+
+function importsAndCalls(
+  source: string,
+  name: string,
+  module: string,
+): boolean {
+  const escapedModule = module.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  const imported = new RegExp(
+    `import\\s*\\{[^}]*\\b${name}\\b[^}]*\\}\\s*from\\s*["']${escapedModule}["']`,
+  ).test(source);
+  return imported && new RegExp(`\\b${name}\\s*\\(`).test(source);
 }
 
 describe("isMutatingEntry", () => {
@@ -121,7 +137,28 @@ describe("isGuarded", () => {
     expect(isGuarded(source)).toBe(true);
   });
 
+  it("accepts requireAdmin imported from admin-api and called", () => {
+    const source = `import {\n  requireAdmin,\n  type AdminGuard,\n} from "@/lib/admin-api";\nconst guard = await requireAdmin({ mutation: true });`;
+    expect(isGuarded(source)).toBe(true);
+  });
+
   it.each([
+    [
+      "requireAdmin without a call",
+      `import { requireAdmin } from "@/lib/admin-api";`,
+    ],
+    [
+      "requireAdmin called but not imported",
+      `const guard = await requireAdmin({ mutation: true });`,
+    ],
+    [
+      "requireAdmin from another module",
+      `import { requireAdmin } from "@/lib/auth/server";\nawait requireAdmin({ mutation: true });`,
+    ],
+    [
+      "a type-only requireAdmin neighbour",
+      `import { type AdminGuard } from "@/lib/admin-api";\nrequireAdmin({ mutation: true });`,
+    ],
     ["no import", `const d = can(actor, "grantAdmin", target);`],
     ["import without a call", `import { can } from "@/lib/authz";`],
     [
