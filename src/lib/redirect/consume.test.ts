@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const SGAUTH = "https://auth.northeasternsga.com";
-const PRODUCT = "https://vaultz.northeasternsga.com";
+const { SGAUTH, PRODUCT } = vi.hoisted(() => ({
+  SGAUTH: "https://auth.northeasternsga.com",
+  PRODUCT: "https://vaultz.northeasternsga.com",
+}));
 
 const cookieStore = vi.hoisted(() => ({
   get: vi.fn<(name: string) => { value: string } | undefined>(),
