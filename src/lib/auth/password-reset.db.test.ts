@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
 import { betterAuth } from "better-auth";
@@ -348,7 +349,9 @@ describe.skipIf(!url)("password reset", () => {
       const unlock = await prisma.unlockToken.create({
         data: {
           userId: row.id,
-          tokenHash: `t19-${rand}-${counter++}`,
+          tokenHash: createHash("sha256")
+            .update(`t19-${rand}-${counter++}`)
+            .digest("hex"),
           expiresAt: new Date(Date.now() + HOUR_MS),
         },
       });
