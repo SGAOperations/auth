@@ -1,6 +1,7 @@
 import "server-only";
 import { isAPIError } from "better-auth/api";
 import { verifyJWT } from "better-auth/crypto";
+import { errors, jwtVerify } from "jose";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
 import {
@@ -15,7 +16,7 @@ import {
   releaseVerifyToken,
 } from "@/lib/token-links/verify-email-token";
 
-type VerifyEmailDb = Pick<PrismaClient, "usedEmailVerificationToken">;
+type VerifyEmailDb = Pick<PrismaClient, "usedEmailVerificationToken" | "user">;
 
 const jwtPayload = z.object({ email: z.email(), exp: z.number() });
 
@@ -35,6 +36,46 @@ export async function readVerifyToken(
   };
 }
 
+const expiredPayload = z.looseObject({ email: z.email() });
+
+/**
+ * The address in a plain verify token this server signed that has since
+ * expired, or `null` for everything else, including a live token. jose checks
+ * the signature before the claims, so the payload it attaches to a
+ * `JWTExpired` is authentic. A change-email token (`updateTo`, `requestType`)
+ * is never a plain verify token.
+ */
+export async function readExpiredVerifyToken(
+  token: string,
+  secret: string,
+): Promise<{ email: string } | null> {
+  try {
+    await jwtVerify(token, new TextEncoder().encode(secret), {
+      algorithms: ["HS256"],
+    });
+    return null;
+  } catch (error) {
+    if (!(error instanceof errors.JWTExpired)) return null;
+    const payload = expiredPayload.safeParse(error.payload);
+    if (!payload.success) return null;
+    if ("updateTo" in payload.data || "requestType" in payload.data) {
+      return null;
+    }
+    return { email: payload.data.email };
+  }
+}
+
+async function isEmailVerified(
+  db: VerifyEmailDb,
+  email: string,
+): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { email },
+    select: { emailVerified: true },
+  });
+  return user?.emailVerified === true;
+}
+
 const searchParamsSchema = z.object({
   token: z.string().max(4096).optional(),
   result: z.enum(TOKEN_ACTION_RESULTS).optional(),
@@ -42,11 +83,15 @@ const searchParamsSchema = z.object({
 
 export type VerifyEmailView =
   | { state: "ready"; token: string; email: string }
+  // Carries the token so the page can offer a resend for its address.
+  | { state: "expired"; token: string }
   | { state: TokenActionResult };
 
 /**
  * What the GET page shows. Read-only by construction: it reads the single-use
- * record and never claims, so a scanner pre-fetch consumes nothing.
+ * record and the user row and never writes, so a scanner pre-fetch consumes
+ * nothing. An address that is already verified shows as `used`, whichever of
+ * its links is open.
  */
 export async function loadVerifyEmailView(
   searchParams: Record<string, string | string[] | undefined>,
@@ -58,10 +103,14 @@ export async function loadVerifyEmailView(
   if (result) return { state: result };
   if (!token) return { state: "invalid" };
 
-  const read = await readVerifyToken(token, secret);
-  if (!read) return { state: "invalid" };
+  const live = await readVerifyToken(token, secret);
+  const email =
+    live?.email ?? (await readExpiredVerifyToken(token, secret))?.email;
+  if (!email) return { state: "invalid" };
+
   if (await isVerifyTokenUsed(db, token)) return { state: "used" };
-  return { state: "ready", token, email: read.email };
+  if (await isEmailVerified(db, email)) return { state: "used" };
+  return live ? { state: "ready", token, email } : { state: "expired", token };
 }
 
 interface VerifyEmailAuth {
@@ -85,27 +134,34 @@ export function createVerifyEmailConsumer({
   auth,
   db,
   secret,
+  resolveRedirect,
 }: {
   auth: VerifyEmailAuth;
   db: VerifyEmailDb;
   secret: string;
+  /** Where to send the browser once the session is set (`consumeRedirect`). */
+  resolveRedirect: () => Promise<string>;
 }): (input: TokenActionInput) => Promise<TokenActionOutcome> {
   return async function consume({ token, request }) {
     const read = await readVerifyToken(token, secret);
     // Nothing is written for a forged, malformed or expired token.
     if (!read) return { result: "invalid" };
 
+    // Better Auth answers an already-verified address with success and no
+    // session, which would look like a login that never happened.
+    if (await isEmailVerified(db, read.email)) return { result: "used" };
+
     if ((await claimVerifyToken(db, token, read.expiresAt)) === "used") {
       return { result: "used" };
     }
 
+    let headers: Headers;
     try {
-      const { headers } = await auth.api.verifyEmail({
+      ({ headers } = await auth.api.verifyEmail({
         query: { token },
         headers: request.headers,
         returnHeaders: true,
-      });
-      return { result: "done", headers };
+      }));
     } catch (error) {
       // The verification did not happen, so the person may retry this link,
       // for example after INVALID_USER from someone else's session.
@@ -113,5 +169,56 @@ export function createVerifyEmailConsumer({
       if (isAPIError(error)) return { result: "invalid" };
       throw error;
     }
+
+    // The address is verified and the session headers are in hand, so a throw
+    // here must not lose them. Without a `redirectTo` the handler lands on its
+    // own done page, still carrying the session cookies.
+    let redirectTo: string | undefined;
+    try {
+      redirectTo = await resolveRedirect();
+    } catch {
+      redirectTo = undefined;
+    }
+    return { result: "done", headers, redirectTo };
+  };
+}
+
+interface ResendVerifyEmailAuth {
+  api: {
+    sendVerificationEmail(context: {
+      body: { email: string };
+    }): Promise<unknown>;
+  };
+}
+
+/**
+ * The resend POST's `consume`, for a link that has expired. The address comes
+ * from the signed token, never from the form. It never reads the user row, so
+ * `sent` is the same whether or not the account exists or is already verified;
+ * Better Auth mails only an unverified account. The send takes no headers,
+ * which keeps it on Better Auth's no-session branch, so an unrelated signed-in
+ * session can never turn it into an error. Resending shares the HTTP
+ * endpoint's `verify:email:1h` bucket.
+ */
+export function createResendVerifyEmailConsumer({
+  auth,
+  secret,
+  limit,
+}: {
+  auth: ResendVerifyEmailAuth;
+  secret: string;
+  /** `false` once the address has used its resends for the window. */
+  limit: (email: string) => Promise<boolean>;
+}): (input: TokenActionInput) => Promise<TokenActionOutcome> {
+  return async function consume({ token }) {
+    const read =
+      (await readVerifyToken(token, secret)) ??
+      (await readExpiredVerifyToken(token, secret));
+    if (!read) return { result: "invalid" };
+
+    if (!(await limit(read.email))) return { result: "rate" };
+
+    await auth.api.sendVerificationEmail({ body: { email: read.email } });
+    return { result: "sent" };
   };
 }

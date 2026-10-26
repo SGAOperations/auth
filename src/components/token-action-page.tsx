@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 // Shared page of every emailed token link. `ready` is a form that POSTs to the
 // confirm route, the only way the token is consumed. No client JS.
 
-type Outcome = "done" | "invalid" | "used" | "rate" | "error";
+type Outcome = "done" | "invalid" | "used" | "rate" | "sent" | "error";
 
 interface Message {
   title: string;
@@ -34,6 +34,10 @@ const DEFAULT_MESSAGES = {
   rate: {
     title: "Too many attempts",
     body: "Wait a few minutes, then open the link from your email again.",
+  },
+  sent: {
+    title: "Check your inbox",
+    body: "If a new link is needed, we've sent one to your email.",
   },
   error: {
     title: "Something went wrong",
@@ -57,6 +61,8 @@ export interface TokenActionPageProps {
     done: Message;
     invalid?: Message;
     used?: Message;
+    rate?: Message;
+    sent?: Message;
   };
 }
 
@@ -77,8 +83,7 @@ export function TokenActionPage({
   messages,
 }: TokenActionPageProps) {
   if (state !== "ready") {
-    const override =
-      state === "invalid" || state === "used" ? messages[state] : undefined;
+    const override = state === "error" ? undefined : messages[state];
     const message: Message =
       state === "done" ? messages.done : (override ?? DEFAULT_MESSAGES[state]);
     return (

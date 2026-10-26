@@ -133,13 +133,27 @@ describe.skipIf(!url)("audit events from Better Auth", () => {
       "user-agent": "t73-agent",
     });
 
-    const events = await eventsFor(user.id, "LOGIN_SUCCESS");
+    // Verifying logged the user in too, so the password login is the second.
+    const events = (await eventsFor(user.id, "LOGIN_SUCCESS")).filter(
+      (event) =>
+        (event.metadata as { method?: string } | null)?.method === "password",
+    );
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       actorUserId: user.id,
       metadata: { method: "password" },
       ip: "203.0.113.9",
       userAgent: "t73-agent",
+    });
+  });
+
+  it("records LOGIN_SUCCESS with the email_verification method when verifying", async () => {
+    const { user } = await verifiedUser();
+    const events = await eventsFor(user.id, "LOGIN_SUCCESS");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actorUserId: user.id,
+      metadata: { method: "email_verification" },
     });
   });
 
@@ -200,8 +214,10 @@ describe.skipIf(!url)("audit events from Better Auth", () => {
   it("records LOGOUT targeting the deleted session", async () => {
     const { email, user } = await verifiedUser();
     const cookie = await signInWithCookie(email);
+    // The newest session is the sign-in's; the oldest is from verifying.
     const session = await prisma.session.findFirstOrThrow({
       where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
     });
 
     const response = await post("/sign-out", {}, { cookie });

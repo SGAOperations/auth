@@ -28,6 +28,7 @@ const { loadSubject } = buildSessionEndpointDeps({
   auth: {} as SessionAuth,
   prisma,
   limiter: { limitRequest: async () => null },
+  log: { warn: () => {} },
 });
 
 const rand = Math.random().toString(36).slice(2, 8);

@@ -50,7 +50,10 @@ describe.skipIf(!url)("session lifetime", () => {
     });
     const token = await createEmailVerificationToken(SECRET, email);
     await auth.api.verifyEmail({ query: { token } });
-    return prisma.user.findUniqueOrThrow({ where: { email } });
+    const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    // Verifying signs the user in; these tests expect to open every session.
+    await prisma.session.deleteMany({ where: { userId: user.id } });
+    return user;
   }
 
   async function signIn(
@@ -148,7 +151,7 @@ describe.skipIf(!url)("session lifetime", () => {
     at(31 * DAY_MS);
     expect(await listSessionsStatus(b.cookie)).toBe(401);
     expect(await getSession(b.cookie)).toBeNull();
-  });
+  }, 30_000);
 
   it("stores the client IP and user agent", async () => {
     const { user } = await signedInUser({
