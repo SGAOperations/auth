@@ -20,4 +20,5 @@ export const POST = createTokenActionHandler({
   }),
   limit: (ip) => checkRateLimit("tokenLink", { ip }),
   log: logger,
+  ownOrigin: new URL(toAuthSettings(env).baseURL).origin,
 });

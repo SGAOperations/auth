@@ -1,5 +1,7 @@
 import { audit } from "@/lib/audit";
+import { toAuthSettings } from "@/lib/auth/settings";
 import { createUnlockConsumer } from "@/lib/auth/unlock";
+import { env } from "@/lib/env";
 import { logger } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit } from "@/lib/rate-limit/server";
@@ -32,4 +34,5 @@ export const POST = createTokenActionHandler({
   }),
   limit: (ip) => checkRateLimit("tokenLink", { ip }),
   log: logger,
+  ownOrigin: new URL(toAuthSettings(env).baseURL).origin,
 });

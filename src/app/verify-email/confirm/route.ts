@@ -22,4 +22,5 @@ export const POST = createTokenActionHandler({
   limit: (ip) => checkRateLimit("tokenLink", { ip }),
   allowRedirect: isResolvedRedirect,
   log: logger,
+  ownOrigin: new URL(toAuthSettings(env).baseURL).origin,
 });

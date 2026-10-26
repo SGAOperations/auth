@@ -26,7 +26,11 @@ function post(
 
 function setup(
   outcome: TokenActionOutcome | Error = { result: "done" },
-  options: { allowed?: boolean; fields?: z.ZodObject } = {},
+  options: {
+    allowed?: boolean;
+    fields?: z.ZodObject;
+    ownOrigin?: string;
+  } = {},
 ) {
   const consume = vi.fn(async () => {
     if (outcome instanceof Error) throw outcome;
@@ -43,6 +47,7 @@ function setup(
     consume,
     limit,
     log,
+    ownOrigin: options.ownOrigin,
   });
   return { handle, consume, limit, log };
 }
@@ -62,6 +67,45 @@ describe("createTokenActionHandler", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(consume).not.toHaveBeenCalled();
     expect(limit).not.toHaveBeenCalled();
+  });
+
+  describe("with a configured ownOrigin", () => {
+    const BASE = "http://auth.sga.localhost:3000";
+    // What a dev server reports as request.url, unlike the browser's origin.
+    const devRequest = (headers: Record<string, string>) =>
+      new Request("http://localhost:3000/verify-email/confirm", {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          ...headers,
+        },
+        body: form({ token: "t" }),
+      });
+
+    it("accepts an Origin matching it even when request.url differs", async () => {
+      const { handle, consume } = setup(
+        { result: "done" },
+        { ownOrigin: BASE },
+      );
+      const response = await handle(devRequest({ origin: BASE }));
+      expect(response.status).toBe(303);
+      expect(consume).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects a mismatched Origin, including request.url's own", async () => {
+      const { handle, consume } = setup(
+        { result: "done" },
+        { ownOrigin: BASE },
+      );
+      for (const origin of [
+        "https://evil.example.com",
+        "http://localhost:3000",
+      ]) {
+        const response = await handle(devRequest({ origin }));
+        expect(response.status).toBe(403);
+      }
+      expect(consume).not.toHaveBeenCalled();
+    });
   });
 
   it("accepts a same-origin Referer when Origin is missing", async () => {
