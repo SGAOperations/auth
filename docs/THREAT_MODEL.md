@@ -46,6 +46,7 @@ Trust boundaries:
 - `#68 (AUTH-T56)` product registry at runtime: no wildcard trusted origin and no `*.vercel.app`.
 - `#77 (AUTH-T65)` Origin enforcement on every mutation.
 - `#115 (AUTH-T104)` spike observing real cookie behaviour and tossing in three browsers. The spike has run; its go/no-go sign-off by the SGAuth lead is still a launch item (PL-02).
+- `#213` refuses requests carrying duplicate session cookies, so a planted host-only or path copy beside the victim's resolves to signed out rather than to either session ([SESSION-COOKIE.md](SESSION-COOKIE.md#duplicate-session-cookies)).
 - `#78 (AUTH-T66)` HSTS without `includeSubDomains`, so SGAuth does not force HTTPS-only on hosts it has not inventoried.
 
 **Residual risk.** A subdomain SGA controls and later loses, or a host that is inventoried and compromised, still receives the cookie and can plant one. This is inherent to the parent-domain cookie decision.

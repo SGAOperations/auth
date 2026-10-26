@@ -49,6 +49,7 @@ function makeDeps(overrides: Partial<SessionEndpointDeps> = {}) {
     limit: vi.fn<SessionEndpointDeps["limit"]>(
       overrides.limit ?? (async () => null),
     ),
+    log: { warn: vi.fn<SessionEndpointDeps["log"]["warn"]>() },
   };
 }
 
@@ -78,6 +79,60 @@ describe("session endpoint", () => {
     await expectUnauthenticated(await endpoint.full(request()));
     await expectUnauthenticated(await endpoint.minimal(request()));
     expectNoDepsCalled(deps);
+  });
+
+  describe("duplicate session cookies", () => {
+    it("answers 401 on both shapes and calls nothing", async () => {
+      const deps = makeDeps();
+      const endpoint = createSessionEndpoint(deps);
+      const cookie = `${TOKEN}=victim; ${TOKEN}=planted`;
+      await expectUnauthenticated(await endpoint.full(request(cookie)));
+      await expectUnauthenticated(await endpoint.minimal(request(cookie)));
+      expectNoDepsCalled(deps);
+    });
+
+    it("logs the path and the copy count, never a value", async () => {
+      const deps = makeDeps();
+      const endpoint = createSessionEndpoint(deps);
+      await endpoint.full(
+        request(`${TOKEN}=victim; ${TOKEN}=planted`, {}, `${URL_BASE}?x=1`),
+      );
+      expect(deps.log.warn).toHaveBeenCalledTimes(1);
+      expect(deps.log.warn).toHaveBeenCalledWith(
+        "Refused duplicate session cookie",
+        { path: "/api/sgauth/session", copies: 2 },
+      );
+      expect(JSON.stringify(deps.log.warn.mock.calls)).not.toMatch(
+        /victim|planted/,
+      );
+    });
+
+    it("refuses a copy with different surrounding whitespace", async () => {
+      const deps = makeDeps();
+      const endpoint = createSessionEndpoint(deps);
+      await expectUnauthenticated(
+        await endpoint.full(request(`${TOKEN}=a;  ${TOKEN} =b`)),
+      );
+      expectNoDepsCalled(deps);
+    });
+
+    it("leaves one copy unchanged and logs nothing", async () => {
+      const deps = makeDeps();
+      const endpoint = createSessionEndpoint(deps);
+      const response = await endpoint.full(request(`${TOKEN}=abc`));
+      expect(response.status).toBe(200);
+      expect(deps.log.warn).not.toHaveBeenCalled();
+    });
+
+    it("ignores a repeated dont_remember beside one token", async () => {
+      const deps = makeDeps();
+      const endpoint = createSessionEndpoint(deps);
+      const response = await endpoint.full(
+        request(`${TOKEN}=abc; ${DONT_REMEMBER}=true; ${DONT_REMEMBER}=true`),
+      );
+      expect(response.status).toBe(200);
+      expect(deps.log.warn).not.toHaveBeenCalled();
+    });
   });
 
   it("ignores the query string, Authorization and foreign cookies", async () => {

@@ -6,6 +6,7 @@ import {
   SESSION_RESPONSE_HEADERS,
   UNAUTHENTICATED_BODY,
 } from "@/lib/sgauth-session/contract";
+import { countCookie } from "@/lib/security/duplicate-cookie";
 import {
   pickSessionCookies,
   sessionTokenValue,
@@ -29,6 +30,7 @@ export interface SessionEndpointDeps {
   loadSubject(userId: string): Promise<SessionSubject | null>;
   /** Returns the 429 to send, or `null` to carry on. */
   limit(token: string): Promise<Response | null>;
+  log: { warn(msg: string, fields?: Record<string, unknown>): void };
 }
 
 function unauthenticated(): Response {
@@ -50,6 +52,16 @@ export function createSessionEndpoint(deps: SessionEndpointDeps) {
     // Cookie header only: the URL, query string, Authorization header and body
     // are never read.
     const names = await deps.cookieNames();
+    // More than one session cookie means a planted copy beside the victim's:
+    // signed out, before any limit, Better Auth or database call.
+    const copies = countCookie(req.headers.get("cookie"), names[0]);
+    if (copies > 1) {
+      deps.log.warn("Refused duplicate session cookie", {
+        path: new URL(req.url).pathname,
+        copies,
+      });
+      return unauthenticated();
+    }
     const cookie = pickSessionCookies(req.headers.get("cookie"), names);
     if (cookie === null) return unauthenticated();
 
@@ -107,10 +119,12 @@ export function buildSessionEndpointDeps({
   auth,
   prisma,
   limiter,
+  log,
 }: {
   auth: SessionAuth;
   prisma: PrismaClient;
   limiter: Pick<RateLimiter, "limitRequest">;
+  log: SessionEndpointDeps["log"];
 }): SessionEndpointDeps {
   // The names Better Auth itself reads, so they cannot drift from cookies.ts.
   let cookieNames: Promise<readonly string[]> | undefined;
@@ -147,5 +161,6 @@ export function buildSessionEndpointDeps({
       };
     },
     limit: (token) => limiter.limitRequest("sessionLookup", token),
+    log,
   };
 }

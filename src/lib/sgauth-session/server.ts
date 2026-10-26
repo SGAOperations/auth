@@ -17,5 +17,5 @@ const limiter = createRateLimiter({
 });
 
 export const sessionEndpoint = createSessionEndpoint(
-  buildSessionEndpointDeps({ auth, prisma, limiter }),
+  buildSessionEndpointDeps({ auth, prisma, limiter, log: logger }),
 );
