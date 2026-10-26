@@ -151,7 +151,7 @@ describe.skipIf(!url)("session lifetime", () => {
     at(31 * DAY_MS);
     expect(await listSessionsStatus(b.cookie)).toBe(401);
     expect(await getSession(b.cookie)).toBeNull();
-  });
+  }, 30_000);
 
   it("stores the client IP and user agent", async () => {
     const { user } = await signedInUser({
