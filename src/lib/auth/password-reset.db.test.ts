@@ -143,6 +143,14 @@ describe.skipIf(!url)("password reset", () => {
       expect(resetEmails(unknown)).toHaveLength(0);
     });
 
+    // Both paths do the same work before the response: a user lookup, then one
+    // verification-table statement (an insert for a known address, Better Auth's
+    // dummy lookup for an unknown one). The audit write and the mail run after
+    // it. What remains is per-request jitter of the remote database, a few tens
+    // of ms per round trip against Neon, so one median of a few samples can
+    // exceed 50 ms by chance (red-team B17). Many samples, alternating which
+    // address goes first, make the medians stable enough for the 50 ms bound to
+    // test the property rather than the network.
     it("keeps the response time of both within 50 ms", async () => {
       const known = await user();
       const unknown = `t19-none-${rand}@northeastern.edu`;
@@ -156,20 +164,25 @@ describe.skipIf(!url)("password reset", () => {
       const median = (values: number[]) =>
         [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
         await time(known.email);
         await time(unknown);
       }
       const knownTimes: number[] = [];
       const unknownTimes: number[] = [];
-      for (let i = 0; i < 15; i++) {
-        knownTimes.push(await time(known.email));
-        unknownTimes.push(await time(unknown));
+      for (let i = 0; i < 30; i++) {
+        if (i % 2 === 0) {
+          knownTimes.push(await time(known.email));
+          unknownTimes.push(await time(unknown));
+        } else {
+          unknownTimes.push(await time(unknown));
+          knownTimes.push(await time(known.email));
+        }
       }
       expect(Math.abs(median(knownTimes) - median(unknownTimes))).toBeLessThan(
         50,
       );
-    });
+    }, 60_000);
 
     it("answers a deactivated address the same and mails nothing", async () => {
       const deactivated = await user({ status: "DEACTIVATED" });
