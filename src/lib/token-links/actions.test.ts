@@ -16,8 +16,13 @@ const live = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "live");
 const pending = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "pending");
 
 describe("registry", () => {
-  it("has exactly three live actions today: verify-email, set-password and account-unlock", () => {
-    expect(live).toEqual(["verify-email", "set-password", "account-unlock"]);
+  it("has exactly four live actions today: verify-email, reset-password, set-password and account-unlock", () => {
+    expect(live).toEqual([
+      "verify-email",
+      "reset-password",
+      "set-password",
+      "account-unlock",
+    ]);
   });
 
   it("gives every action its own path", () => {
@@ -93,9 +98,9 @@ describe("resolveLinkTarget", () => {
   it("reports pending for a target with no page yet", () => {
     expect(
       resolveLinkTarget(
-        "reset-password",
+        "pa-transfer-initiated",
         "url",
-        `${ORIGIN}/reset-password?token=t`,
+        `${ORIGIN}/admin/transfer/accept?token=t`,
       ),
     ).toEqual({ ok: false, reason: "pending" });
   });

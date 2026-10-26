@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { analytics } from "@/lib/analytics";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
+import { runAfterResponse } from "@/lib/auth/background";
 import { buildAuthOptions } from "@/lib/auth/options";
 import { buildAuthPlugins } from "@/lib/auth/plugins";
 import { logger, logLevel } from "@/lib/log";
@@ -21,6 +22,9 @@ const settings = toAuthSettings(env);
 
 const advanced: NonNullable<BetterAuthOptions["advanced"]> = {
   database: { generateId: false },
+  // Mail sends run after the response, so a real send never shows in the
+  // timing of a request for a known address.
+  backgroundTasks: { handler: runAfterResponse },
   ...buildCookieOptions(settings.cookies),
 };
 

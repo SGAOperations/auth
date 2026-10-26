@@ -184,15 +184,17 @@ describe("sendEmail programmer errors", () => {
     const error = await mailer
       .sendEmail({
         to: "avery@northeastern.edu",
-        template: "reset-password",
+        template: "pa-transfer-initiated",
         data: {
-          url: `${ORIGIN}/reset-password?token=secret-token`,
-          expiresInMinutes: 60,
+          role: "recipient",
+          url: `${ORIGIN}/admin/transfer/accept?token=secret-token`,
+          fromName: "Avery",
+          acceptBy: new Date("2026-10-17T19:00:00Z"),
         },
       })
       .catch((e: unknown) => e as Error);
     expect((error as Error).message).toBe(
-      "Email template reset-password link url is not a registered token-link page (pending)",
+      "Email template pa-transfer-initiated link url is not a registered token-link page (pending)",
     );
     expect((error as Error).message).not.toContain("secret-token");
     expect(transport.send).not.toHaveBeenCalled();

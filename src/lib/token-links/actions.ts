@@ -23,7 +23,7 @@ export const TOKEN_ACTIONS = {
   "reset-password": {
     path: "/reset-password",
     owner: "AUTH-T19 #31",
-    status: "pending",
+    status: "live",
   },
   "set-password": {
     path: "/set-password",

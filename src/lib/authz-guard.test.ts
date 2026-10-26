@@ -23,6 +23,8 @@ const EXEMPT: Record<string, string> = {
     "Emailed-link confirm POST: anonymous by design, the single-use unlock token is the authority, and it acts only on the account that token names",
   "src/app/set-password/confirm/route.ts":
     "Emailed-link confirm POST: anonymous by design, the single-use set-password token is the authority, and it acts only on the account that token names",
+  "src/app/reset-password/confirm/route.ts":
+    "Emailed-link confirm POST: anonymous by design, the single-use reset token is the authority, and it acts only on the account that token names",
   "src/app/set-password/request/route.ts":
     "Anonymous request for a set-password link: it answers every address the same, and any link goes only to the mailbox of the account it names",
   "src/app/api/sgauth/sign-in/email-step/route.ts":
