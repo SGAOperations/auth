@@ -27,6 +27,7 @@ import { createLockoutHooks, type Defer } from "@/lib/auth/lockout-hooks";
 import type { DeviceCookie } from "@/lib/auth/known-device";
 import type { Mailer } from "@/lib/email/mailer";
 import { setRequestUserId } from "@/lib/log/context";
+import { hasPassword } from "@/lib/set-password/service";
 
 /**
  * Endpoint paths allowed to create a user outside the sign-up domain rule.
@@ -55,6 +56,16 @@ interface AuthOptionsInput {
     /** Runs a task after the response; the default runs it inline. */
     defer?: Defer;
   };
+  /**
+   * A self-sign-up for the address of an ACTIVE account with no password
+   * (AUTH-T22). Sends that account a set-password link; the sign-up answer is
+   * unchanged. Left out, such a sign-up does nothing.
+   */
+  onPasswordlessSignUp?: (user: {
+    id: string;
+    email: string;
+    name: string;
+  }) => Promise<void>;
 }
 
 // Lenient on purpose: anything that does not parse is left to the endpoint's
@@ -84,6 +95,7 @@ export function buildAuthOptions({
   advanced,
   analytics = NOOP_ANALYTICS,
   lockout,
+  onPasswordlessSignUp,
 }: AuthOptionsInput) {
   const auditHooks = createAuthAuditHooks(prisma);
   const analyticsHooks = createAuthAnalyticsHooks(analytics);
@@ -164,6 +176,35 @@ export function buildAuthOptions({
       },
       // `hash` stays unset so new hashes use Better Auth's default scrypt.
       password: { verify: verifyPassword },
+      // Better Auth has already answered with its generic duplicate response
+      // and runs this in the background, so nothing here can change the
+      // answer. #30 (AUTH-T18) adds its unverified-user resend to this same
+      // callback.
+      onExistingUserSignUp: async ({
+        user,
+      }: {
+        user: { id: string; email: string; name: string };
+      }) => {
+        if (!onPasswordlessSignUp) return;
+        try {
+          const row = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { status: true },
+          });
+          if (
+            row?.status !== "ACTIVE" ||
+            (await hasPassword(prisma, user.id))
+          ) {
+            return;
+          }
+          await onPasswordlessSignUp(user);
+        } catch (error) {
+          // The name only: the error can carry the address.
+          console.error("Failed to send set-password link", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+        }
+      },
     },
     // Puts `status` on session.user. Clients can never set it.
     user: {

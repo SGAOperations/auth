@@ -222,7 +222,7 @@ describe("namespacing and hashing", () => {
     for (const policy of Object.keys(POLICIES) as PolicyName[]) {
       await limiter.check(policy, ids);
     }
-    expect(keys.length).toBe(11);
+    expect(keys.length).toBe(15);
     for (const key of keys) {
       expect(key).not.toContain("student@northeastern.edu");
       expect(key).not.toContain("session-token-value");

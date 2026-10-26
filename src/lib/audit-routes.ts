@@ -5,7 +5,13 @@ import type { AuditEventType } from "@/lib/audit";
 // decision about its audit event.
 
 export type AuditCoverage =
-  | { kind: "audited"; events: readonly AuditEventType[] }
+  // `emittedIn` lists the modules that write the events when the route file
+  // does not; the check reads them together with the route.
+  | {
+      kind: "audited";
+      events: readonly AuditEventType[];
+      emittedIn?: readonly string[];
+    }
   // A machine route whose audit events are written by `module`, not the route.
   | {
       kind: "job";
@@ -50,6 +56,25 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
   "src/app/api/sgauth/admin/positions/[id]/route.ts": {
     kind: "audited",
     events: ["POSITION_UPDATED", "POSITION_DELETED"],
+  },
+  // The set-password link (AUTH-T22). The two request routes write
+  // PASSWORD_SET_REQUESTED in the service, only when a token is issued. The
+  // confirm POST writes PASSWORD_SET in the consumer's transaction, then signs
+  // in through Better Auth, whose hooks write LOGIN_SUCCESS.
+  "src/app/api/sgauth/sign-in/email-step/route.ts": {
+    kind: "audited",
+    events: ["PASSWORD_SET_REQUESTED"],
+    emittedIn: ["src/lib/set-password/service.ts"],
+  },
+  "src/app/set-password/request/route.ts": {
+    kind: "audited",
+    events: ["PASSWORD_SET_REQUESTED"],
+    emittedIn: ["src/lib/set-password/service.ts"],
+  },
+  "src/app/set-password/confirm/route.ts": {
+    kind: "audited",
+    events: ["PASSWORD_SET"],
+    emittedIn: ["src/lib/set-password/consumer.ts"],
   },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",

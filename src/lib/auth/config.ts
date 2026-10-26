@@ -15,6 +15,7 @@ import {
   deviceCookieName,
 } from "@/lib/auth/cookies";
 import { mailer } from "@/lib/email/server";
+import { setPasswordService } from "@/lib/set-password/server";
 
 const settings = toAuthSettings(env);
 
@@ -52,6 +53,8 @@ export const auth = betterAuth({
       // counter write, the lock and its emails finish after the response.
       defer: (task) => after(task),
     },
+    onPasswordlessSignUp: (user) =>
+      setPasswordService.requestForUser(user, "sign_up"),
   }),
   // Better Auth's own lines go through the structured, redacting logger. An
   // error-level line that carries an Error is also sent to error tracking:

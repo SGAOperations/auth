@@ -76,7 +76,7 @@ The links are registered in `TOKEN_ACTIONS` in `src/lib/token-links/actions.ts`:
 | -------------------- | ------------------------ | -------------- | ------- |
 | `verify-email`       | `/verify-email`          | T103, T18, T24 | live    |
 | `reset-password`     | `/reset-password`        | T19 #31        | pending |
-| `set-password`       | `/set-password`          | T22 #34        | pending |
+| `set-password`       | `/set-password`          | T22 #34        | live    |
 | `account-unlock`     | `/unlock`                | T64 #76        | live    |
 | `pa-transfer-accept` | `/admin/transfer/accept` | T37 #49        | pending |
 | `pa-transfer-cancel` | `/admin/transfer/cancel` | T37 #49        | pending |
@@ -90,6 +90,32 @@ The links are registered in `TOKEN_ACTIONS` in `src/lib/token-links/actions.ts`:
 **HEAD and scanners.** The proxy answers HEAD on a token-link path, and GET with a known scanner User-Agent (or none), with a static 200 and no side effects. The User-Agent list is best effort, since Safe Links often fetches with a browser User-Agent. The guarantee is that GET never consumes.
 
 **Logs.** A throw in a `consume` logs `token_link_failed` with `action` and `errorName`, never the token or the message, and the person sees the generic `error` card. Outcomes `invalid`, `used` and `rate` are not logged or audited, matching how the rate limiter treats denials.
+
+## Set-password links (AUTH-T22)
+
+Code is in `src/lib/set-password/`. Imported accounts and admin-created accounts start with `emailVerified = true` and **no password**, and nothing is mailed at import. The link is sent lazily, the first time the person tries to sign in.
+
+**Password-less** means the user has no credential `Account` with a non-null `password`. `hasPassword` and `credentialPasswordWhere` in `service.ts` are the one definition. Better Auth already answers `401 INVALID_EMAIL_OR_PASSWORD` for this state, so no password works until one is set through the link.
+
+**Three triggers, one service.** `createSetPasswordService` decides whether an account is ACTIVE and password-less, whether it is inside its limit, then issues the token, writes `PASSWORD_SET_REQUESTED { via }` and mails the link:
+
+| Trigger                                                      | `via`          |
+| ------------------------------------------------------------ | -------------- |
+| `POST /api/sgauth/sign-in/email-step` (the login email step) | `sign_in`      |
+| `POST /set-password/request` (the expired-link form)         | `link_request` |
+| Self-sign-up with an existing password-less address          | `sign_up`      |
+
+The self-sign-up trigger is Better Auth's `emailAndPassword.onExistingUserSignUp`, wired in `src/lib/auth/options.ts`. The sign-up answer is its generic duplicate response, unchanged.
+
+**Uniform response.** The two request routes check the Origin (a missing one fails closed), validate the body, apply the `setPasswordRequest` IP and email limit, then hand the lookup, the token and the email to `after()` and return a fixed response: `200 { "ok": true }` for the JSON route and a `303` to `?result=sent` for the form. An unknown address, a password-less one, a password holder, a deactivated account and an account over its per-account limit all get the same status, body and timing. A malformed email is the only distinct answer (`400 INVALID_EMAIL`), and it says nothing about any account.
+
+**Tokens** are rows of the `Verification` table, with no migration: `identifier` is `set-password:<sha256 hex of the raw token>`, `value` is the user id. The raw token is never stored or logged. A first-sign-in link lives 1 hour and an admin invite 7 days. Issuing a link deletes the user's earlier set-password rows, so **only the newest link works**, and a lazy request replaces an outstanding invite. The POST consumes the row with a conditional delete, so two concurrent POSTs give one winner. Setting the password also marks the email verified, writes `PASSWORD_SET`, then signs the person in through Better Auth, so the lockout, `lastLoginAt` and `LOGIN_SUCCESS` all run. A sign-in that Better Auth refuses (a lockout, a second factor) leaves the password set and shows "Password set".
+
+**`issueAdminInvite(db, { userId, now })`** is a primitive for the admin endpoints (#48). It returns `{ ok: true, url, expiresInMinutes: 10080 }`, or `{ ok: false, reason: "RATE_LIMITED" }` over 3 a day per user. It writes no audit row and sends no email: the endpoint writes `USER_INVITED`, mails `set-password` with `kind: "admin-invite"` after its commit, and checks that the user is ACTIVE and password-less first. A stray invite to a user who already has a password is harmless, because the consumer refuses it.
+
+**Email-step API for `/login` (#37).** `POST /api/sgauth/sign-in/email-step` takes `{ "email": string }` as JSON, same origin only, and answers `200 { "ok": true }` for every well-formed address, `400 { "code": "INVALID_EMAIL" }` for a malformed one and `429 TOO_MANY_REQUESTS`. The page therefore shows the password step for **every** address, with one line under it, "First time signing in? If your account doesn't have a password yet, we've emailed you a link to set one.", and learns nothing about the account. The sign-up success copy is "Check your email to finish signing up. If you already have an account, we've sent you a link to sign in or set your password instead."
+
+**Logs.** `set_password_link_limited` (info, `via`) when the per-account limit refuses a link, and `set_password_request_failed` (error, `via`, `errorName`) when the deferred work throws. Neither carries the address or the message.
 
 ## Caps
 

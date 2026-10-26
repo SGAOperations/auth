@@ -179,6 +179,47 @@ describe("parseAuditEvent", () => {
     });
   });
 
+  describe("set-password events", () => {
+    const target = { targetType: "USER", targetId: "u1" };
+    const requested = {
+      type: "PASSWORD_SET_REQUESTED",
+      actorType: "SYSTEM",
+      ...target,
+    };
+
+    it.each(["sign_in", "sign_up", "link_request"])(
+      "accepts PASSWORD_SET_REQUESTED via %s",
+      (via) => {
+        expect(() =>
+          parseAuditEvent({ ...requested, metadata: { via } }),
+        ).not.toThrow();
+      },
+    );
+
+    it.each([
+      {},
+      { via: "x" },
+      { via: "sign_in", email: "a@northeastern.edu" },
+    ])("rejects PASSWORD_SET_REQUESTED metadata %j", (metadata) => {
+      expect(() => parseAuditEvent({ ...requested, metadata })).toThrow(
+        ZodError,
+      );
+    });
+
+    it("accepts PASSWORD_SET with no metadata and rejects any", () => {
+      const event = {
+        type: "PASSWORD_SET",
+        actorType: "USER",
+        actorUserId: "u1",
+        ...target,
+      };
+      expect(() => parseAuditEvent(event)).not.toThrow();
+      expect(() =>
+        parseAuditEvent({ ...event, metadata: { via: "sign_in" } }),
+      ).toThrow(ZodError);
+    });
+  });
+
   it("rejects a USER actor without an id and a SYSTEM actor with one", () => {
     expect(() =>
       parseAuditEvent({

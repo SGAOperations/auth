@@ -47,6 +47,10 @@ describe("POLICIES", () => {
       ["token-link:ip:10m", 20, 600, "ip"],
       ["reauth:user:1m", 5, 60, "user"],
       ["admin:user:1m", 100, 60, "user"],
+      ["set-password:ip:10m", 10, 600, "ip"],
+      ["set-password:email:10m", 5, 600, "email"],
+      ["set-password-link:user:1h", 3, 3600, "user"],
+      ["invite:user:1d", 3, 86400, "user"],
     ]);
   });
 
