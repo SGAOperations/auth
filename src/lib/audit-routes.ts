@@ -61,6 +61,14 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["POSITION_UPDATED", "POSITION_DELETED"],
   },
+  "src/app/api/sgauth/admin/users/[id]/positions/route.ts": {
+    kind: "audited",
+    events: ["POSITION_ASSIGNED", "POSITION_UNASSIGNED"],
+  },
+  "src/app/api/sgauth/admin/positions/[id]/holders/route.ts": {
+    kind: "audited",
+    events: ["POSITION_ASSIGNED"],
+  },
   // The set-password link (AUTH-T22). The two request routes write
   // PASSWORD_SET_REQUESTED in the service, only when a token is issued. The
   // confirm POST writes PASSWORD_SET in the consumer's transaction, then signs
