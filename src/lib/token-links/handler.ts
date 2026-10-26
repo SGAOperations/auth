@@ -49,6 +49,12 @@ interface TokenActionHandlerOptions {
   /** Keyed on the client IP. */
   limit: (ip: string) => Promise<CheckResult>;
   log: TokenActionLog;
+  /**
+   * The origin a browser POST must come from. Defaults to the request URL's
+   * origin; set it where `request.url` is not the public origin, such as the
+   * dev server behind auth.sga.localhost.
+   */
+  ownOrigin?: string;
 }
 
 const tokenSchema = z.string().min(1).max(4096);
@@ -72,6 +78,7 @@ export function createTokenActionHandler({
   consume,
   limit,
   log,
+  ownOrigin,
 }: TokenActionHandlerOptions): (request: Request) => Promise<Response> {
   const { path } = TOKEN_ACTIONS[action];
   const formSchema = z
@@ -79,7 +86,7 @@ export function createTokenActionHandler({
     .extend(fields?.shape ?? {});
 
   return async function handle(request) {
-    if (requestOrigin(request) !== new URL(request.url).origin) {
+    if (requestOrigin(request) !== (ownOrigin ?? new URL(request.url).origin)) {
       return new Response(null, { status: 403, headers: NO_STORE });
     }
 

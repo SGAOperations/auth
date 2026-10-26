@@ -64,6 +64,40 @@ describe("createTokenActionHandler", () => {
     expect(limit).not.toHaveBeenCalled();
   });
 
+  describe("with a configured ownOrigin", () => {
+    const OWN = "http://auth.sga.localhost:3000";
+
+    function setupOwn() {
+      const consume = vi.fn(async () => ({ result: "done" }) as const);
+      const handle = createTokenActionHandler({
+        action: "verify-email",
+        consume,
+        limit: async () => ({ allowed: true, retryAfterSeconds: 0 }),
+        log: { error: vi.fn() },
+        ownOrigin: OWN,
+      });
+      return { handle, consume };
+    }
+
+    it("accepts the configured origin although request.url differs", async () => {
+      const { handle, consume } = setupOwn();
+      const response = await handle(
+        post(form({ token: "t" }), { origin: OWN }),
+      );
+      expect(response.status).toBe(303);
+      expect(consume).toHaveBeenCalledTimes(1);
+    });
+
+    it("still rejects a mismatched origin, including the request URL's own", async () => {
+      const { handle, consume } = setupOwn();
+      for (const origin of [ORIGIN, "https://evil.example.com"]) {
+        const response = await handle(post(form({ token: "t" }), { origin }));
+        expect(response.status).toBe(403);
+      }
+      expect(consume).not.toHaveBeenCalled();
+    });
+  });
+
   it("accepts a same-origin Referer when Origin is missing", async () => {
     const { handle, consume } = setup();
     const response = await handle(
