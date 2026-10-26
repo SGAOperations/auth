@@ -158,4 +158,109 @@ SGA {sender role}
 
 ## 7. Post-launch reviews
 
-Filled in by AUTH-T92 ([#104](https://github.com/SGAOperations/auth/issues/104)) two weeks after each cutover.
+Fourteen days after each cutover (the T+14 step in §3), the SGAuth operator and the product owner fill in a copy of the template below for that product and commit it here.
+
+Tracked by AUTH-T92 ([#104](https://github.com/SGAOperations/auth/issues/104)) and its per-product cleanup sub-issues.
+
+### 7.1 Review tracker
+
+`Status` is `Not started`, `In review` or `Done`. `Done` means the review is committed and the cleanup sub-issue is closed.
+
+| Product            | Cutover date | Review due (cutover + 14 d) | Reviewed on | Cleanup sub-issue                                                          | Outcome | Status |
+| ------------------ | ------------ | --------------------------- | ----------- | -------------------------------------------------------------------------- | ------- | ------ |
+| VaultZ             | TBD          | TBD                         | TBD         | [vaultz#758](https://github.com/SGAOperations/vaultz/issues/758)           | TBD     | TBD    |
+| Chambers           | TBD          | TBD                         | TBD         | [chambers#250](https://github.com/SGAOperations/chambers/issues/250)       | TBD     | TBD    |
+| Aplio              | TBD          | TBD                         | TBD         | [aplio#888](https://github.com/SGAOperations/aplio/issues/888)             | TBD     | TBD    |
+| SenatePath         | TBD          | TBD                         | TBD         | [senate-path#103](https://github.com/SGAOperations/senate-path/issues/103) | TBD     | TBD    |
+| Attendance Manager | TBD          | TBD                         | TBD         | Not filed (waits on the directive)                                         | TBD     | TBD    |
+
+### 7.2 Review template
+
+The template follows the peak-count queries.
+
+**Peak counts.** Read-only; run in the Neon SQL editor or `psql` on the read role. Each query is a true rolling window ending at every event, so a spike that straddles a bucket boundary is not missed. Replace the two timestamps with the review window. The value is the largest `n`; it is the figure to record, and the Flag rule compares it to the AUTH-T77 thresholds.
+
+```sql
+-- Peak 15-minute LOGIN_FAILED count
+SELECT max(n) AS peak_15_min
+FROM (
+  SELECT count(*) OVER (
+    ORDER BY "createdAt"
+    RANGE BETWEEN INTERVAL '15 minutes' PRECEDING AND CURRENT ROW
+  ) AS n
+  FROM "AuditEvent"
+  WHERE type = 'LOGIN_FAILED'
+    AND "createdAt" >= '<window start>' AND "createdAt" < '<window end>'
+) w;
+
+-- Peak hourly ACCOUNT_LOCKED count
+SELECT max(n) AS peak_1_hour
+FROM (
+  SELECT count(*) OVER (
+    ORDER BY "createdAt"
+    RANGE BETWEEN INTERVAL '1 hour' PRECEDING AND CURRENT ROW
+  ) AS n
+  FROM "AuditEvent"
+  WHERE type = 'ACCOUNT_LOCKED'
+    AND "createdAt" >= '<window start>' AND "createdAt" < '<window end>'
+) w;
+```
+
+Copy this block under §7.4, as a heading `### 7.<n> <Product> — reviewed <YYYY-MM-DD>`. Record counts only, never user emails or names. Where a source has not shipped, write `n/a — <ticket> not shipped` instead of a value.
+
+```markdown
+**Window:** <cutover deploy date> to <cutover deploy date + 14 days>
+
+#### Metrics
+
+| Metric                                    | Source                                                                                                             | Value | Flag? |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----- | ----- |
+| Sign-ins (daily, 14 d)                    | PostHog "Daily logins" insight, `login_succeeded` ([POSTHOG.md](POSTHOG.md), AUTH-T75)                             |       |       |
+| Sign-in failure rate                      | PostHog "Failure rate" insight (AUTH-T75), broken down by `reason`                                                 |       |       |
+| Failed logins                             | `AuditEvent` `LOGIN_FAILED` count in the window, and the peak 15-minute count, from "Peak counts" below (AUTH-T73) |       |       |
+| Lockouts                                  | `AuditEvent` `ACCOUNT_LOCKED` count in the window, and the peak hourly count, from "Peak counts" below (AUTH-T73)  |       |       |
+| Threshold alerts fired                    | AUTH-T77 alert emails during the window                                                                            |       |       |
+| Support requests                          | Count kept by the named support contact (§5), by triage row                                                        |       |       |
+| Imported users signed in                  | Imported users with a `LOGIN_SUCCESS` in the window, out of the number imported (from the import report)           |       |       |
+| Chambers only: `bcrypt$` hashes remaining | "Remaining hashes" query in [legacy-bcrypt.md](runbooks/legacy-bcrypt.md), run read-only on production             |       |       |
+| Chambers only: re-hashes                  | "Re-hash rate" query in [legacy-bcrypt.md](runbooks/legacy-bcrypt.md), summed over the window                      |       |       |
+
+Skip the two Chambers-only rows for every other product.
+
+**Flag rule.** Mark `Flag?` as yes when the peak counts exceeded the AUTH-T77 alert thresholds (more than 50 `LOGIN_FAILED` in 15 minutes, more than 5 `ACCOUNT_LOCKED` in an hour), a rollback happened, or a support triage row recurred for 3 or more people. Do not invent other numeric thresholds.
+
+#### Findings
+
+- What went wrong:
+- What users hit:
+- What we would change for the next cutover:
+
+#### Legacy cleanup
+
+Link evidence for each item: a PR, a commit, or a screenshot of the deleted resource.
+
+- [ ] The legacy auth code was deleted from the product (login UI, local session or role logic, auth-provider SDK calls).
+- [ ] Legacy auth secrets and env vars were removed from Vercel (all environments) and from `.env.example`.
+- [ ] Legacy auth data was deleted, or the auth project was retired, only after the §4 "Legacy auth kept for" window ended.
+- [ ] The rollback flag or path from §4 was removed, or marked retired.
+- [ ] The cleanup sub-issue is linked: `<repo>#<n>`.
+
+#### Follow-ups
+
+- Issues filed because of this review:
+
+#### Sign-off
+
+- SGAuth operator: <name>, <YYYY-MM-DD>
+- Product owner: <name>, <YYYY-MM-DD>
+```
+
+### 7.3 bcrypt verify path removal
+
+The Chambers-only bcrypt verify path (AUTH-T21, [#33](https://github.com/SGAOperations/auth/issues/33)) is removed by its own follow-up ticket, not by a review. The gate and the list of files to delete are the "Removal criterion" in [legacy-bcrypt.md](runbooks/legacy-bcrypt.md). The Chambers review records the remaining count and links the follow-up issue.
+
+Never remove the path while the count is above zero (unless the remaining accounts are deliberately cleared, as the runbook allows), or before Chambers' 7-day legacy window (§4) has ended.
+
+### 7.4 Completed reviews
+
+None yet.
