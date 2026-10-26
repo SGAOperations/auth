@@ -44,6 +44,10 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "delegated",
     to: "better-auth",
   },
+  "src/app/verify-email/resend/route.ts": {
+    kind: "exempt",
+    reason: "sends mail only; no account state changes",
+  },
   // The unlock link's POST writes ACCOUNT_UNLOCKED in its own transaction.
   "src/app/unlock/confirm/route.ts": {
     kind: "audited",

@@ -49,6 +49,8 @@ describe.skipIf(!url)("own session endpoints", () => {
     const token = await createEmailVerificationToken(SECRET, email);
     await auth.api.verifyEmail({ query: { token } });
     const user = await prisma.user.findUniqueOrThrow({ where: { email } });
+    // Verifying signs the user in; these tests count the sessions they open.
+    await prisma.session.deleteMany({ where: { userId: user.id } });
     return { email, user };
   }
 

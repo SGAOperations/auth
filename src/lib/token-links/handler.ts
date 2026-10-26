@@ -12,6 +12,7 @@ export const TOKEN_ACTION_RESULTS = [
   "invalid",
   "used",
   "rate",
+  "sent",
   "error",
 ] as const;
 
@@ -28,6 +29,10 @@ export type TokenActionOutcome =
   | { result: "invalid" }
   // The token was valid but already used; nothing ran.
   | { result: "used" }
+  // A resend POST: a new link was requested, whether or not one went out.
+  | { result: "sent" }
+  // A per-account limit, on top of the IP limit, stopped the request.
+  | { result: "rate" }
   // Back to the form with the token, for example a weak new password.
   | { result: "retry"; error: string };
 
@@ -48,14 +53,23 @@ interface TokenActionHandlerOptions {
   consume: (input: TokenActionInput) => Promise<TokenActionOutcome>;
   /** Keyed on the client IP. */
   limit: (ip: string) => Promise<CheckResult>;
+  /**
+   * Whether a `done` outcome's `redirectTo` may be followed. The default is a
+   * path on this origin; a page that sends people on to a registered product
+   * passes the check that also admits that product's origin.
+   */
+  allowRedirect?: (target: string) => boolean | Promise<boolean>;
   log: TokenActionLog;
   /**
-   * The origin a browser POST must come from. Defaults to the request URL's
-   * origin; set it where `request.url` is not the public origin, such as the
-   * dev server behind auth.sga.localhost.
+   * The one origin a POST may come from: the configured auth base URL's
+   * origin. The default is the request URL's origin, which is wrong behind a
+   * dev server whose `request.url` is `http://localhost:3000` while the browser
+   * is on `http://auth.sga.localhost:3000`.
    */
   ownOrigin?: string;
 }
+
+const isSameOriginPath = (target: string) => safeNextPath(target) === target;
 
 const tokenSchema = z.string().min(1).max(4096);
 
@@ -77,6 +91,7 @@ export function createTokenActionHandler({
   fields,
   consume,
   limit,
+  allowRedirect = isSameOriginPath,
   log,
   ownOrigin,
 }: TokenActionHandlerOptions): (request: Request) => Promise<Response> {
@@ -140,13 +155,15 @@ export function createTokenActionHandler({
       case "done": {
         const target =
           outcome.redirectTo !== undefined &&
-          safeNextPath(outcome.redirectTo) === outcome.redirectTo
+          (await allowRedirect(outcome.redirectTo))
             ? new URL(outcome.redirectTo, request.url)
             : back({ result: "done" });
         return redirect(target, outcome.headers?.getSetCookie() ?? []);
       }
       case "used":
-        return redirect(back({ result: "used" }));
+      case "sent":
+      case "rate":
+        return redirect(back({ result: outcome.result }));
       case "retry":
         return redirect(back({ token, error: outcome.error }));
       case "invalid":

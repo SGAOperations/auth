@@ -9,6 +9,7 @@ import {
   AUTH_ERROR_CODES,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
+  VERIFICATION_TOKEN_TTL_SECONDS,
   isAllowedSignupEmail,
   normalizeEmail,
 } from "@/lib/auth/policy";
@@ -28,6 +29,7 @@ import type { DeviceCookie } from "@/lib/auth/known-device";
 import type { Mailer } from "@/lib/email/mailer";
 import { setRequestUserId } from "@/lib/log/context";
 import { hasPassword } from "@/lib/set-password/service";
+import { tokenLinkUrl } from "@/lib/token-links/actions";
 
 /**
  * Endpoint paths allowed to create a user outside the sign-up domain rule.
@@ -50,7 +52,7 @@ interface AuthOptionsInput {
   analytics?: Analytics;
   /** Account lockout and the known-device exemption (docs/LOCKOUT.md). */
   lockout: {
-    /** Sends the lock notice and the unlock link. */
+    /** Sends the lock notice, the unlock link and the verification email. */
     mailer: Mailer;
     deviceCookie: DeviceCookie;
     /** Runs a task after the response; the default runs it inline. */
@@ -106,13 +108,14 @@ export function buildAuthOptions({
   onPasswordlessSignUp,
   logger = { error: () => {} },
 }: AuthOptionsInput) {
+  const linkOrigin = new URL(baseURL).origin;
   const auditHooks = createAuthAuditHooks(prisma);
   const analyticsHooks = createAuthAnalyticsHooks(analytics);
   const lockoutHooks = createLockoutHooks({
     prisma,
     mailer: lockout.mailer,
     deviceCookie: lockout.deviceCookie,
-    linkOrigin: new URL(baseURL).origin,
+    linkOrigin,
     defer: lockout.defer,
     auditHooks,
   });
@@ -221,6 +224,33 @@ export function buildAuthOptions({
       },
     },
     emailVerification: {
+      expiresIn: VERIFICATION_TOKEN_TTL_SECONDS,
+      sendOnSignUp: true,
+      // Sending on every unverified sign-in would bypass the 3/h resend bucket
+      // (red-team lever B18). The sign-in page offers a resend button instead.
+      sendOnSignIn: false,
+      // Verifying leaves exactly one session: the old ones are revoked first.
+      autoSignInAfterVerification: true,
+      // Ignores Better Auth's `url`: it points at the GET API endpoint, which
+      // is disabled, and carries an unvalidated `callbackURL`. The link goes to
+      // the scanner-safe /verify-email page instead. A send failure is logged
+      // and swallowed, so sign-up never answers differently for a new address.
+      sendVerificationEmail: async ({ user, token }) => {
+        try {
+          await lockout.mailer.sendEmail({
+            to: user.email,
+            template: "verify-email",
+            data: {
+              url: tokenLinkUrl(linkOrigin, "verify-email", token),
+              expiresInMinutes: VERIFICATION_TOKEN_TTL_SECONDS / 60,
+            },
+          });
+        } catch (error) {
+          console.error("verification_email_failed", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+        }
+      },
       // Fires only on the plain verify path, before Better Auth creates its
       // auto-sign-in session, so it never revokes that session.
       beforeEmailVerification: async (user) => {
