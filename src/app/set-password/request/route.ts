@@ -1,4 +1,6 @@
 import { after } from "next/server";
+import { toAuthSettings } from "@/lib/auth/settings";
+import { env } from "@/lib/env";
 import { logger } from "@/lib/log";
 import { checkRateLimit } from "@/lib/rate-limit/server";
 import { createSetPasswordRequestHandler } from "@/lib/set-password/request-handler";
@@ -14,4 +16,5 @@ export const POST = createSetPasswordRequestHandler({
   limit: (ids) => checkRateLimit("setPasswordRequest", ids),
   defer: after,
   log: logger,
+  ownOrigin: new URL(toAuthSettings(env).baseURL).origin,
 });

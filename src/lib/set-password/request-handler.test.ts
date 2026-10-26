@@ -7,6 +7,7 @@ function setup(
   options: {
     mode?: "json" | "form";
     allowed?: boolean;
+    ownOrigin?: string;
     requestLink?: () => Promise<void>;
   } = {},
 ) {
@@ -26,6 +27,7 @@ function setup(
       deferred.push(task);
     },
     log,
+    ownOrigin: options.ownOrigin,
   });
   return { handle, requestLink, limit, deferred, log };
 }
@@ -84,6 +86,37 @@ describe("origin", () => {
     );
     expect(response.status).toBe(200);
     expect(deferred).toHaveLength(1);
+  });
+
+  describe("with a configured ownOrigin", () => {
+    const BASE = "http://auth.sga.localhost:3000";
+    // What a dev server reports as request.url, unlike the browser's origin.
+    const devRequest = (headers: Record<string, string>) =>
+      new Request("http://localhost:3000/api/sgauth/sign-in/email-step", {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify({ email: "a@northeastern.edu" }),
+      });
+
+    it("accepts an Origin matching it even when request.url differs", async () => {
+      const { handle, deferred } = setup({ ownOrigin: BASE });
+      const response = await handle(devRequest({ origin: BASE }));
+      expect(response.status).toBe(200);
+      expect(deferred).toHaveLength(1);
+    });
+
+    it("rejects a mismatched Origin, including request.url's own", async () => {
+      for (const origin of [
+        "https://evil.example.com",
+        "http://localhost:3000",
+      ]) {
+        const { handle, limit, deferred } = setup({ ownOrigin: BASE });
+        const response = await handle(devRequest({ origin }));
+        expect(response.status).toBe(403);
+        expect(limit).not.toHaveBeenCalled();
+        expect(deferred).toEqual([]);
+      }
+    });
   });
 });
 

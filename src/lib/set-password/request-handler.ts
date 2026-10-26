@@ -30,6 +30,13 @@ interface SetPasswordRequestHandlerOptions {
   /** Runs a task after the response: Next's `after`. Tests pass a collector. */
   defer: (task: () => Promise<void>) => void;
   log: SetPasswordRequestLog;
+  /**
+   * The origin the browser sends, from the configured auth base URL. The
+   * default is the request URL's origin, which is wrong behind a dev server
+   * whose `request.url` is `http://localhost:3000` while the browser is on
+   * `http://auth.sga.localhost:3000`.
+   */
+  ownOrigin?: string;
 }
 
 function redirect(request: Request, result: string): Response {
@@ -61,11 +68,12 @@ export function createSetPasswordRequestHandler({
   limit,
   defer,
   log,
+  ownOrigin,
 }: SetPasswordRequestHandlerOptions): (request: Request) => Promise<Response> {
   const via = mode === "json" ? "sign_in" : "link_request";
 
   return async function handle(request) {
-    if (requestOrigin(request) !== new URL(request.url).origin) {
+    if (requestOrigin(request) !== (ownOrigin ?? new URL(request.url).origin)) {
       return new Response(null, { status: 403, headers: NO_STORE });
     }
 
