@@ -53,6 +53,7 @@ export const auth = betterAuth({
       // counter write, the lock and its emails finish after the response.
       defer: (task) => after(task),
     },
+    logger,
     onPasswordlessSignUp: (user) =>
       setPasswordService.requestForUser(user, "sign_up"),
   }),

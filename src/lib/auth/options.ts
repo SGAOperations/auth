@@ -26,7 +26,6 @@ import {
 import { createLockoutHooks, type Defer } from "@/lib/auth/lockout-hooks";
 import type { DeviceCookie } from "@/lib/auth/known-device";
 import type { Mailer } from "@/lib/email/mailer";
-import { logger } from "@/lib/log";
 import { setRequestUserId } from "@/lib/log/context";
 import { hasPassword } from "@/lib/set-password/service";
 
@@ -67,6 +66,14 @@ interface AuthOptionsInput {
     email: string;
     name: string;
   }) => Promise<void>;
+  /**
+   * Where a failed set-password send is logged. Injected because importing
+   * `@/lib/log` here would parse the server env when this module loads; config.ts
+   * supplies the real logger. Defaults to a no-op.
+   */
+  logger?: {
+    error: (message: string, fields?: Record<string, unknown>) => void;
+  };
 }
 
 // Lenient on purpose: anything that does not parse is left to the endpoint's
@@ -97,6 +104,7 @@ export function buildAuthOptions({
   analytics = NOOP_ANALYTICS,
   lockout,
   onPasswordlessSignUp,
+  logger = { error: () => {} },
 }: AuthOptionsInput) {
   const auditHooks = createAuthAuditHooks(prisma);
   const analyticsHooks = createAuthAnalyticsHooks(analytics);
