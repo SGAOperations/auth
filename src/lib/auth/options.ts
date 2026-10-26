@@ -26,6 +26,7 @@ import {
 import { createLockoutHooks, type Defer } from "@/lib/auth/lockout-hooks";
 import type { DeviceCookie } from "@/lib/auth/known-device";
 import type { Mailer } from "@/lib/email/mailer";
+import { logger } from "@/lib/log";
 import { setRequestUserId } from "@/lib/log/context";
 import { hasPassword } from "@/lib/set-password/service";
 
@@ -178,8 +179,7 @@ export function buildAuthOptions({
       password: { verify: verifyPassword },
       // Better Auth has already answered with its generic duplicate response
       // and runs this in the background, so nothing here can change the
-      // answer. #30 (AUTH-T18) adds its unverified-user resend to this same
-      // callback.
+      // answer.
       onExistingUserSignUp: async ({
         user,
       }: {
@@ -200,7 +200,7 @@ export function buildAuthOptions({
           await onPasswordlessSignUp(user);
         } catch (error) {
           // The name only: the error can carry the address.
-          console.error("Failed to send set-password link", {
+          logger.error("Failed to send set-password link", {
             errorName: error instanceof Error ? error.name : "UnknownError",
           });
         }
