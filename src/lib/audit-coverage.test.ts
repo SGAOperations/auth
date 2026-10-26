@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { betterAuth } from "better-auth";
@@ -118,12 +118,24 @@ describe("audit coverage: App Router files", () => {
   it("emits every listed event from each audited file", () => {
     for (const [path, entry] of Object.entries(APP_ROUTE_AUDIT)) {
       if (entry.kind !== "audited") continue;
-      const source = read(path);
+      const source = [path, ...(entry.emittedIn ?? [])].map(read).join("\n");
       expect(source, `${path} has no audit() call`).toContain("audit(");
       expect(
         missingLiterals(source, entry.events),
         `${path} does not mention every listed event`,
       ).toEqual([]);
+    }
+  });
+
+  it("lists only emittedIn modules that exist", () => {
+    for (const [path, entry] of Object.entries(APP_ROUTE_AUDIT)) {
+      if (entry.kind !== "audited") continue;
+      for (const emitter of entry.emittedIn ?? []) {
+        expect(
+          existsSync(join(process.cwd(), emitter)),
+          `${path}: ${emitter}`,
+        ).toBe(true);
+      }
     }
   });
 

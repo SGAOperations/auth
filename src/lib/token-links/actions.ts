@@ -28,7 +28,7 @@ export const TOKEN_ACTIONS = {
   "set-password": {
     path: "/set-password",
     owner: "AUTH-T22 #34",
-    status: "pending",
+    status: "live",
   },
   "account-unlock": {
     path: "/unlock",

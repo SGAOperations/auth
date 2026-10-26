@@ -11,6 +11,8 @@ export const AUDIT_EVENT_TYPES = [
   "SESSIONS_REVOKED",
   "PASSWORD_RESET_REQUESTED",
   "PASSWORD_RESET",
+  "PASSWORD_SET_REQUESTED",
+  "PASSWORD_SET",
   "PASSWORD_CHANGED",
   "PASSWORD_REHASHED",
   "EMAIL_VERIFIED",
@@ -158,6 +160,16 @@ export const AUDIT_CATALOG = {
   },
   PASSWORD_RESET_REQUESTED: userTarget,
   PASSWORD_RESET: userTarget,
+  // A set-password link was issued (AUTH-T22). Written only when a token is
+  // actually issued, so an unknown or password-holding address leaves no row.
+  PASSWORD_SET_REQUESTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      via: z.enum(["sign_in", "sign_up", "link_request"]),
+    }),
+  },
+  // A password-less account set its first password through the emailed link.
+  PASSWORD_SET: userTarget,
   PASSWORD_CHANGED: {
     targetType: "USER",
     metadata: z.strictObject({ revokedOtherSessions: z.boolean() }),

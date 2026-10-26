@@ -16,8 +16,8 @@ const live = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "live");
 const pending = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "pending");
 
 describe("registry", () => {
-  it("has exactly two live actions today: verify-email and account-unlock", () => {
-    expect(live).toEqual(["verify-email", "account-unlock"]);
+  it("has exactly three live actions today: verify-email, set-password and account-unlock", () => {
+    expect(live).toEqual(["verify-email", "set-password", "account-unlock"]);
   });
 
   it("gives every action its own path", () => {

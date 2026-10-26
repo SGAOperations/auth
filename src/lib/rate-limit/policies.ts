@@ -46,6 +46,25 @@ export const POLICIES = {
   adminMutation: [
     { id: "admin:user:1m", limit: 100, windowSeconds: 60, by: "user" },
   ],
+  // The email step and the expired-link form. Per-email buckets count whether
+  // or not the account exists, so a 429 is identical either way.
+  setPasswordRequest: [
+    { id: "set-password:ip:10m", limit: 10, windowSeconds: 600, by: "ip" },
+    { id: "set-password:email:10m", limit: 5, windowSeconds: 600, by: "email" },
+  ],
+  // Links emailed to one account: 3 an hour (AUTH-T22).
+  setPasswordLink: [
+    {
+      id: "set-password-link:user:1h",
+      limit: 3,
+      windowSeconds: 3600,
+      by: "user",
+    },
+  ],
+  // Admin invites to one user: 3 a day (AUTH-T22).
+  setPasswordInvite: [
+    { id: "invite:user:1d", limit: 3, windowSeconds: 86400, by: "user" },
+  ],
 } as const satisfies Record<string, readonly Rule[]>;
 
 export type PolicyName = keyof typeof POLICIES;

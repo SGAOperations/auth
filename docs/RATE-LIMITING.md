@@ -19,6 +19,10 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 | `token-link:ip:10m`         | `POST /<token-link>/confirm` (AUTH-T103)                               | IP            | 20    | 10 minutes |
 | `reauth:user:1m`            | re-auth handler (AUTH-T32)                                             | user id       | 5     | 1 minute   |
 | `admin:user:1m`             | admin mutation handlers (AUTH-T36)                                     | user id       | 100   | 1 minute   |
+| `set-password:ip:10m`       | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | IP            | 10    | 10 minutes |
+| `set-password:email:10m`    | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | email         | 5     | 10 minutes |
+| `set-password-link:user:1h` | set-password links emailed to one account (AUTH-T22)                   | user id       | 3     | 1 hour     |
+| `invite:user:1d`            | admin invites to one user, `issueAdminInvite` (AUTH-T22)               | user id       | 3     | 1 day      |
 
 - A request is blocked when any rule of its policy denies it. The response is `429` with `Retry-After` (whole seconds, at least 1), `Cache-Control: no-store` and the body `{"code":"TOO_MANY_REQUESTS","message":"Too many requests. Try again later."}`. The request never reaches Better Auth.
 - Emails are normalised (`normalizeEmail`) and hashed with SHA-256, and session tokens are hashed, before they become part of a key. IPs and user ids are used as they are. Per-email buckets count a request whether or not the account exists, so the 429 is identical either way.
@@ -67,8 +71,9 @@ The free tier allows 500,000 commands a month. The alert threshold is **80%, whi
 | `sign-in`              | 8 sign-ins per user per month                                                            | 2,400            | 2      | 19,200                  |
 | sign-up, reset, resend | new users and the occasional reset                                                       | about 1,000      | 1 to 2 | about 6,000             |
 | `token-link`           | one confirm POST per emailed link, about 1,500 a month                                   | about 1,500      | 1      | about 6,000             |
+| `set-password`         | email step and link requests, plus the per-account link and invite checks                | about 500        | 2 to 3 | about 5,000             |
 | email caps             | about 2,000 sends a month, 6 commands per send (see [EMAIL.md](EMAIL.md))                | about 2,000      | n/a    | about 12,000            |
-| **Total**              |                                                                                          |                  |        | **about 277,000 (55%)** |
+| **Total**              |                                                                                          |                  |        | **about 282,000 (56%)** |
 
 The product SDK refreshes the JWT about every 9 minutes per active session (AUTH-T29, AUTH-T60). **The token endpoint dominates.** On these assumptions about 870 commands a month per active user, the 80% threshold is reached at roughly 460 monthly active users, and the free tier at roughly 570. If real usage projects past 80%, raise it on the ticket rather than quietly lowering a policy: the choices are a longer JWT lifetime, an Upstash paid plan, or a different token limit.
 
