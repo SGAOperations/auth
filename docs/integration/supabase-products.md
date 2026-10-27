@@ -194,7 +194,7 @@ as $$
 $$;
 ```
 
-Example table and policies. Replace `treasurer` with your own position key.
+Example table and policies. The example uses `comptroller`, a curated position that `npm run seed` creates on dev. Replace it with your own position key.
 
 > **Prerequisite:** `expense_reports.owner_id` references `public.users`. Create that table first, using the DDL in [section 5](#5-decoupling-from-authusers), or this SQL fails when applied in order.
 
@@ -211,24 +211,24 @@ alter table public.expense_reports enable row level security;
 create index expense_reports_owner_id_idx
   on public.expense_reports (owner_id);
 
--- Owners see their own rows; treasurers see all of them.
-create policy "read own or treasurer"
+-- Owners see their own rows; comptrollers see all of them.
+create policy "read own or comptroller"
   on public.expense_reports
   for select
   to authenticated
   using (
     (select auth.uid()) = owner_id
-    or (select public.has_position('treasurer'))
+    or (select public.has_position('comptroller'))
   );
 
--- Only treasurers may insert, and only as themselves.
-create policy "treasurers insert"
+-- Only comptrollers may insert, and only as themselves.
+create policy "comptrollers insert"
   on public.expense_reports
   for insert
   to authenticated
   with check (
     (select auth.uid()) = owner_id
-    and (select public.has_position('treasurer'))
+    and (select public.has_position('comptroller'))
   );
 ```
 
@@ -320,6 +320,6 @@ Checklist:
 
 Filled in by the operator after a live run against a throwaway Supabase project, before this guide's pull request merges.
 
-| Date             | SGAuth issuer | Supabase project (throwaway) | Script mode | Token accepted | `auth.uid()` policy | Position policy | Verified by |
-| ---------------- | ------------- | ---------------------------- | ----------- | -------------- | ------------------- | --------------- | ----------- |
-| Not yet verified |               |                              |             |                |                     |                 |             |
+| Date       | SGAuth issuer                        | Supabase project (throwaway) | Script mode | Token accepted                     | `auth.uid()` policy                                     | Position policy                                                                       | Verified by |
+| ---------- | ------------------------------------ | ---------------------------- | ----------- | ---------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------- |
+| 2026-10-27 | https://auth-dev.northeasternsga.com | bmwjuxcewutchtvnaqcv         | `oidc`      | yes (`/rest/v1` select and insert) | yes (own-row insert refused for another owner, `42501`) | yes (`comptroller` insert allowed; without it refused, `42501`; select sees all rows) | pataniaeli  |
