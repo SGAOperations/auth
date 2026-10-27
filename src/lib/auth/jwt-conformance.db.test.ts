@@ -132,7 +132,7 @@ describe("OIDC discovery document", () => {
     });
     expect(rewrites).toContainEqual({
       source: "/.well-known/jwks.json",
-      destination: new URL(discovery.jwks_uri).pathname,
+      destination: "/api/sgauth/jwks",
     });
   });
 
