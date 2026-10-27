@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { connection } from "next/server";
 import { EnvironmentBanner } from "@/components/environment-banner";
+import { SiteFooter } from "@/components/site-footer";
 import { env } from "@/lib/env";
 import "./globals.css";
 
@@ -39,6 +40,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <EnvironmentBanner sgauthEnv={env.SGAUTH_ENV} />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
