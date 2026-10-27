@@ -15,6 +15,7 @@
     "test:authz": "vitest run --project unit --coverage --coverage.include=src/lib/authz.ts src/lib/authz",
     "test:watch": "vitest",
     "seed": "prisma db seed",
+    "bench:auth-timing": "node scripts/auth-timing-bench.mjs",
     "prisma:migrate-dev": "node scripts/prisma-guard.mjs migrate dev && prisma migrate dev",
     "prisma:migrate-reset": "node scripts/prisma-guard.mjs migrate reset && prisma migrate reset",
     "prisma:db-push": "node scripts/prisma-guard.mjs db push && prisma db push",
