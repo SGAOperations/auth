@@ -11,6 +11,7 @@ const TRIPWIRE =
 // Admin plugin can ban, re-role, remove and impersonate users; untested until mounted.
 describe("primary admin: Better Auth admin plugin tripwire", () => {
   const prisma = {} as unknown as PrismaClient;
+  const lockout = testLockout();
   const plugins = buildAuthPlugins({
     signupAllowlist: {
       domains: new Set(["northeastern.edu"]),
@@ -20,13 +21,14 @@ describe("primary admin: Better Auth admin plugin tripwire", () => {
     issuer: "http://localhost:3000",
     secret: "s".repeat(32),
     sgauthEnv: "local",
+    mailer: lockout.mailer,
   });
   const auth = betterAuth({
     ...buildAuthOptions({
       prisma,
       baseURL: "http://localhost:3000",
       secret: "s".repeat(32),
-      lockout: testLockout(),
+      lockout,
     }),
     plugins,
   });
