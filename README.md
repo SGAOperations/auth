@@ -222,7 +222,8 @@ manager, never in git. Pooled vs. direct handling under Prisma is settled in
 AUTH-T04.
 
 To restore `main` to an earlier point in time, see
-[docs/runbooks/neon-restore.md](docs/runbooks/neon-restore.md).
+[docs/runbooks/neon-restore.md](docs/runbooks/neon-restore.md). All runbooks are
+indexed in [docs/runbooks/README.md](docs/runbooks/README.md).
 
 To roll SGAuth out to a product, see [docs/ROLLOUT.md](docs/ROLLOUT.md).
 
