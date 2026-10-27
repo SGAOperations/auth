@@ -16,7 +16,13 @@ const EXEMPT_PATHS = new Set([
   "/api/auth/token",
   "/api/auth/get-session",
   "/api/sgauth/session",
+  "/api/sgauth/session/minimal",
   "/api/health",
+  "/api/csp-report",
+  // Bearer-protected by CRON_SECRET, which replaces the gate cookie.
+  "/api/jobs/pa-transfer",
+  "/api/jobs/alerts",
+  "/api/jobs/retention",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ]);
@@ -147,9 +153,4 @@ export const unlockLimiter = createAttemptLimiter({
   maxKeys: 10_000,
 });
 
-export function clientIp(headers: Headers): string {
-  const real = headers.get("x-real-ip")?.trim();
-  if (real) return real;
-  const first = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return first || "unknown";
-}
+export { clientIp } from "@/lib/client-ip";

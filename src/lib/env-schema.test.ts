@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseServerEnv } from "@/lib/env-schema";
+import { parseServerEnv, parseVersionedSecrets } from "@/lib/env-schema";
 
 const SECRET = "a".repeat(32);
 const DATABASE_URL = "postgresql://runtime:pw@ep-x-pooler.neon.tech/neondb";
@@ -9,6 +9,18 @@ const valid = {
   DATABASE_URL,
   BETTER_AUTH_SECRET: SECRET,
 };
+
+const upstash = {
+  UPSTASH_REDIS_REST_URL: "https://example-12345.upstash.io",
+  UPSTASH_REDIS_REST_TOKEN: "upstash-test-token",
+};
+
+const resend = {
+  RESEND_API_KEY: "re_test_key",
+  RESEND_FROM_EMAIL: "no-reply@auth.northeasternsga.com",
+};
+
+const CRON_SECRET = "c".repeat(32);
 
 function messageOf(raw: Record<string, string | undefined>): string {
   try {
@@ -79,6 +91,160 @@ describe("parseServerEnv", () => {
     expect(env.RESEND_FROM_EMAIL).toBe("auth@example.com");
   });
 
+  describe("BETTER_AUTH_TRUSTED_ORIGINS", () => {
+    it("is refused, naming the key without echoing the value", () => {
+      const origin = "https://x.vercel.app";
+      const message = messageOf({
+        ...valid,
+        BETTER_AUTH_TRUSTED_ORIGINS: origin,
+      });
+      expect(message).toContain("BETTER_AUTH_TRUSTED_ORIGINS");
+      expect(message).not.toContain(origin);
+    });
+
+    it("is treated as unset when empty", () => {
+      expect(() =>
+        parseServerEnv({ ...valid, BETTER_AUTH_TRUSTED_ORIGINS: "" }),
+      ).not.toThrow();
+    });
+  });
+
+  describe("Upstash rate-limit store", () => {
+    it.each(["production", "dev"])(
+      "is required when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const message = messageOf({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(message).toContain("UPSTASH_REDIS_REST_URL: missing");
+        expect(message).toContain("UPSTASH_REDIS_REST_TOKEN: missing");
+      },
+    );
+
+    it.each(["production", "dev"])("parses on %s when set", (sgauthEnv) => {
+      const env = parseServerEnv({
+        ...valid,
+        ...upstash,
+        ...resend,
+        CRON_SECRET,
+        SGAUTH_ENV: sgauthEnv,
+      });
+      expect(env.UPSTASH_REDIS_REST_URL).toBe(upstash.UPSTASH_REDIS_REST_URL);
+    });
+
+    it.each(["preview", "local"])(
+      "is optional when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const env = parseServerEnv({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(env.UPSTASH_REDIS_REST_URL).toBeUndefined();
+      },
+    );
+
+    it("still rejects the URL without the token on local", () => {
+      expect(
+        messageOf({
+          ...valid,
+          UPSTASH_REDIS_REST_URL: upstash.UPSTASH_REDIS_REST_URL,
+        }),
+      ).toContain("UPSTASH_REDIS_REST_TOKEN: missing");
+    });
+  });
+
+  describe("Resend email transport", () => {
+    it.each(["production", "dev"])(
+      "is required when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const message = messageOf({
+          ...valid,
+          ...upstash,
+          SGAUTH_ENV: sgauthEnv,
+        });
+        expect(message).toContain("RESEND_API_KEY: missing");
+        expect(message).toContain("RESEND_FROM_EMAIL: missing");
+      },
+    );
+
+    it.each(["preview", "local"])(
+      "is optional when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const env = parseServerEnv({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(env.RESEND_API_KEY).toBeUndefined();
+        expect(env.RESEND_FROM_EMAIL).toBeUndefined();
+      },
+    );
+  });
+
+  describe("job runner secret", () => {
+    const deployed = { ...valid, ...upstash, ...resend };
+
+    it.each(["production", "dev"])(
+      "is required when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        expect(messageOf({ ...deployed, SGAUTH_ENV: sgauthEnv })).toContain(
+          "CRON_SECRET: missing",
+        );
+      },
+    );
+
+    it.each(["production", "dev"])("parses on %s when set", (sgauthEnv) => {
+      const env = parseServerEnv({
+        ...deployed,
+        CRON_SECRET,
+        SGAUTH_ENV: sgauthEnv,
+      });
+      expect(env.CRON_SECRET).toBe(CRON_SECRET);
+    });
+
+    it.each(["preview", "local"])(
+      "is optional when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const env = parseServerEnv({ ...valid, SGAUTH_ENV: sgauthEnv });
+        expect(env.CRON_SECRET).toBeUndefined();
+      },
+    );
+
+    it("rejects a short secret without echoing it", () => {
+      const short = "z".repeat(31);
+      const message = messageOf({ ...valid, CRON_SECRET: short });
+      expect(message).toContain("CRON_SECRET");
+      expect(message).not.toContain(short);
+    });
+  });
+
+  describe("POSTHOG_DISABLED", () => {
+    it.each(["true", "false"])("accepts %s", (value) => {
+      const env = parseServerEnv({ ...valid, POSTHOG_DISABLED: value });
+      expect(env.POSTHOG_DISABLED).toBe(value);
+    });
+
+    it("is optional", () => {
+      expect(parseServerEnv(valid).POSTHOG_DISABLED).toBeUndefined();
+    });
+
+    it.each(["yes", "1"])("rejects %s", (value) => {
+      expect(messageOf({ ...valid, POSTHOG_DISABLED: value })).toContain(
+        "POSTHOG_DISABLED",
+      );
+    });
+  });
+
+  describe("SGAUTH_EMAIL_DAILY_CAP", () => {
+    it("defaults to 500", () => {
+      expect(parseServerEnv(valid).SGAUTH_EMAIL_DAILY_CAP).toBe(500);
+    });
+
+    it("coerces a numeric string", () => {
+      expect(
+        parseServerEnv({ ...valid, SGAUTH_EMAIL_DAILY_CAP: "90" })
+          .SGAUTH_EMAIL_DAILY_CAP,
+      ).toBe(90);
+    });
+
+    it.each(["0", "abc", "1.5", "100001"])("rejects %s", (value) => {
+      expect(messageOf({ ...valid, SGAUTH_EMAIL_DAILY_CAP: value })).toContain(
+        "SGAUTH_EMAIL_DAILY_CAP",
+      );
+    });
+  });
+
   it("strips undeclared keys, including the retired cookie variables", () => {
     const env = parseServerEnv({
       ...valid,
@@ -94,6 +260,9 @@ describe("parseServerEnv", () => {
   it("accepts the preview gate and signup allowlist variables", () => {
     const env = parseServerEnv({
       ...valid,
+      ...upstash,
+      ...resend,
+      CRON_SECRET,
       SGAUTH_ENV: "dev",
       SGAUTH_SIGNUP_ALLOWLIST: "@example.edu",
       SGAUTH_PREVIEW_GATE_PASSWORD: "p".repeat(16),
@@ -110,5 +279,137 @@ describe("parseServerEnv", () => {
     });
     expect(message).toContain("SGAUTH_PREVIEW_GATE_PASSWORD");
     expect(message).not.toContain(short);
+  });
+
+  describe("local seed Primary Admin", () => {
+    const seed = {
+      SEED_PRIMARY_ADMIN_EMAIL: "  Admin@Example.COM ",
+      SEED_PRIMARY_ADMIN_PASSWORD: "correct-horse-battery",
+    };
+
+    it("parses on local, trimming and lower-casing the email", () => {
+      const env = parseServerEnv({ ...valid, ...seed });
+      expect(env.SEED_PRIMARY_ADMIN_EMAIL).toBe("admin@example.com");
+      expect(env.SEED_PRIMARY_ADMIN_PASSWORD).toBe(
+        seed.SEED_PRIMARY_ADMIN_PASSWORD,
+      );
+    });
+
+    it("requires the password when the email is set", () => {
+      expect(
+        messageOf({
+          ...valid,
+          SEED_PRIMARY_ADMIN_EMAIL: seed.SEED_PRIMARY_ADMIN_EMAIL,
+        }),
+      ).toContain("SEED_PRIMARY_ADMIN_PASSWORD: missing");
+    });
+
+    it("rejects an 11-character password without echoing it", () => {
+      const short = "k".repeat(11);
+      const message = messageOf({
+        ...valid,
+        ...seed,
+        SEED_PRIMARY_ADMIN_PASSWORD: short,
+      });
+      expect(message).toContain("SEED_PRIMARY_ADMIN_PASSWORD");
+      expect(message).not.toContain(short);
+    });
+
+    it("rejects an invalid email", () => {
+      expect(
+        messageOf({ ...valid, ...seed, SEED_PRIMARY_ADMIN_EMAIL: "nope" }),
+      ).toContain("SEED_PRIMARY_ADMIN_EMAIL");
+    });
+
+    it.each(["dev", "preview", "production"])(
+      "refuses every seed key when SGAUTH_ENV=%s",
+      (sgauthEnv) => {
+        const message = messageOf({
+          ...valid,
+          ...seed,
+          SGAUTH_ENV: sgauthEnv,
+          SEED_PRIMARY_ADMIN_NAME: "Admin",
+        });
+        for (const key of [
+          "SEED_PRIMARY_ADMIN_EMAIL",
+          "SEED_PRIMARY_ADMIN_PASSWORD",
+          "SEED_PRIMARY_ADMIN_NAME",
+        ]) {
+          expect(message).toContain(
+            `${key}: only allowed when SGAUTH_ENV=local`,
+          );
+        }
+        expect(message).not.toContain(seed.SEED_PRIMARY_ADMIN_PASSWORD);
+      },
+    );
+  });
+
+  describe("BETTER_AUTH_SECRETS", () => {
+    it("is optional, and empty counts as unset", () => {
+      expect(parseServerEnv(valid).BETTER_AUTH_SECRETS).toBeUndefined();
+      expect(
+        parseServerEnv({ ...valid, BETTER_AUTH_SECRETS: "" })
+          .BETTER_AUTH_SECRETS,
+      ).toBeUndefined();
+    });
+
+    it("accepts a well-formed list", () => {
+      const raw = `2:${"x".repeat(32)},1:${"y".repeat(32)}`;
+      expect(
+        parseServerEnv({ ...valid, BETTER_AUTH_SECRETS: raw })
+          .BETTER_AUTH_SECRETS,
+      ).toBe(raw);
+    });
+
+    it("names the variable and the entry, never the value", () => {
+      const bad = "q".repeat(31);
+      const message = messageOf({
+        ...valid,
+        BETTER_AUTH_SECRETS: `2:${SECRET},1:${bad}`,
+      });
+      expect(message).toContain("BETTER_AUTH_SECRETS: entry #2");
+      expect(message).not.toContain(bad);
+    });
+  });
+});
+
+describe("parseVersionedSecrets", () => {
+  const a = "a".repeat(32);
+  const b = "b".repeat(32);
+
+  it("parses entries in order, trimming whitespace", () => {
+    expect(parseVersionedSecrets(` 2:${a} , 1:${b}`)).toEqual([
+      { version: 2, value: a },
+      { version: 1, value: b },
+    ]);
+  });
+
+  it("keeps a colon inside the secret", () => {
+    const withColon = `${a}:${b}`;
+    expect(parseVersionedSecrets(`0:${withColon}`)).toEqual([
+      { version: 0, value: withColon },
+    ]);
+  });
+
+  it.each([
+    ["a missing colon", `1${a}`],
+    ["a non-numeric version", `x:${a}`],
+    ["a negative version", `-1:${a}`],
+    ["a fractional version", `1.5:${a}`],
+    ["an empty version", `:${a}`],
+    ["a 31-character secret", `1:${"s".repeat(31)}`],
+    ["an empty entry", `1:${a},`],
+    ["a duplicate version", `1:${a},1:${b}`],
+  ])("rejects %s by entry position without echoing the value", (_, raw) => {
+    let message = "";
+    try {
+      parseVersionedSecrets(raw);
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/^entry #\d+: /);
+    expect(message).not.toContain(a);
+    expect(message).not.toContain(b);
+    expect(message).not.toContain("s".repeat(31));
   });
 });

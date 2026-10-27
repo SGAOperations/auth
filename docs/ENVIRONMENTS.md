@@ -19,30 +19,40 @@ There is one Vercel project, `sgauth`, linked to `SGAOperations/auth`.
 
 Every variable set in Vercel, by scope. "Preview (`dev`)" is the branch-specific override for git branch `dev`; it replaces the "Preview (all branches)" value for that branch only.
 
-| Variable                                                                                  | Purpose                                                                                                                               | Production     | Preview (`dev`)        | Preview (all branches) | Development   | Source | Secret |
-| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------------- | ---------------------- | ------------- | ------ | ------ |
-| `DATABASE_URL`                                                                            | Pooled runtime role. `sslmode=verify-full`.                                                                                           | Neon `main`    | inherited (Neon `dev`) | Neon `dev`             | empty         | manual | yes    |
-| `DIRECT_URL`                                                                              | Direct migration role. `sslmode=verify-full` (fallback below).                                                                        | Neon `main`    | inherited (Neon `dev`) | Neon `dev`             | empty         | manual | yes    |
-| `SGAUTH_ENV`                                                                              | Selects Better Auth's `baseURL` (`src/lib/auth/settings.ts`).                                                                         | `production`   | `dev`                  | `preview`              | `local`       | manual | no     |
-| `BETTER_AUTH_SECRET`                                                                      | Better Auth signing secret. Generate with `npx @better-auth/cli secret`.                                                              | distinct value | distinct value         | distinct value         | its own value | manual | yes    |
-| `SGAUTH_PREVIEW_GATE_PASSWORD` ([#134](https://github.com/SGAOperations/auth/issues/134)) | Password for the browser-route gate outside production.                                                                               | not set        | distinct value         | distinct value         | not set       | manual | yes    |
-| `SGAUTH_SIGNUP_ALLOWLIST` ([#134](https://github.com/SGAOperations/auth/issues/134))      | Comma-separated exact emails and `@domain` suffixes allowed to sign up outside production. Lists people, so it stays out of the repo. | not set        | set                    | set                    | not set       | manual | no     |
-| `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`                  | Read by `settings.ts` (preview `baseURL`, the `local`-on-Vercel assertion) and by `scripts/vercel-build.mjs`.                         | system         | system                 | system                 | n/a           | Vercel | no     |
-| `VERCEL_AUTOMATION_BYPASS_SECRET`                                                         | Exposes one bypass secret. Listed for reference only. Never copied into another product.                                              | system         | system                 | system                 | n/a           | Vercel | yes    |
+| Variable                                                                                  | Purpose                                                                                                                                                                                                      | Production                          | Preview (`dev`)                     | Preview (all branches) | Development   | Source | Secret |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------------- | ---------------------- | ------------- | ------ | ------ |
+| `DATABASE_URL`                                                                            | Pooled runtime role. `sslmode=verify-full`.                                                                                                                                                                  | Neon `main`                         | inherited (Neon `dev`)              | Neon `dev`             | empty         | manual | yes    |
+| `DIRECT_URL`                                                                              | Direct migration role. `sslmode=verify-full` (fallback below).                                                                                                                                               | Neon `main`                         | inherited (Neon `dev`)              | Neon `dev`             | empty         | manual | yes    |
+| `SGAUTH_ENV`                                                                              | Selects Better Auth's `baseURL` (`src/lib/auth/settings.ts`).                                                                                                                                                | `production`                        | `dev`                               | `preview`              | `local`       | manual | no     |
+| `BETTER_AUTH_SECRET`                                                                      | Better Auth signing secret. Generate with `npx @better-auth/cli secret`.                                                                                                                                     | distinct value                      | distinct value                      | distinct value         | its own value | manual | yes    |
+| `BETTER_AUTH_SECRETS` ([#81](https://github.com/SGAOperations/auth/issues/81))            | Versioned secrets, `<version>:<secret>` entries, current first. Set only after a rotation; `BETTER_AUTH_SECRET` then only decrypts older data. See [runbooks/rotate-secrets.md](runbooks/rotate-secrets.md). | not set until rotated               | not set until rotated               | not set                | not set       | manual | yes    |
+| `SGAUTH_PREVIEW_GATE_PASSWORD` ([#134](https://github.com/SGAOperations/auth/issues/134)) | Password for the browser-route gate outside production.                                                                                                                                                      | not set                             | distinct value                      | distinct value         | not set       | manual | yes    |
+| `SGAUTH_SIGNUP_ALLOWLIST` ([#134](https://github.com/SGAOperations/auth/issues/134))      | Comma-separated exact emails and `@domain` suffixes allowed to sign up outside production. Lists people, so it stays out of the repo.                                                                        | not set                             | set                                 | set                    | not set       | manual | no     |
+| `UPSTASH_REDIS_REST_URL` ([#75](https://github.com/SGAOperations/auth/issues/75))         | Upstash Redis REST endpoint for rate limiting. Required on `production` and `dev`. See [RATE-LIMITING.md](RATE-LIMITING.md).                                                                                 | its own database                    | its own database, not production's  | not set                | not set       | manual | no     |
+| `UPSTASH_REDIS_REST_TOKEN` ([#75](https://github.com/SGAOperations/auth/issues/75))       | Token for that database. Required on `production` and `dev`.                                                                                                                                                 | its own token                       | its own token                       | not set                | not set       | manual | yes    |
+| `RESEND_API_KEY` ([#32](https://github.com/SGAOperations/auth/issues/32))                 | Sending-only Resend key, restricted to `auth.northeasternsga.com`, from the SGAuth account. Required on `production` and `dev`. See [EMAIL.md](EMAIL.md).                                                    | its own key                         | its own key, not production's       | not set                | not set       | manual | yes    |
+| `RESEND_FROM_EMAIL` ([#32](https://github.com/SGAOperations/auth/issues/32))              | Bare sender address. The `SGAuth` display name is added in code. Required on `production` and `dev`.                                                                                                         | `no-reply@auth.northeasternsga.com` | `no-reply@auth.northeasternsga.com` | not set                | not set       | manual | no     |
+| `SGAUTH_EMAIL_DAILY_CAP` ([#32](https://github.com/SGAOperations/auth/issues/32))         | Optional global daily send cap (default 500). Set it at or under the Resend plan's daily limit.                                                                                                              | optional                            | optional                            | not set                | not set       | manual | no     |
+| `CRON_SECRET` ([#50](https://github.com/SGAOperations/auth/issues/50))                    | Bearer secret for the `/api/jobs/*` routes. Required on `production` and `dev`. See [Scheduled jobs](#scheduled-jobs).                                                                                       | distinct value                      | distinct value                      | not set                | not set       | manual | yes    |
+| `POSTHOG_KEY` ([#87](https://github.com/SGAOperations/auth/issues/87))                    | PostHog project key for server-side analytics and error tracking. One project for all environments, events tagged by `sgauth_env`. See [POSTHOG.md](POSTHOG.md). Not a secret, but never `NEXT_PUBLIC_`.     | set                                 | set                                 | not set                | not set       | manual | no     |
+| `POSTHOG_HOST` ([#87](https://github.com/SGAOperations/auth/issues/87))                   | PostHog ingestion host, for example `https://us.i.posthog.com`. Set together with the key.                                                                                                                   | set                                 | set                                 | not set                | not set       | manual | no     |
+| `POSTHOG_DISABLED` ([#87](https://github.com/SGAOperations/auth/issues/87))               | `true` turns all PostHog capture off. Local `.env` only.                                                                                                                                                     | never set                           | never set                           | never set              | not set       | manual | no     |
+| `VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`                  | Read by `settings.ts` (preview `baseURL`, the `local`-on-Vercel assertion) and by `scripts/vercel-build.mjs`. `VERCEL_GIT_COMMIT_SHA` is the `/api/health` version.                                          | system                              | system                              | system                 | n/a           | Vercel | no     |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`                                                         | Exposes one bypass secret. Listed for reference only. Never copied into another product.                                                                                                                     | system                              | system                              | system                 | n/a           | Vercel | yes    |
 
 Notes:
 
 - The `VERCEL_*` variables require "Automatically expose System Environment Variables" to stay on.
-- `TEST_DATABASE_URL` is local and CI only. It is never set in Vercel.
+- `TEST_DATABASE_URL` and `TEST_DIRECT_URL` are local and CI only. They are never set in Vercel.
 - The Development scope is either filled as shown or left empty. Local development uses `.env`.
-- Later tickets add their own rows (Resend, Upstash, PostHog, `CRON_SECRET`).
 
 Rules:
 
 - **No secret value is shared across scopes.** `auth-dev` is reachable from the internet, so none of its secrets (`BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, database credentials) may equal production's or the Preview (all branches) value. The Neon `dev` roles have no access to Neon `main`.
 - Nothing secret is `NEXT_PUBLIC_`.
+- Rotation procedures for every secret are in [runbooks/rotate-secrets.md](runbooks/rotate-secrets.md).
 - Every connection string uses `sslmode=verify-full`. The one exception is `DIRECT_URL`, which may use `sslmode=require&sslaccept=strict` if the migration CLI rejects `verify-full`. If that happens, note it on #12.
-- The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD` and `SGAUTH_SIGNUP_ALLOWLIST`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password.
+- The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, `SGAUTH_SIGNUP_ALLOWLIST`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `CRON_SECRET`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password, and the env validation (#75, #32, #50) refuses to start on `production` or `dev` without the Upstash pair, the Resend pair or `CRON_SECRET`.
 - Never set `SGAUTH_PREVIEW_GATE=off` in a Vercel scope.
 
 ## Cookies and SDK values
@@ -59,7 +69,8 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 ## Product previews
 
 - Each product adds a Vercel branch domain `<product>-dev.northeasternsga.com` on its own dev branch, with `SGAUTH_URL=https://auth-dev.northeasternsga.com` and `SGAUTH_COOKIE_NAME=__Secure-sgauth-dev.session_token`.
-- The product registers that origin in SGAuth's product registry once AUTH-T56 (#68) exists.
+- The product's origin must be an **active** row in that environment's product registry. SGAuth picks it up within 60 s, or at once on the instance that saved it.
+- The domain is added in the order in [SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md#adding-a-subdomain): registry, Vercel, then DNS.
 - Ad-hoc `*.vercel.app` product previews **cannot use SSO**. The browser never sends a `northeasternsga.com` cookie to `vercel.app`, so use the branch domain.
 - Testers unlock the [gate](#pre-production-gates) on `auth-dev` once per browser (7 days). Product servers call the exempt machine endpoints and need no gate cookie or Vercel header once the Deployment Protection Exception is on. Until then, product previews cannot redirect a browser to `auth-dev`.
 
@@ -67,6 +78,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 
 - Run `npm run dev` with `SGAUTH_ENV=local`, then browse to `http://auth.sga.localhost:3000`, never `http://localhost:3000`. On bare `localhost` the browser rejects the `Domain=sga.localhost` cookie, and the origin is not trusted.
 - Products run on `<product>.sga.localhost:<port>` (VaultZ on `vaultz.sga.localhost:3001`) with `SGAUTH_URL=http://auth.sga.localhost:3000` and `SGAUTH_COOKIE_NAME=sgauth-local.session_token`.
+- On `SGAUTH_ENV=local`, any `http://<name>.sga.localhost:<port>` origin is trusted with no registry row. `BETTER_AUTH_TRUSTED_ORIGINS` is refused at boot in every environment.
 - Name resolution by browser:
   - Chrome and Edge resolve `*.localhost` natively.
   - Firefox: add the hostnames to `network.dns.localDomains` in `about:config`.
@@ -75,12 +87,92 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 - **Product stub.** `node scripts/sso-stub.mjs` serves `http://vaultz.sga.localhost:3001`. It reads the session cookie and asks SGAuth who it belongs to, so it shows whether the cookie reached a sibling host. It reads `SGAUTH_URL`, `SGAUTH_COOKIE_NAME` and `PORT` (the defaults match the values above) and listens on loopback only. It forwards the session cookie to `SGAUTH_URL`, so it refuses to start when `SGAUTH_URL` is `http` on any host other than `localhost`, `*.localhost` or loopback.
 - **Manual SSO test.** Sign in at `http://auth.sga.localhost:3000` with a synthetic account, then reload `http://vaultz.sga.localhost:3001`: it shows "Signed in as ...". In DevTools, the `sgauth-local.session_token` cookie has Domain `.sga.localhost`, HttpOnly, SameSite=Lax, and no Secure flag. Sign-in needs a sign-in method (#29); the Playwright job in AUTH-T96 (#108) automates this check.
 
+## Cross-subdomain cookie spike (AUTH-T104)
+
+### Why
+
+Better Auth issues #5611 and #3938 report cross-subdomain cookies that are set and then dropped. Red-team findings B10 and C1 depend on how browsers order and accept cookies. This spike checks both on the real domain before product integration builds on them. Re-run it after any Better Auth minor upgrade and after any change to `src/lib/auth/cookies.ts`.
+
+### Setup
+
+1. **Preconditions.** `auth-dev` is deployed from `dev` and its gate can be unlocked. If the Deployment Protection Exception is not on yet, use the bypass cookie in the browser and set `SGAUTH_DEV_BYPASS_SECRET` on the stub project to a **dedicated** bypass secret, revoked at teardown.
+2. **Two synthetic accounts**, `victim` and `attacker`, at `@northeastern.edu` addresses on `SGAUTH_SIGNUP_ALLOWLIST`. Sign both up through the API. No verification email is sent yet, so in the Neon `dev` branch SQL editor set `"emailVerified" = true` for exactly those two rows.
+3. **The stub project.** Create a separate Vercel project, `sgauth-stub-dev`: framework Other, Node 22.x, **not** linked to Git. Deploy it with `npx vercel@latest deploy --prod` from `scripts/sso-stub-deploy/`. Assign the domain `stub-dev.northeasternsga.com` and add its CNAME.
+4. **Sign-in and sign-out snippets.** Run them from the DevTools console **on an `auth-dev` page**, so they are same-origin and pass Better Auth's Origin check:
+   - `fetch("/api/auth/sign-in/email",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email,password})})`
+   - `fetch("/api/auth/sign-out",{method:"POST"})`
+5. **Record** the browser name and version, the OS, and the Better Auth version from `package-lock.json`.
+
+The stub is `scripts/sso-stub-deploy/`. It can only touch `__Secure-sgauth-dev.session_token`, refuses cross-origin POSTs, is `noindex`, and must never be pointed at production. Check it after deploying: `curl -sI https://stub-dev.northeasternsga.com/` returns 200 with `x-robots-tag: noindex`, and `/api/stub` with no route returns 404.
+
+### Procedure
+
+Run each check in Chrome, Firefox and Safari (macOS) unless it says otherwise, in a fresh profile or private window per browser.
+
+1. **Login sets exactly one cookie.** Unlock the gate on `auth-dev` and sign in as `victim`. Pass: DevTools shows exactly one `__Secure-sgauth-dev.session_token` for `auth-dev`, with Domain `.northeasternsga.com`, Path `/`, Secure, HttpOnly, SameSite Lax, and no `session_data` cookie. Note its Expires (about 30 days out). Then check for the #5611 symptom: wait 30 seconds, reload `auth-dev` twice, open `/api/auth/get-session`. Pass: the cookie is still there and the JSON shows `victim`.
+2. **Stub receives and resolves it.** Open `https://stub-dev.northeasternsga.com/`. Pass: it shows `Signed in as victim@...` with one copy, and still does after a reload 30 seconds later.
+3. **Sign-out clears it on both hosts.** Run the sign-out snippet on `auth-dev`. Pass: the cookie is gone on `auth-dev`, `/api/auth/get-session` returns `null`, and stub-dev shows the no-cookie text. Sign in again before check 6.
+4. **Preview host-only mode** (one PR preview, all three browsers). Unlock the gate on the preview and sign in as `victim` (preview uses Neon `dev`, so the accounts are shared). Pass: exactly one `__Secure-sgauth-preview.session_token`, with **no** Domain, Secure, HttpOnly, SameSite Lax; `/api/auth/get-session` on the preview shows `victim`; and no `sgauth` cookie is added on `northeasternsga.com` hosts.
+5. **Local `*.sga.localhost`.** Set `SGAUTH_ENV=local`, run `npm run dev` and `node scripts/sso-stub.mjs`, with the account on your personal Neon branch. Record whether `auth.sga.localhost` resolved natively or needed `network.dns.localDomains` (Firefox) or the hosts-file line (Safari). Sign in at `http://auth.sga.localhost:3000`. Pass: exactly one `sgauth-local.session_token` with Domain `.sga.localhost`, HttpOnly, SameSite Lax, not Secure; `http://vaultz.sga.localhost:3001` shows "Signed in as ..."; after sign-out it shows "Not signed in". A browser that drops or refuses the cookie is a **fail** and triggers the `sga.test` hosts-file follow-up.
+6. **Cookie tossing.** In a second profile sign in as `attacker` and copy its `session_token` value. In the victim's browser, toss it once per variant at `https://stub-dev.northeasternsga.com/toss`, clearing tossed cookies and signing in as `victim` again between variants. Record, per variant:
+   - `parent-path`: stub-dev still shows one copy (`victim`). In the Network panel for `auth-dev`'s `/api/auth/get-session`, record whether the Cookie header carries two copies, which is first, and whose session SGAuth resolved.
+   - `parent-root`: stub-dev shows one copy, expected to resolve to `attacker` (the victim's cookie was replaced). Record what `auth-dev` shows.
+   - `host-only`: stub-dev shows two copies; record the order and what each resolves to. `auth-dev` should still show `victim`. After #213, stub-dev's "All copies as the browser sent them" line must read `no session`, not `victim`, because SGAuth refuses a request with two session cookies.
+   - `sibling-host`: record whether the browser stored it (no new `auth-dev` cookie, Set-Cookie marked rejected) and whether `auth-dev` still shows `victim`.
+
+   Sum up each browser in one line, for example "parent-path copy sent first; Better Auth resolved attacker, so login CSRF is confirmed".
+
+### Results
+
+Every cell is `pending` until the matrix is run. Fill each with `pass`, `fail` or `n/a` and a one-line note, linking the evidence comment on #115.
+
+**Real domain**
+
+| Check                           | Chrome  | Firefox | Safari  |
+| ------------------------------- | ------- | ------- | ------- |
+| 1 Login sets exactly one cookie | pending | pending | pending |
+| 2 Stub resolves the session     | pending | pending | pending |
+| 3 Sign-out clears both hosts    | pending | pending | pending |
+| 6 Tossing: `parent-path`        | pending | pending | pending |
+| 6 Tossing: `parent-root`        | pending | pending | pending |
+| 6 Tossing: `host-only`          | pending | pending | pending |
+| 6 Tossing: `sibling-host`       | pending | pending | pending |
+
+**Preview**
+
+| Check                   | Chrome  | Firefox | Safari  |
+| ----------------------- | ------- | ------- | ------- |
+| 4 Host-only cookie mode | pending | pending | pending |
+
+**Local**
+
+| Check                      | Chrome  | Firefox | Safari  |
+| -------------------------- | ------- | ------- | ------- |
+| 5 `*.sga.localhost` cookie | pending | pending | pending |
+
+- Better Auth version tested: pending
+- Workarounds or pins: pending
+- Go/no-go: pending (SGAuth lead, date)
+
+### Evidence handling
+
+Screenshots and HAR excerpts go on #115, never in the repo. Before posting, replace every `session_token` value, `Cookie` header and `Set-Cookie` value with `<redacted>`. Never post a raw HAR file.
+
+### Teardown
+
+Once go/no-go is posted:
+
+1. Delete the `stub-dev` CNAME first, then the `sgauth-stub-dev` Vercel project, so no dangling DNS record is left (#80, AUTH-T68).
+2. Revoke the dedicated bypass secret, if one was made.
+3. Sign both synthetic accounts out, or delete their `Session` rows in Neon `dev`.
+4. Record the date here: pending.
+
 ## Dev environment rules
 
 - Every non-production environment shows the "DEVELOPMENT ENVIRONMENT" banner (`LOCAL ENVIRONMENT` locally) and is `noindex`, through a robots meta tag and an `X-Robots-Tag` header. `dev` and `preview` show the same text on purpose, so the gate page does not reveal which one it is.
 - **Build-time behaviour.** The banner and the `noindex` header and meta tag are fixed by the `SGAUTH_ENV` present at **build** time: `/` is statically rendered and the header comes from `next.config.ts`. A server started from a build made with a different `SGAUTH_ENV` keeps the banner and `noindex` of the build, not of the runtime value. Vercel builds each deployment with its own environment, so this holds there. Never serve a build made for one environment as another.
 - **Synthetic users only.** Never run a real-user import (AUTH-T87, #99) or copy production data into Neon `dev`.
-- Every secret is separate from production: `BETTER_AUTH_SECRET`, the Resend key (AUTH-T20, #32) and an Upstash key namespace (AUTH-T63, #75). Those tickets add their own rows to the variable table.
+- Every secret is separate from production: `BETTER_AUTH_SECRET`, the Resend key (AUTH-T20, #32) and the Upstash database (AUTH-T63, #75): `dev` has its own database and token, and its keys sit under `sgauth:dev:`. See [RATE-LIMITING.md](RATE-LIMITING.md). The Resend ticket adds its own row to the variable table.
 - **Startup assertion.** `assertSecureCookieConfig` checks the options handed to Better Auth at boot and refuses to start with:
   - `SGAUTH_ENV=local` while Vercel's `VERCEL_ENV` is set, with a base URL host that does not end in `.localhost`, with `useSecureCookies` on, or with cross-subdomain cookies not enabled on `sga.localhost`;
   - outside `local`: a non-`https` base URL, `useSecureCookies` off, a non-Secure or non-HttpOnly cookie, or `SameSite` other than `lax`;
@@ -90,7 +182,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 
 ## SDK dev mode
 
-Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70), and the integration guide (AUTH-T80, #92) links back here.
+Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cookies-and-sdk-values). The defaults target production. The SDK implements them (#69/#70) on top of the [session endpoint](SESSION-ENDPOINT.md), and [the Neon integration guide](integration/neon-products.md) links back here.
 
 ## Build pipeline
 
@@ -102,7 +194,23 @@ Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cooki
 4. Logs `SGAUTH_ENV`, `VERCEL_ENV`, the ref and the database host name. Nothing else about the connection is logged.
 5. Runs `prisma generate`, `prisma migrate deploy`, then `next build`, stopping at the first failure.
 
-Migrations apply while the previous deployment is still serving, so every migration follows expand/contract (AUTH-T16). Nothing in the build log may contain a credential or connection string. There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
+Migrations apply while the previous deployment is still serving, so every migration follows expand/contract ([MIGRATIONS.md](MIGRATIONS.md#expandcontract)). Nothing in the build log may contain a credential or connection string. There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
+
+## Scheduled jobs
+
+`.github/workflows/scheduled-jobs.yml` calls `POST /api/jobs/<name>` with `Authorization: Bearer $CRON_SECRET`. There are no Vercel cron jobs, and `vercel.json` must never gain a `crons` section: Hobby allows two jobs at once a day and rejects finer schedules at deploy time.
+
+| Job           | Schedule (UTC)      | Does                                                                         |
+| ------------- | ------------------- | ---------------------------------------------------------------------------- |
+| `pa-transfer` | hourly, at minute 7 | Executes due COOLING Primary Admin transfers and expires stale PENDING ones. |
+| `alerts`      | every 15 minutes    | Stub until #89.                                                              |
+| `retention`   | daily at 08:23      | Stub until #90.                                                              |
+
+- **Hourly, not every 15 minutes.** Every run queries Postgres and wakes the Neon compute for about 5 minutes. Every 15 minutes is about 60 CU-hours a month per branch against the Free plan's 100 per project. Hourly is about 15. A transfer completes up to about an hour after its 24-hour cooling window ends, plus any GitHub schedule delay.
+- **Targets.** Scheduled runs call production only. `dev` is dispatch-only: Actions, then "Scheduled jobs", then Run workflow with `environment=dev`.
+- **GitHub secrets**, each equal to the matching Vercel `CRON_SECRET`: `CRON_SECRET_PRODUCTION` (Production) and `CRON_SECRET_DEV` (Preview `dev`). While `auth-dev` is still behind Standard Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET_DEV`; the workflow sends it as `x-vercel-protection-bypass` for dev calls only.
+- **Behaviour.** Every route is idempotent and returns quickly. A missing or wrong bearer answers `401` and does nothing. A failing job answers non-2xx, which shows as a red run. A missed run is caught by the next one.
+- GitHub runs schedules only from the default branch (`dev`) and disables them after 60 days without repository activity.
 
 ## Shared pre-production database
 
@@ -117,7 +225,7 @@ Consequences:
 
 The rule: **PR migrations must be additive (expand only).** Contract steps land on `dev` only after merge.
 
-Recovery: `prisma migrate resolve` for a failed or stray migration, or reset the Neon `dev` branch from `main` before launch (AUTH-T16).
+Recovery: `prisma migrate resolve` for a failed or stray migration, or reset the Neon `dev` branch from `main` before launch (see [MIGRATIONS.md](MIGRATIONS.md#recovery)).
 
 Pre-production data is shared and disposable. Never copy production data into it.
 
@@ -161,7 +269,10 @@ These machine endpoints are exempt, matched exactly and on any method, because p
 - `/api/auth/token`
 - `/api/auth/get-session`
 - `/api/sgauth/session`
+- `/api/sgauth/session/minimal`
 - `/api/health`
+- `/api/csp-report`
+- `/api/jobs/pa-transfer`, `/api/jobs/alerts` and `/api/jobs/retention` (bearer-protected by `CRON_SECRET`)
 - `/.well-known/jwks.json`
 - `/.well-known/openid-configuration`
 

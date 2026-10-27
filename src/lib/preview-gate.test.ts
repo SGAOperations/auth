@@ -23,7 +23,12 @@ const EXEMPT = [
   "/api/auth/token",
   "/api/auth/get-session",
   "/api/sgauth/session",
+  "/api/sgauth/session/minimal",
   "/api/health",
+  "/api/csp-report",
+  "/api/jobs/pa-transfer",
+  "/api/jobs/alerts",
+  "/api/jobs/retention",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ];
@@ -40,6 +45,9 @@ describe("isExemptPath", () => {
     "/api/auth/okay",
     "/api/auth/jwks/x",
     "/api/auth/sign-in/email",
+    "/api/jobs",
+    "/api/jobs/other",
+    "/api/jobs/pa-transfer/x",
   ])("gates %s", (path) => {
     expect(isExemptPath(path)).toBe(false);
   });

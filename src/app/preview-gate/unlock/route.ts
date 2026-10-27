@@ -13,6 +13,7 @@ import {
   signGateCookie,
   unlockLimiter,
 } from "@/lib/preview-gate";
+import { requestOrigin } from "@/lib/request-origin";
 
 export const runtime = "nodejs";
 
@@ -22,18 +23,6 @@ const formSchema = z.object({
   password: z.string().min(1).max(256),
   next: z.string().max(2048).optional(),
 });
-
-function requestOrigin(request: NextRequest): string | null {
-  const origin = request.headers.get("origin");
-  if (origin) return origin;
-  const referer = request.headers.get("referer");
-  if (!referer) return null;
-  try {
-    return new URL(referer).origin;
-  } catch {
-    return null;
-  }
-}
 
 function backToGate(
   request: NextRequest,

@@ -1,0 +1,63 @@
+# Daily Neon quota alerts at 50/70/85/100% (85% is the upgrade trigger in
+# docs/runbooks/neon-upgrade.md). A workflow because no Vercel cron or jobs
+# route exists yet.
+#
+# Sent thresholds live in the Actions cache: a lost cache can re-send an alert,
+# never skip one. Test runs (dry_run or lowered quota) never save state.
+# Scheduled runs happen only from the default branch.
+name: Neon quota monitor
+
+on:
+  schedule:
+    - cron: "41 13 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log what would be sent without emailing or saving state
+        type: boolean
+        default: false
+      quota_cu_hours:
+        description: "Test only: lower the quota to force alerts; alert state is not saved"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-quota-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/cache/restore@v4
+        with:
+          path: .neon-quota/state.json
+          key: neon-quota-state-${{ github.run_id }}
+          restore-keys: neon-quota-state-
+      - id: monitor
+        run: |
+          args=(--state .neon-quota/state.json)
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$QUOTA_CU_HOURS" ]; then args+=(--quota-cu-hours "$QUOTA_CU_HOURS"); fi
+          node scripts/neon-quota-monitor.mjs "${args[@]}"
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          QUOTA_CU_HOURS: ${{ inputs.quota_cu_hours }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NEON_QUOTA_ALERT_TO: ${{ secrets.NEON_QUOTA_ALERT_TO }}
+          NEON_QUOTA_ALERT_FROM: ${{ vars.NEON_QUOTA_ALERT_FROM }}
+      - uses: actions/cache/save@v4
+        if: always() && !inputs.dry_run && inputs.quota_cu_hours == '' && hashFiles('.neon-quota/state.json') != ''
+        with:
+          path: .neon-quota/state.json
+          key: neon-quota-state-${{ github.run_id }}

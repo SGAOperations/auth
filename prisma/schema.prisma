@@ -18,31 +18,48 @@ enum UserStatus {
   DELETED
 }
 
+enum PrimaryAdminTransferStatus {
+  PENDING_ACCEPTANCE
+  COOLING
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
 model User {
-  id                String         @id @default(uuid(7))
-  email             String         @unique @db.Citext
-  emailVerified     Boolean        @default(false)
-  name              String
-  image             String?
-  preferredName     String?
-  isAdmin           Boolean        @default(false)
-  isPrimaryAdmin    Boolean        @default(false)
-  status            UserStatus     @default(ACTIVE)
-  deactivatedAt     DateTime?
-  deletedAt         DateTime?
-  legacyEmail       Boolean        @default(false)
-  lastLoginAt       DateTime?
-  passwordChangedAt DateTime?
-  twoFactorEnabled  Boolean        @default(false)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  sessions          Session[]
-  accounts          Account[]
-  knownDevices      KnownDevice[]
-  positionsCreated  Position[]     @relation("PositionCreatedBy")
-  positionsUpdated  Position[]     @relation("PositionUpdatedBy")
-  positions         UserPosition[] @relation("UserPositionHolder")
-  positionsAssigned UserPosition[] @relation("UserPositionAssignedBy")
+  id                             String                 @id @default(uuid(7))
+  email                          String                 @unique @db.Citext
+  emailVerified                  Boolean                @default(false)
+  name                           String
+  image                          String?
+  preferredName                  String?
+  isAdmin                        Boolean                @default(false)
+  /// At most one row is true, and it only changes inside a transfer. Enforced in
+  /// Postgres by the primary_admin_invariants migration (index and triggers).
+  isPrimaryAdmin                 Boolean                @default(false)
+  status                         UserStatus             @default(ACTIVE)
+  deactivatedAt                  DateTime?
+  deletedAt                      DateTime?
+  legacyEmail                    Boolean                @default(false)
+  lastLoginAt                    DateTime?
+  passwordChangedAt              DateTime?
+  twoFactorEnabled               Boolean                @default(false)
+  createdAt                      DateTime               @default(now())
+  updatedAt                      DateTime               @updatedAt
+  sessions                       Session[]
+  accounts                       Account[]
+  knownDevices                   KnownDevice[]
+  accountLock                    AccountLock?
+  unlockTokens                   UnlockToken[]
+  twoFactors                     TwoFactor[]
+  positionsCreated               Position[]             @relation("PositionCreatedBy")
+  positionsUpdated               Position[]             @relation("PositionUpdatedBy")
+  positions                      UserPosition[]         @relation("UserPositionHolder")
+  positionsAssigned              UserPosition[]         @relation("UserPositionAssignedBy")
+  productsCreated                Product[]
+  primaryAdminTransfersFrom      PrimaryAdminTransfer[] @relation("PrimaryAdminTransferFrom")
+  primaryAdminTransfersTo        PrimaryAdminTransfer[] @relation("PrimaryAdminTransferTo")
+  primaryAdminTransfersCancelled PrimaryAdminTransfer[] @relation("PrimaryAdminTransferCancelledBy")
 }
 
 model Session {
@@ -103,6 +120,74 @@ model KnownDevice {
   createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
 
+  /// Failed sign-ins from this device, counted apart from the account's own
+  /// counter. A device lock never escalates and sends no email.
+  failedCount     Int       @default(0)
+  windowStartedAt DateTime?
+  lockedUntil     DateTime?
+
+  @@index([userId])
+}
+
+model AccountLock {
+  userId          String    @id
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  failedCount     Int       @default(0)
+  windowStartedAt DateTime  @default(now())
+  lockedUntil     DateTime?
+  lockLevel       Int       @default(0)
+  lastFailedAt    DateTime?
+  lastFailedIp    String?
+}
+
+model UnlockToken {
+  id        String    @id @default(uuid(7))
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// lower-case hex SHA-256 of the emailed token; the raw token is never stored
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// A used Better Auth email-verification JWT, claimed before verification runs.
+model UsedEmailVerificationToken {
+  /// lower-case hex SHA-256 of the JWT; the token itself is never stored
+  tokenHash String   @id
+  /// the JWT's `exp`; a row past it is pruned, since the JWT is dead anyway
+  expiresAt DateTime
+  usedAt    DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model Jwks {
+  id         String    @id @default(uuid(7))
+  publicKey  String
+  /// encrypted at rest by the Better Auth jwt plugin (default)
+  privateKey String
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+}
+
+model TwoFactor {
+  id                      String    @id @default(uuid(7))
+  secret                  String
+  backupCodes             String
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+  /// last accepted TOTP counter (unix seconds / 30); a code at or below it is a replay (AUTH-T67)
+  lastTotpStep            Int?
+
+  @@index([secret])
   @@index([userId])
 }
 
@@ -151,4 +236,103 @@ model RetiredPositionKey {
   retiredAt  DateTime @default(now())
 
   @@index([key, retiredAt])
+}
+
+model Product {
+  id                    String   @id @default(uuid(7))
+  /// immutable kebab-case key; product roles are prefixed with it (`<slug>-<role>`)
+  slug                  String   @unique
+  name                  String
+  description           String   @default("")
+  /// canonical origin: https://<labels>.northeasternsga.com, no path/port/trailing slash
+  baseUrl               String
+  iconUrl               String?
+  isActive              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  /// position keys; empty = visible to everyone
+  visibleToPositionKeys String[] @default([])
+  loginRedirectPath     String?
+  createdById           String?
+  createdBy             User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+/// At most one transfer may be PENDING_ACCEPTANCE or COOLING, enforced by the
+/// partial index `one_in_flight_primary_admin_transfer` in the
+/// primary_admin_invariants migration. The state machine lives in the transfer service.
+model PrimaryAdminTransfer {
+  id                  String                     @id @default(uuid(7))
+  fromUserId          String
+  fromUser            User                       @relation("PrimaryAdminTransferFrom", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toUserId            String
+  toUser              User                       @relation("PrimaryAdminTransferTo", fields: [toUserId], references: [id], onDelete: Restrict)
+  status              PrimaryAdminTransferStatus @default(PENDING_ACCEPTANCE)
+  createdAt           DateTime                   @default(now())
+  acceptanceExpiresAt DateTime                   @default(dbgenerated("(CURRENT_TIMESTAMP + '7 days'::interval)"))
+  acceptedAt          DateTime?
+  executesAt          DateTime?
+  cancelTokenHash     String?                    @unique
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  cancelledById       String?
+  cancelledBy         User?                      @relation("PrimaryAdminTransferCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  reason              String?
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([status, executesAt])
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  BREAK_GLASS
+}
+
+enum AuditTargetType {
+  USER
+  POSITION
+  PRODUCT
+  SESSION
+  TRANSFER
+}
+
+/// Append-only. UPDATE only via withAuditAnonymization (src/lib/audit.ts); DELETE/TRUNCATE never (AUTH-T13 trigger)
+model AuditEvent {
+  id          String           @id @default(uuid(7))
+  /// validated against AUDIT_EVENT_TYPES in src/lib/audit.ts; no DB CHECK by design
+  type        String
+  actorType   AuditActorType
+  actorUserId String?
+  targetType  AuditTargetType?
+  targetId    String?
+  metadata    Json             @default("{}")
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime         @default(now())
+
+  @@index([type, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
+}
+
+/// Operational signals that are not audit events (job failures, Upstash fail-open). Read by the security-alert job.
+model OpsSignal {
+  id        String   @id @default(uuid(7))
+  /// validated against OPS_SIGNAL_CATALOG in src/lib/alerts/signals.ts; no DB CHECK, same as AuditEvent.type
+  kind      String
+  detail    Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
+
+/// One row per alert rule: when it last sent and how far its "any" rules have already reported.
+model AlertState {
+  ruleKey        String    @id
+  lastSentAt     DateTime?
+  coveredThrough DateTime?
 }

@@ -3,11 +3,17 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { getCookies, parseSetCookieHeader } from "better-auth/cookies";
 import { describe, expect, it } from "vitest";
 import {
+  DEVICE_COOKIE_MAX_AGE_SECONDS,
   assertSecureCookieConfig,
   buildCookieOptions,
+  deviceCookieName,
   resolveCookiePolicy,
   sessionCookieName,
 } from "@/lib/auth/cookies";
+import {
+  SESSION_EXPIRES_IN_SECONDS,
+  SESSION_OPTIONS,
+} from "@/lib/auth/session-lifetime";
 import { resolveBaseURL, type SgauthEnv } from "@/lib/auth/settings";
 
 const ENVS: SgauthEnv[] = ["production", "dev", "preview", "local"];
@@ -15,7 +21,9 @@ const SHARED_ENVS: SgauthEnv[] = ["production", "dev"];
 const PREVIEW_GATE_COOKIE = "__Host-sgauth.preview-gate";
 
 // Mirrors src/lib/auth/config.ts (it parses process.env and builds Prisma at
-// import, so it cannot be imported here). Keep the two in step.
+// import, so it cannot be imported here). The session options come from
+// session-lifetime.ts, which both share, so only the cookie options are
+// mirrored. Keep those in step.
 function optionsFor(env: SgauthEnv): BetterAuthOptions {
   return {
     baseURL: resolveBaseURL({
@@ -24,7 +32,7 @@ function optionsFor(env: SgauthEnv): BetterAuthOptions {
     }),
     secret: "s".repeat(32),
     advanced: buildCookieOptions(resolveCookiePolicy(env)),
-    session: { cookieCache: { enabled: false } },
+    session: SESSION_OPTIONS,
   };
 }
 
@@ -81,6 +89,30 @@ describe("sessionCookieName", () => {
     expect(sessionCookieName(resolveCookiePolicy("preview"))).toBe(
       "__Secure-sgauth-preview.session_token",
     );
+  });
+});
+
+describe("deviceCookieName", () => {
+  it("names the production cookie exactly", () => {
+    expect(deviceCookieName(resolveCookiePolicy("production"))).toBe(
+      "__Secure-sgauth.device",
+    );
+  });
+
+  it("follows each environment's prefix and Secure rule", () => {
+    expect(deviceCookieName(resolveCookiePolicy("dev"))).toBe(
+      "__Secure-sgauth-dev.device",
+    );
+    expect(deviceCookieName(resolveCookiePolicy("preview"))).toBe(
+      "__Secure-sgauth-preview.device",
+    );
+    expect(deviceCookieName(resolveCookiePolicy("local"))).toBe(
+      "sgauth-local.device",
+    );
+  });
+
+  it("lasts one year", () => {
+    expect(DEVICE_COOKIE_MAX_AGE_SECONDS).toBe(31_536_000);
   });
 });
 
@@ -407,6 +439,7 @@ describe("Set-Cookie from a real sign-up", () => {
       samesite: "lax",
       path: "/",
     });
+    expect(cookies.get(name)?.["max-age"]).toBe(SESSION_EXPIRES_IN_SECONDS);
   });
 
   it("sets one host-only cookie for preview", async () => {
