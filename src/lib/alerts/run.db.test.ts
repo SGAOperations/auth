@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { runSecurityAlerts } from "@/lib/alerts/run";
+import { runSecurityAlerts, type AlertDb } from "@/lib/alerts/run";
 import { COOLDOWN_MS } from "@/lib/alerts/rules";
 import type { Mailer } from "@/lib/email/mailer";
 import { prisma } from "@/lib/prisma";
@@ -42,16 +42,30 @@ function loginFailures(count: number, now: Date) {
   return auditRows("LOGIN_FAILED", count, at(now, -5));
 }
 
-function setup(mailer: Mailer = createCapturingMailer()) {
+function setup(mailer: Mailer = createCapturingMailer(), db: AlertDb = prisma) {
   const log = { info: vi.fn(), error: vi.fn() };
-  const run = (now: Date) =>
-    runSecurityAlerts({ db: prisma, mailer, log, now });
+  const run = (now: Date) => runSecurityAlerts({ db, mailer, log, now });
   return { mailer, log, run };
+}
+
+// The harness Primary Admin is committed on the test branch and survives every
+// reset, so it is a recipient too. A database with no admin at all cannot be
+// built, so the no-recipients case reads its admins from a stub instead.
+function dbWithoutAdmins(): AlertDb {
+  return {
+    alertState: prisma.alertState,
+    auditEvent: prisma.auditEvent,
+    opsSignal: prisma.opsSignal,
+    $queryRaw: prisma.$queryRaw.bind(prisma),
+    user: { findMany: async () => [] },
+  } as unknown as AlertDb;
 }
 
 describe("runSecurityAlerts", () => {
   let first: Awaited<ReturnType<typeof createAdmin>>;
   let second: Awaited<ReturnType<typeof createAdmin>>;
+  // Every active, verified admin: the two above and the harness Primary Admin.
+  let admins: number;
 
   beforeEach(async () => {
     await prisma.alertState.deleteMany();
@@ -61,6 +75,9 @@ describe("runSecurityAlerts", () => {
     second = await createAdmin();
     await createAdmin({ status: "DEACTIVATED" });
     await createUser();
+    admins = await prisma.user.count({
+      where: { isAdmin: true, status: "ACTIVE", emailVerified: true },
+    });
   });
 
   it("sends exactly one email per admin for a spike, stays quiet during the cooldown, and sends again an hour later", async () => {
@@ -71,7 +88,7 @@ describe("runSecurityAlerts", () => {
 
     const initial = await run(now);
     expect(initial.fired).toEqual(["login-failed-spike"]);
-    expect(capture.sent).toHaveLength(2);
+    expect(capture.sent).toHaveLength(admins);
     expect(capture.to(first.email)).toHaveLength(1);
     expect(capture.to(second.email)).toHaveLength(1);
     expect(capture.sent[0]).toMatchObject({
@@ -86,12 +103,12 @@ describe("runSecurityAlerts", () => {
       expect(result.fired).toEqual([]);
       expect(result.suppressed).toContain("login-failed-spike");
     }
-    expect(capture.sent).toHaveLength(2);
+    expect(capture.sent).toHaveLength(admins);
 
     await auditRows("LOGIN_FAILED", 51, at(now, 55));
     const later = await run(at(now, 60));
     expect(later.fired).toEqual(["login-failed-spike"]);
-    expect(capture.sent).toHaveLength(4);
+    expect(capture.sent).toHaveLength(admins * 2);
   });
 
   it("does not fire a spike at its threshold", async () => {
@@ -113,7 +130,7 @@ describe("runSecurityAlerts", () => {
 
     const results = await Promise.all([run(now), run(now)]);
     expect(results.flatMap((r) => r.fired)).toEqual(["login-failed-spike"]);
-    expect(capture.sent).toHaveLength(2);
+    expect(capture.sent).toHaveLength(admins);
   });
 
   it("reports an any rule once, then only what is new after the cooldown", async () => {
@@ -125,13 +142,13 @@ describe("runSecurityAlerts", () => {
     });
 
     expect((await run(now)).fired).toEqual(["break-glass"]);
-    expect(capture.sent).toHaveLength(2);
+    expect(capture.sent).toHaveLength(admins);
 
     await auditRows("BREAK_GLASS_PA_RECOVERY", 1, at(now, 10), {
       actorType: "BREAK_GLASS",
     });
     expect((await run(at(now, 30))).fired).toEqual([]);
-    expect(capture.sent).toHaveLength(2);
+    expect(capture.sent).toHaveLength(admins);
 
     capture.clear();
     const after = await run(at(now, 60));
@@ -153,7 +170,7 @@ describe("runSecurityAlerts", () => {
       "jwks-rotated",
       "login-failed-spike",
     ]);
-    expect(capture.sent).toHaveLength(2);
+    expect(capture.sent).toHaveLength(admins);
   });
 
   it("releases the claim and throws when no send succeeds, then sends once the mailer works", async () => {
@@ -176,7 +193,7 @@ describe("runSecurityAlerts", () => {
     expect((await working.run(at(now, 1))).fired).toEqual([
       "login-failed-spike",
     ]);
-    expect(capture.sent).toHaveLength(2);
+    expect(capture.sent).toHaveLength(admins);
   });
 
   it("restores the previous state on release", async () => {
@@ -212,7 +229,7 @@ describe("runSecurityAlerts", () => {
     };
 
     const result = await setup(flaky).run(now);
-    expect(result).toMatchObject({ sent: 1, failed: 1 });
+    expect(result).toMatchObject({ sent: 1, failed: admins - 1 });
     expect(await prisma.alertState.count()).toBe(1);
   });
 
@@ -247,9 +264,8 @@ describe("runSecurityAlerts", () => {
 
   it("throws and leaves the state unclaimed when there are no admins", async () => {
     const now = randomNow();
-    await prisma.user.deleteMany({ where: { isPrimaryAdmin: false } });
     await loginFailures(51, now);
-    const { run, log } = setup();
+    const { run, log } = setup(createCapturingMailer(), dbWithoutAdmins());
 
     await expect(run(now)).rejects.toThrow("security alert not delivered");
     expect(await prisma.alertState.count()).toBe(0);
