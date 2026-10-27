@@ -9,6 +9,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth/server", () => ({ getSession: mocks.getSession }));
+// Outside a Next request scope audit() cannot read the request headers, so
+// supply the ones request() sends.
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers({ "x-real-ip": "203.0.113.7" }),
+}));
 vi.mock("@/lib/rate-limit/server", () => ({
   limitRequest: async () => null,
 }));
