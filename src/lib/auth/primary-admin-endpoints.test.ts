@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { buildAuthOptions } from "@/lib/auth/options";
 import { buildAuthPlugins } from "@/lib/auth/plugins";
+import { testLockout } from "@/test/lockout-options";
 
 const TRIPWIRE =
   "The Better Auth admin plugin is mounted. Add its ban-user, set-role, remove-user, update-user and impersonate-user endpoints to primary-admin-protection.db.test.ts against the Primary Admin before merging.";
@@ -17,12 +18,15 @@ describe("primary admin: Better Auth admin plugin tripwire", () => {
     },
     prisma,
     issuer: "http://localhost:3000",
+    secret: "s".repeat(32),
+    sgauthEnv: "local",
   });
   const auth = betterAuth({
     ...buildAuthOptions({
       prisma,
       baseURL: "http://localhost:3000",
       secret: "s".repeat(32),
+      lockout: testLockout(),
     }),
     plugins,
   });

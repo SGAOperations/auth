@@ -7,7 +7,8 @@ export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   // A fallback only: layouts are skipped on soft navigation, so every page
-  // also calls requireUser/requireAdmin with its own path.
+  // also calls requireUser/requireAdmin with its own path. A layout cannot read
+  // the request path, so this fallback redirects to bare /login.
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
