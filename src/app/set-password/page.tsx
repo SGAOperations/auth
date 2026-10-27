@@ -1,16 +1,10 @@
-import type { ReactNode } from "react";
+import { AuthShell } from "@/components/auth/auth-shell";
+import { PasswordField } from "@/components/auth/password-field";
 import {
   TokenActionPage,
   tokenActionMetadata,
 } from "@/components/token-action-page";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/policy";
@@ -76,25 +70,21 @@ export default async function SetPasswordPage({
     >
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">New password</Label>
-        <Input
+        <PasswordField
           id="password"
           name="password"
-          type="password"
+          showLengthFeedback
           autoComplete="new-password"
           required
           minLength={PASSWORD_MIN_LENGTH}
           maxLength={PASSWORD_MAX_LENGTH}
         />
-        <p className="text-xs text-muted-foreground">
-          At least {PASSWORD_MIN_LENGTH} characters
-        </p>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirmPassword">Confirm password</Label>
-        <Input
+        <PasswordField
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           required
           minLength={PASSWORD_MIN_LENGTH}
@@ -114,61 +104,43 @@ function RequestCard({
 }) {
   if (state === "sent") {
     return (
-      <Shell>
-        <CardHeader>
-          <CardTitle>Check your email</CardTitle>
-          <CardDescription>
-            If that address needs a password, we&apos;ve sent a link to set one.
-            It expires in 1 hour. Use the newest email if you get more than one.
-          </CardDescription>
-        </CardHeader>
-      </Shell>
+      <AuthShell
+        title="Check your email"
+        description="If that address needs a password, we've sent a link to set one. It expires in 1 hour. Use the newest email if you get more than one."
+      />
     );
   }
 
   return (
-    <Shell>
-      <CardHeader>
-        <CardTitle>This link has expired or was already used</CardTitle>
-        <CardDescription>
-          Enter your email and we&apos;ll send you a new link.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          method="post"
-          action="/set-password/request"
-          className="flex flex-col gap-4"
-        >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              maxLength={320}
-            />
-          </div>
-          {state === "invalid-email" ? (
-            <p role="alert" className="text-sm text-destructive">
-              Enter a valid email address.
-            </p>
-          ) : null}
-          <Button type="submit" className="w-full">
-            Email me a new link
-          </Button>
-        </form>
-      </CardContent>
-    </Shell>
-  );
-}
-
-function Shell({ children }: { children: ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">{children}</Card>
-    </main>
+    <AuthShell
+      title="This link has expired or was already used"
+      description="Enter your email and we'll send you a new link."
+    >
+      <form
+        method="post"
+        action="/set-password/request"
+        className="flex flex-col gap-4"
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            maxLength={320}
+          />
+        </div>
+        {state === "invalid-email" ? (
+          <p role="alert" className="text-sm text-destructive">
+            Enter a valid email address.
+          </p>
+        ) : null}
+        <Button type="submit" className="w-full">
+          Email me a new link
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
