@@ -173,8 +173,34 @@ export function createLockoutHooks({
     const check = await checkSignIn(prisma, { email, deviceRaw, now });
     // Unknown address, or a lock already in force: nothing to count.
     if (check.outcome === "refuse" || check.userId === null) return;
-    const { userId, deviceId } = check;
+    await recordFailure({
+      userId: check.userId,
+      deviceId: check.deviceId,
+      ip,
+      now,
+      logger,
+    });
+  }
 
+  /**
+   * Counts one failed password and, when it takes the account lock, issues the
+   * unlock token, writes `ACCOUNT_LOCKED` and sends the two emails. Shared by
+   * the sign-in hook and re-authentication, which count their own wrong
+   * passwords.
+   */
+  async function recordFailure({
+    userId,
+    deviceId,
+    ip,
+    now,
+    logger,
+  }: {
+    userId: string;
+    deviceId: string | null;
+    ip: string | null;
+    now: Date;
+    logger: Logger;
+  }) {
     const issued: { token: string | null } = { token: null };
     const { locked } = await recordFailedSignIn(prisma, {
       userId,
@@ -292,6 +318,7 @@ export function createLockoutHooks({
   return {
     beforeSignIn,
     afterSignIn,
+    recordFailure,
     sessionCreated,
     passwordReset,
   };

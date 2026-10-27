@@ -44,6 +44,8 @@ export const AUDIT_EVENT_TYPES = [
   "MFA_DISABLED",
   "MFA_BACKUP_USED",
   "MFA_BACKUP_CODES_REGENERATED",
+  "REAUTH_SUCCEEDED",
+  "REAUTH_FAILED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
 ] as const;
@@ -264,6 +266,20 @@ export const AUDIT_CATALOG = {
   MFA_DISABLED: userTarget,
   MFA_BACKUP_USED: userTarget,
   MFA_BACKUP_CODES_REGENERATED: userTarget,
+  // Re-authentication for a sensitive action (AUTH-T32). `method` names the
+  // factors that were checked; `reason` never says which one was wrong.
+  REAUTH_SUCCEEDED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      method: z.enum(["password", "password_totp", "password_backup_code"]),
+    }),
+  },
+  REAUTH_FAILED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
+    }),
+  },
   BULK_IMPORT: noTarget,
   JWKS_ROTATED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };

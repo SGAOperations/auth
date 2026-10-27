@@ -67,6 +67,7 @@ function authEndpoints() {
       issuer: "http://localhost:3000",
       secret: "s".repeat(32),
       sgauthEnv: "local",
+      mailer: testLockout().mailer,
     }),
   });
   return Object.values(auth.api).flatMap((endpoint) => {

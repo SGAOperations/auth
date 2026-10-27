@@ -326,6 +326,60 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
       );
     },
 
+    /**
+     * A successful re-authentication. Like `accountLocked` it writes through
+     * the stamp's own transaction and throws, so a failed audit write rolls
+     * the stamp back.
+     */
+    async reauthSucceeded(
+      db: AuditDb,
+      userId: string,
+      method: "password" | "password_totp" | "password_backup_code",
+      headers?: Headers,
+    ) {
+      await audit(
+        {
+          type: "REAUTH_SUCCEEDED",
+          actorType: "USER",
+          actorUserId: userId,
+          targetType: "USER",
+          targetId: userId,
+          metadata: { method },
+        },
+        { db, headers },
+      );
+    },
+
+    /** A backup code spent at re-authentication, in the stamp's transaction. */
+    async reauthBackupCodeUsed(db: AuditDb, userId: string, headers?: Headers) {
+      await audit(
+        {
+          type: "MFA_BACKUP_USED",
+          actorType: "USER",
+          actorUserId: userId,
+          targetType: "USER",
+          targetId: userId,
+        },
+        { db, headers },
+      );
+    },
+
+    /** A wrong password or code, or a refusal while locked. */
+    async reauthFailed(
+      ctx: HookContext,
+      userId: string,
+      reason: "INVALID_CREDENTIALS" | "ACCOUNT_LOCKED",
+    ) {
+      await emit(ctx, {
+        type: "REAUTH_FAILED",
+        actorType: "USER",
+        actorUserId: userId,
+        targetType: "USER",
+        targetId: userId,
+        metadata: { reason },
+      });
+    },
+
     /** An unlock by the account's owner through a password reset. */
     async accountUnlocked(
       db: AuditDb,
