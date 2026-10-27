@@ -73,7 +73,17 @@ describe("factories", () => {
     expect(admin).toMatchObject({ isAdmin: true, isPrimaryAdmin: false });
 
     // A committed Primary Admin could never be cleared again, so it is created
-    // in a transaction that rolls back.
+    // in a transaction that rolls back. It displaces the harness Primary Admin
+    // (when one exists) for that transaction only.
+    const primaryAdminIds = async () =>
+      (
+        await prisma.user.findMany({
+          where: { isPrimaryAdmin: true },
+          select: { id: true },
+          orderBy: { id: "asc" },
+        })
+      ).map((row) => row.id);
+    const before = await primaryAdminIds();
     class Rollback extends Error {}
     let primary: Awaited<ReturnType<typeof createPrimaryAdmin>> | undefined;
     await prisma
@@ -85,9 +95,7 @@ describe("factories", () => {
         if (!(error instanceof Rollback)) throw error;
       });
     expect(primary).toMatchObject({ isAdmin: true, isPrimaryAdmin: true });
-    expect(await prisma.user.count({ where: { isPrimaryAdmin: true } })).toBe(
-      0,
-    );
+    expect(await primaryAdminIds()).toEqual(before);
   });
 
   it("createSession measures expiry from the fake clock", async () => {
