@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -147,8 +148,13 @@ function ReauthForm({
     setError(message);
     form.resetField("password", { defaultValue: "" });
     form.resetField("code", { defaultValue: undefined });
-    form.setFocus("password");
   }
+
+  // The inputs are disabled while submitting, so focus returns only once the
+  // submit has settled with an error.
+  useEffect(() => {
+    if (error && !submitting) form.setFocus("password");
+  }, [error, submitting, form]);
 
   async function onSubmit(values: ReauthBody) {
     setError(null);

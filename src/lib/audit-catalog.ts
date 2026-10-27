@@ -266,8 +266,8 @@ export const AUDIT_CATALOG = {
   MFA_DISABLED: userTarget,
   MFA_BACKUP_USED: userTarget,
   MFA_BACKUP_CODES_REGENERATED: userTarget,
-  // Re-authentication for a sensitive action (AUTH-T32). `method` names the
-  // factors that were checked; `reason` never says which one was wrong.
+  // Re-authentication for a sensitive action. `method` names the factors that
+  // were checked; `reason` never says which one was wrong.
   REAUTH_SUCCEEDED: {
     targetType: "USER",
     metadata: z.strictObject({
