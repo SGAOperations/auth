@@ -17,8 +17,7 @@ interface AuthShellProps {
   requiresJs?: boolean;
 }
 
-// The one card every public auth page sits in: wordmark, a real h1, the
-// page's content, then the line saying the account works across SGA tools.
+// The one card every public auth page sits in.
 export function AuthShell({
   title,
   description,

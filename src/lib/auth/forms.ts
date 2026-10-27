@@ -7,9 +7,8 @@ import {
   passwordSchema,
 } from "@/lib/auth/policy";
 
-// Client-safe on purpose: zod and the policy constants only. Everything the
-// public auth pages say, and the mapping from Better Auth's errors to it, lives
-// here so the account-enumeration rules are checked in one tested place.
+// Client-safe: zod and policy constants only. Page copy and error mapping live
+// here so the enumeration rules are tested in one place.
 
 export const AUTH_COPY = {
   wordmark: "Northeastern SGA",
@@ -105,12 +104,7 @@ export type EmailStepOutcome =
   | { kind: "field-error"; message: string }
   | { kind: "rate-limited" };
 
-/**
- * The login email step's answer. Only a 200 means the endpoint ran, so only a
- * 200 shows the hint line. Anything else (404 before the endpoint exists, 403,
- * 5xx, a network failure as status 0) still moves on to the password step:
- * password sign-in never depends on the email step.
- */
+// Only a 200 shows the hint; any other status still reaches the password step.
 export function mapEmailStepResponse({
   status,
   body,

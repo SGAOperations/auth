@@ -9,8 +9,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Static: no token, no database, no session. Only the lock notice email links
-// here, and it reveals nothing about any account.
+// Static: no token, database or session, so it reveals nothing about any account.
 export default function LockedPage() {
   return (
     <AuthShell title="Your account is temporarily locked">
