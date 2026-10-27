@@ -11,7 +11,7 @@ import {
 const HOSTILE = "<script>alert(1)</script> & co";
 
 describe("template registry", () => {
-  it("holds exactly the 11 templates", () => {
+  it("holds exactly the 12 templates", () => {
     expect([...TEMPLATE_NAMES].sort()).toEqual([
       "account-locked",
       "account-unlock",
@@ -21,6 +21,7 @@ describe("template registry", () => {
       "pa-transfer-completed",
       "pa-transfer-initiated",
       "reset-password",
+      "security-alert",
       "security-notice",
       "set-password",
       "verify-email",
@@ -125,6 +126,38 @@ describe("schemas", () => {
       expiresInMinutes: 60,
     });
     expect(JSON.stringify(prepared)).not.toContain("secret-value");
+  });
+
+  it("rejects a security alert with no items", () => {
+    const prepared = prepareTemplate("security-alert", {
+      checkedAt: new Date(),
+      items: [],
+    });
+    expect(prepared).toEqual({ ok: false, paths: ["items"] });
+  });
+
+  it("rejects a security alert item with an unknown rule", () => {
+    const prepared = prepareTemplate("security-alert", {
+      checkedAt: new Date(),
+      items: [{ rule: "nope", count: 1 }],
+    });
+    expect(prepared).toEqual({ ok: false, paths: ["items.0.rule"] });
+  });
+
+  it("uses the item's headline for one alert and a count for several", () => {
+    const one = renderTemplate("security-alert", {
+      checkedAt: new Date(),
+      items: [{ rule: "login-failed-spike", count: 51 }],
+    });
+    expect(one.subject).toBe("SGA Auth: failed sign-in spike");
+    const many = renderTemplate("security-alert", {
+      checkedAt: new Date(),
+      items: [
+        { rule: "login-failed-spike", count: 51 },
+        { rule: "account-locked-spike", count: 6 },
+      ],
+    });
+    expect(many.subject).toBe("SGA Auth security alert: 2 conditions");
   });
 
   it("throws from renderTemplate on bad data", () => {

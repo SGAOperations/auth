@@ -40,6 +40,8 @@ interface JobHandlerOptions {
   run: JobRun;
   secret: string | undefined;
   log: JobLogger;
+  /** Awaited after a job throws, before the 500 goes out. Its own failure is logged and ignored. */
+  onFailure?: (name: string) => Promise<void> | void;
 }
 
 function json(body: unknown, status: number): Response {
@@ -59,6 +61,7 @@ export function createJobHandler({
   run,
   secret,
   log,
+  onFailure,
 }: JobHandlerOptions): (req: Request) => Promise<Response> {
   return async (req) => {
     if (!isAuthorized(req.headers.get("authorization"), secret)) {
@@ -73,6 +76,11 @@ export function createJobHandler({
       return json({ job: name, ok: true, result }, 200);
     } catch (err) {
       log.error("job.failed", { job: name, err });
+      try {
+        await onFailure?.(name);
+      } catch (hookErr) {
+        log.error("job.on_failure_failed", { job: name, err: hookErr });
+      }
       return json({ job: name, ok: false, error: "job_failed" }, 500);
     }
   };

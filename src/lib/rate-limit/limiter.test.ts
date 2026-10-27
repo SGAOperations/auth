@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createRateLimiter,
   namespaceFor,
+  type FailOpenEvent,
   type Identifiers,
   type RateLimitBackend,
 } from "@/lib/rate-limit/limiter";
@@ -274,6 +275,64 @@ describe("fail open", () => {
     await limiter.check("verificationResend", ids);
     expect(log.error).toHaveBeenCalledTimes(2);
     expect(log.error.mock.calls[1][1]).toMatchObject({ suppressed: 2 });
+  });
+
+  describe("onFailOpen", () => {
+    function withCallback(
+      backend: RateLimitBackend,
+      onFailOpen: (event: FailOpenEvent) => void,
+    ) {
+      let nowMs = START;
+      const limiter = createRateLimiter({
+        backend,
+        log: { error: vi.fn() },
+        onFailOpen,
+        now: () => nowMs,
+      });
+      return {
+        limiter,
+        advance: (ms: number) => {
+          nowMs += ms;
+        },
+      };
+    }
+
+    it("is called once per written line and never for a suppressed one", async () => {
+      const onFailOpen = vi.fn();
+      const { limiter, advance } = withCallback(
+        failing["a throwing backend"],
+        onFailOpen,
+      );
+      await limiter.check("verificationResend", ids);
+      await limiter.check("verificationResend", ids);
+      const first = onFailOpen.mock.calls.length;
+      expect(first).toBeGreaterThan(0);
+      expect(onFailOpen).toHaveBeenCalledWith({
+        policy: "verificationResend",
+        rule: expect.any(String),
+        reason: "error",
+      });
+
+      advance(61_000);
+      await limiter.check("verificationResend", ids);
+      expect(onFailOpen.mock.calls.length).toBe(first * 2);
+    });
+
+    it("reports a timeout reason", async () => {
+      const onFailOpen = vi.fn();
+      const { limiter } = withCallback(failing["a timeout"], onFailOpen);
+      await limiter.check("signIn", ids);
+      expect(onFailOpen).toHaveBeenCalledWith(
+        expect.objectContaining({ policy: "signIn", reason: "timeout" }),
+      );
+    });
+
+    it("lets the request through when the callback throws", async () => {
+      const { limiter } = withCallback(failing["a throwing backend"], () => {
+        throw new Error("boom");
+      });
+      expect((await limiter.check("signIn", ids)).allowed).toBe(true);
+    });
   });
 
   it("still denies when another rule of the policy is over its limit", async () => {

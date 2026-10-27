@@ -174,4 +174,34 @@ export const SAMPLES: readonly Sample[] = [
       signInUrl: plainLinkUrl(ORIGIN, "sign-in"),
     },
   },
+  {
+    id: "security-alert-one-rule",
+    template: "security-alert",
+    data: {
+      name: "Avery",
+      checkedAt: NOW,
+      items: [{ rule: "login-failed-spike", count: 51 }],
+    },
+  },
+  {
+    id: "security-alert-every-rule",
+    template: "security-alert",
+    data: {
+      checkedAt: NOW,
+      items: [
+        { rule: "login-failed-spike", count: 64 },
+        { rule: "account-locked-spike", count: 6 },
+        { rule: "break-glass", count: 1, since: EARLIER },
+        { rule: "pa-transfer-initiated", count: 2, since: EARLIER },
+        { rule: "jwks-rotated", count: 1, since: EARLIER },
+        {
+          rule: "job-failed",
+          count: 3,
+          since: EARLIER,
+          jobs: ["alerts", "pa-transfer"],
+        },
+        { rule: "upstash-fail-open", count: 4, since: EARLIER },
+      ],
+    },
+  },
 ];

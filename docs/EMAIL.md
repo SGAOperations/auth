@@ -61,6 +61,7 @@ Each template is a zod schema plus a pure `render(data)` that returns `{ subject
 | `pa-transfer-cancelled` | `role`, `otherName`, `reason`: `cancelled`, `declined`, `expired` or `recipient-ineligible`                        | none        |
 | `pa-transfer-completed` | `role`: `initiator`, `recipient` or `admin`, `fromName`, `toName`, `completedAt`                                   | none        |
 | `inactivity-notice`     | `name?`, `lastLoginAt`, `deactivateAfter`, `signInUrl`                                                             | `signInUrl` |
+| `security-alert`        | `name?`, `checkedAt`, `items`: 1 to 7 of `rule`, `count`, `since?`, `jobs?`                                        | none        |
 
 "Account locked" and "unlock" are two emails: a notice, and the single-use unlock link. Primary Admin "expired" is a `pa-transfer-cancelled` reason. Emailed links consume their token on POST, never on GET (ENGINEERING §3), so the consumer's page renders a confirm step.
 

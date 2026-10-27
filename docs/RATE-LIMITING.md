@@ -55,7 +55,7 @@ An Upstash outage must never become an org-wide login outage, so every limit **f
 
 - Each Upstash call has a 1 second timeout. A timeout or any error lets the request through.
 - Each failure logs one line at error level, `[ALERT] rate-limit fail-open`, with `policy`, `rule` and `reason` (`timeout` or `error`). Search Vercel logs for that text. A line is written at most once per rule per minute per instance, and the next line carries a `suppressed` count. It never carries the identifier, the key, a token or the error message.
-- While Redis is down the IP and email limits are off. The DB-backed account lockout (AUTH-T64) remains the brute-force backstop. AUTH-T77 (threshold alerts) lists these events and will need a durable signal; this ticket writes a log line only, to avoid a database write for every failed check during an outage.
+- While Redis is down the IP and email limits are off. The DB-backed account lockout (AUTH-T64) remains the brute-force backstop. Each line that is written also records one `RATE_LIMIT_FAIL_OPEN` row in `OpsSignal`, after the response has been sent, so the insert is never part of sign-in latency. The one-line-per-rule-per-minute limit therefore bounds the writes during an outage. The security-alert job (AUTH-T77) emails the admins about these rows. A failed insert is logged and never affects the request.
 
 ## Command budget
 
