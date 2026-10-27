@@ -27,6 +27,8 @@ export interface HookContext {
     session?: { user: { id: string } } | null;
     newSession?: { user: { id: string } } | null;
     returned?: unknown;
+    /** Better Auth's task runner: the background handler, or an await. */
+    runInBackgroundOrAwait?: (task: Promise<unknown>) => unknown;
   };
 }
 
@@ -242,8 +244,19 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
             return await afterGenerateBackupCodes(ctx);
           case "/sign-in/email":
             return await afterSignInEmail(ctx);
-          case "/request-password-reset":
-            return await afterRequestPasswordReset(ctx);
+          case "/request-password-reset": {
+            // Off the response path, so the lookup and insert for an existing
+            // address do not show in the timing. Awaited when no background
+            // handler is configured, as in tests.
+            const task = afterRequestPasswordReset(ctx).catch(() => {
+              ctx.context.logger.error("Failed to prepare audit event", {
+                path: ctx.path,
+              });
+            });
+            return await (ctx.context.runInBackgroundOrAwait
+              ? ctx.context.runInBackgroundOrAwait(task)
+              : task);
+          }
           case "/change-password":
             if (isAPIError(ctx.context.returned)) return;
             return await afterChangePassword(ctx);

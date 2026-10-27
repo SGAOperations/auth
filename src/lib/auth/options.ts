@@ -25,6 +25,12 @@ import {
   verifyPassword,
 } from "@/lib/auth/legacy-password";
 import { createLockoutHooks, type Defer } from "@/lib/auth/lockout-hooks";
+import {
+  RESET_PASSWORD_TOKEN_TTL_SECONDS,
+  RESET_PASSWORD_VERIFICATION_STORAGE,
+  createOnPasswordReset,
+  createSendResetPassword,
+} from "@/lib/auth/password-reset";
 import type { DeviceCookie } from "@/lib/auth/known-device";
 import type { Mailer } from "@/lib/email/mailer";
 import { setRequestUserId } from "@/lib/log/context";
@@ -163,6 +169,8 @@ export function buildAuthOptions({
     // its POST call `auth.api.verifyEmail` in-process instead.
     disabledPaths: ["/verify-email"],
     session: SESSION_OPTIONS,
+    // Reset tokens are hashed at rest; every other identifier stays plain.
+    verification: { storeIdentifier: RESET_PASSWORD_VERIFICATION_STORAGE },
     advanced: {
       ...advanced,
       database: { generateId: false },
@@ -178,14 +186,23 @@ export function buildAuthOptions({
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       requireEmailVerification: true,
       autoSignIn: false,
-      onPasswordReset: async (
-        data: { user: { id: string } },
-        request?: Request,
-      ) => {
-        await auditHooks.passwordReset(data, request);
-        await lockoutHooks.passwordReset(data, request);
-        analyticsHooks.passwordReset(data);
-      },
+      resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_TTL_SECONDS,
+      // A backstop: onPasswordReset already deleted every session.
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: createSendResetPassword({
+        mailer: lockout.mailer,
+        linkOrigin,
+        logger,
+      }),
+      onPasswordReset: createOnPasswordReset({
+        prisma,
+        mailer: lockout.mailer,
+        afterReset: async (data, request) => {
+          await auditHooks.passwordReset(data, request);
+          await lockoutHooks.passwordReset(data, request);
+          analyticsHooks.passwordReset(data);
+        },
+      }),
       // `hash` stays unset so new hashes use Better Auth's default scrypt.
       password: { verify: verifyPassword },
       // Better Auth has already answered with its generic duplicate response

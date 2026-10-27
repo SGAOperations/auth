@@ -48,6 +48,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason: "sends mail only; no account state changes",
   },
+  // PASSWORD_RESET (and ACCOUNT_UNLOCKED when a lock was live) come from the
+  // Better Auth hooks that the POST reaches through auth.api.resetPassword.
+  "src/app/reset-password/confirm/route.ts": {
+    kind: "delegated",
+    to: "better-auth",
+  },
   // The unlock link's POST writes ACCOUNT_UNLOCKED in its own transaction.
   "src/app/unlock/confirm/route.ts": {
     kind: "audited",
