@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   // resolve under /.well-known. The preview gate exempts the original paths.
   async rewrites() {
     return [
-      { source: "/.well-known/jwks.json", destination: "/api/auth/jwks" },
+      { source: "/.well-known/jwks.json", destination: "/api/sgauth/jwks" },
       {
         source: "/.well-known/openid-configuration",
         destination: "/api/sgauth/openid-configuration",
