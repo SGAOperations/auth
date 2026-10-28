@@ -65,7 +65,7 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["ACCOUNT_UNLOCKED"],
   },
-  // The Primary Admin transfer routes (AUTH-T37). Every transition writes its
+  // The Primary Admin transfer routes. Every transition writes its
   // own audit row inside pa-transfer-actions.ts, in the transition's transaction.
   "src/app/api/sgauth/admin/transfer/route.ts": {
     kind: "audited",

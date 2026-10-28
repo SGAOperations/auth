@@ -32,7 +32,7 @@ import {
 } from "@/lib/token-links/handler";
 import { displayName } from "@/lib/user-display";
 
-// The user-driven half of the Primary Admin transfer state machine (AUTH-T37):
+// The user-driven half of the Primary Admin transfer state machine:
 // initiate, accept, decline, cancel, and cancel by the emailed token. The legal
 // moves are pa-transfer-machine.ts; who may make them is authz.ts. Execute,
 // expire and the ineligible-recipient cancel belong to the scheduled job.
