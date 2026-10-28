@@ -51,6 +51,10 @@ docs/sgauth-design/out/tmp/
 chambers-export*.json
 !docs/runbooks/chambers-export.sample.json
 
+# Chambers import inputs (AUTH-T86): local operator files, never commit
+chambers-positions.json
+chambers-email-replacements*.txt
+
 # port pipeline
 .agents/
 .temp/
