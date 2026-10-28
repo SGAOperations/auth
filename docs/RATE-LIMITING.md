@@ -18,6 +18,7 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 | `session-lookup:session:1m` | `GET /api/sgauth/session` and `/minimal` (in-memory only, never Redis) | session token | 120   | 1 minute   |
 | `token-link:ip:10m`         | `POST /<token-link>/confirm` (AUTH-T103)                               | IP            | 20    | 10 minutes |
 | `reauth:user:1m`            | re-auth handler (AUTH-T32)                                             | user id       | 5     | 1 minute   |
+| `change-password:user:10m`  | `POST /api/auth/change-password` (AUTH-T23)                            | user id       | 10    | 10 minutes |
 | `admin:user:1m`             | admin mutation handlers (AUTH-T36)                                     | user id       | 100   | 1 minute   |
 | `set-password:ip:10m`       | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | IP            | 10    | 10 minutes |
 | `set-password:email:10m`    | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | email         | 5     | 10 minutes |
@@ -29,6 +30,7 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 - The Better Auth routes are limited by `withAuthRateLimit` in `src/app/api/auth/[...all]/route.ts`. A route that cannot supply its identifier falls back to the IP: a verification resend with no parseable email, and a token call with no session cookie. A reset with no email runs only its IP rule.
 - The `/verify-email` expired-link resend is `POST /verify-email/resend`, not a Better Auth route, so `withAuthRateLimit` never sees it. It calls `checkRateLimit("verificationResend", { email })` itself, so it shares `verify:email:1h` with `POST /api/auth/send-verification-email`: three resends per address per hour across both. It also carries the `token-link:ip:10m` IP rule of every emailed-link page.
 - **Re-auth** is `POST /api/sgauth/reauth` in `src/app/api/sgauth/reauth/route.ts`. It calls `limitRequest("reauth", userId)` before it parses the body (5 a minute per user, see [REAUTH.md](REAUTH.md)). **The admin handlers do not exist yet.** AUTH-T36 must call `limitRequest("adminMutation", userId)` from `@/lib/rate-limit/server` first in each handler, and return the response when it is not `null`.
+- **Change-password** is checked in SGAuth's Better Auth `before` hook (`src/lib/auth/password-change.ts`), not by `withAuthRateLimit`, because the user id is known only after the session lookup. An anonymous request answers 401 with no Redis call. The 429 has the same status, headers and body as the wrapper's, and nothing is verified, counted or audited for it. The limit sits above the lockout threshold on purpose: the lock stays the per-account guessing control, and this bounds scrypt cost and request volume, including requests that never reach verification. A trusted server-side `auth.api.changePassword` call is not limited.
 - The jwt plugin (AUTH-T29) mounts `/token`, and `matchAuthRoute` matches that path. If the plugin is ever moved to another path, update `matchAuthRoute`.
 
 ## What is not limited
@@ -72,6 +74,7 @@ The free tier allows 500,000 commands a month. The alert threshold is **80%, whi
 | sign-up, reset, resend | new users and the occasional reset                                                       | about 1,000      | 1 to 2 | about 6,000             |
 | `token-link`           | one confirm POST per emailed link, about 1,500 a month                                   | about 1,500      | 1      | about 6,000             |
 | `set-password`         | email step and link requests, plus the per-account link and invite checks                | about 500        | 2 to 3 | about 5,000             |
+| `change-password`      | rare: a few a month in total, negligible next to `token`                                 | negligible       | 1      | negligible              |
 | email caps             | about 2,000 sends a month, 6 commands per send (see [EMAIL.md](EMAIL.md))                | about 2,000      | n/a    | about 12,000            |
 | **Total**              |                                                                                          |                  |        | **about 282,000 (56%)** |
 

@@ -3,6 +3,7 @@ import {
   AUTH_ERROR_CODES,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
+  changePasswordFormSchema,
   isAllowedSignupEmail,
   normalizeEmail,
   passwordSchema,
@@ -51,6 +52,58 @@ describe("passwordSchema", () => {
   it("uses the ticket bounds", () => {
     expect(PASSWORD_MIN_LENGTH).toBe(12);
     expect(PASSWORD_MAX_LENGTH).toBe(128);
+  });
+});
+
+describe("changePasswordFormSchema", () => {
+  const valid = {
+    currentPassword: "the-current-password",
+    newPassword: "a-brand-new-password",
+    confirmPassword: "a-brand-new-password",
+  };
+
+  function failedPaths(input: unknown) {
+    const result = changePasswordFormSchema.safeParse(input);
+    return result.success
+      ? []
+      : result.error.issues.map((issue) => issue.path.join("."));
+  }
+
+  it("accepts a valid triple", () => {
+    expect(changePasswordFormSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects a mismatch on confirmPassword", () => {
+    expect(
+      failedPaths({ ...valid, confirmPassword: "something-else-12" }),
+    ).toEqual(["confirmPassword"]);
+  });
+
+  it("rejects a new password equal to the current one on newPassword", () => {
+    const same = "the-same-password-1";
+    expect(
+      failedPaths({
+        currentPassword: same,
+        newPassword: same,
+        confirmPassword: same,
+      }),
+    ).toEqual(["newPassword"]);
+  });
+
+  it.each([PASSWORD_MIN_LENGTH - 1, PASSWORD_MAX_LENGTH + 1])(
+    "rejects a new password of %i characters",
+    (length) => {
+      const newPassword = "a".repeat(length);
+      expect(
+        failedPaths({ ...valid, newPassword, confirmPassword: newPassword }),
+      ).toContain("newPassword");
+    },
+  );
+
+  it("rejects an empty current password", () => {
+    expect(failedPaths({ ...valid, currentPassword: "" })).toEqual([
+      "currentPassword",
+    ]);
   });
 });
 

@@ -16,6 +16,7 @@ import {
   deviceCookieName,
 } from "@/lib/auth/cookies";
 import { mailer } from "@/lib/email/server";
+import { rateLimiter } from "@/lib/rate-limit/server";
 import { setPasswordService } from "@/lib/set-password/server";
 
 const settings = toAuthSettings(env);
@@ -57,6 +58,9 @@ export const auth = betterAuth({
       // counter write, the lock and its emails finish after the response.
       defer: (task) => after(task),
     },
+    // The shared limiter, so change-password uses the Upstash backend and its
+    // namespace.
+    rateLimiter,
     logger,
     onPasswordlessSignUp: (user) =>
       setPasswordService.requestForUser(user, "sign_up"),

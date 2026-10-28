@@ -18,12 +18,35 @@ export const AUTH_ERROR_CODES = {
     message:
       "This account has been deactivated. Contact SGA if you think this is a mistake.",
   },
+  PASSWORD_CHANGE_LOCKED: {
+    code: "PASSWORD_CHANGE_LOCKED",
+    message:
+      "Too many failed attempts. Try again later, or use the unlock link we emailed you.",
+  },
+  NEW_PASSWORD_SAME_AS_CURRENT: {
+    code: "NEW_PASSWORD_SAME_AS_CURRENT",
+    message: "Choose a password you aren't already using.",
+  },
 } as const;
 
 export const passwordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH)
   .max(PASSWORD_MAX_LENGTH);
+
+/** The change-password form (AUTH-T54); the server rule is the same. */
+export const changePasswordFormSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((value) => value.confirmPassword === value.newPassword, {
+    path: ["confirmPassword"],
+  })
+  .refine((value) => value.newPassword !== value.currentPassword, {
+    path: ["newPassword"],
+  });
 
 export function normalizeEmail(raw: string): string {
   return raw.trim().toLowerCase();

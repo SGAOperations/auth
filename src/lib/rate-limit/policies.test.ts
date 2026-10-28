@@ -22,6 +22,8 @@ describe("matchAuthRoute", () => {
     ["GET", "/sign-in/email"],
     ["GET", "/two-factor/verify-totp"],
     ["POST", "/two-factor/disable"],
+    // Limited in its Better Auth hook, where the user id is known.
+    ["POST", "/change-password"],
     ["POST", "/sign-in/email/extra"],
     ["POST", "/sign-out"],
     ["POST", "/"],
@@ -46,6 +48,7 @@ describe("POLICIES", () => {
       ["session-lookup:session:1m", 120, 60, "session"],
       ["token-link:ip:10m", 20, 600, "ip"],
       ["reauth:user:1m", 5, 60, "user"],
+      ["change-password:user:10m", 10, 600, "user"],
       ["admin:user:1m", 100, 60, "user"],
       ["set-password:ip:10m", 10, 600, "ip"],
       ["set-password:email:10m", 5, 600, "email"],

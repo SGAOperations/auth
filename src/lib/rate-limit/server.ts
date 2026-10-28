@@ -37,6 +37,9 @@ const limiter = createRateLimiter({
   onFailOpen: (detail) => deferSignal({ kind: "RATE_LIMIT_FAIL_OPEN", detail }),
 });
 
+/** For limits checked inside Better Auth hooks, which have no HTTP wrapper. */
+export const rateLimiter = limiter;
+
 /** For handlers that key a policy on one id, such as re-auth and admin. */
 export const limitRequest = limiter.limitRequest;
 

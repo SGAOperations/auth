@@ -45,9 +45,6 @@ export interface HookSession {
 }
 
 const bodyWithEmail = z.looseObject({ email: z.string() });
-const changePasswordBody = z.looseObject({
-  revokeOtherSessions: z.boolean().optional(),
-});
 export const errorBody = z.looseObject({ code: z.string() });
 const userBody = z.looseObject({ user: z.looseObject({ id: z.string() }) });
 const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
@@ -123,24 +120,6 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
       actorType: "SYSTEM",
       targetType: "USER",
       targetId: userId,
-    });
-  }
-
-  async function afterChangePassword(ctx: HookContext) {
-    const session = ctx.context.session ?? ctx.context.newSession;
-    if (!session) return;
-    const body = changePasswordBody.safeParse(ctx.body);
-    await emit(ctx, {
-      type: "PASSWORD_CHANGED",
-      actorType: "USER",
-      actorUserId: session.user.id,
-      targetType: "USER",
-      targetId: session.user.id,
-      metadata: {
-        revokedOtherSessions: body.success
-          ? body.data.revokeOtherSessions === true
-          : false,
-      },
     });
   }
 
@@ -257,9 +236,6 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
               ? ctx.context.runInBackgroundOrAwait(task)
               : task);
           }
-          case "/change-password":
-            if (isAPIError(ctx.context.returned)) return;
-            return await afterChangePassword(ctx);
           case "/revoke-sessions":
             if (isAPIError(ctx.context.returned)) return;
             return await afterRevokeSessions(ctx, "all");
@@ -362,6 +338,47 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
         },
         { db, headers },
       );
+    },
+
+    /**
+     * A successful password change. Writes through the success transaction and
+     * throws, so a failed audit write rolls back the revocation and the stamp.
+     * The event is written here only: `afterEndpoint` has no change-password
+     * case.
+     */
+    async passwordChanged(
+      db: AuditDb,
+      userId: string,
+      { revokedOtherSessions }: { revokedOtherSessions: boolean },
+      headers?: Headers,
+    ) {
+      await audit(
+        {
+          type: "PASSWORD_CHANGED",
+          actorType: "USER",
+          actorUserId: userId,
+          targetType: "USER",
+          targetId: userId,
+          metadata: { revokedOtherSessions },
+        },
+        { db, headers },
+      );
+    },
+
+    /** A wrong current password, or a refusal while locked. */
+    async passwordChangeFailed(
+      ctx: HookContext,
+      userId: string,
+      reason: "INVALID_CURRENT_PASSWORD" | "ACCOUNT_LOCKED",
+    ) {
+      await emit(ctx, {
+        type: "PASSWORD_CHANGE_FAILED",
+        actorType: "USER",
+        actorUserId: userId,
+        targetType: "USER",
+        targetId: userId,
+        metadata: { reason },
+      });
     },
 
     /** A wrong password or code, or a refusal while locked. */
