@@ -20,6 +20,8 @@
     "prisma:migrate-reset": "node scripts/prisma-guard.mjs migrate reset && prisma migrate reset",
     "prisma:db-push": "node scripts/prisma-guard.mjs db push && prisma db push",
     "positions:sync": "tsx scripts/positions-sync.ts",
+    "validate-export": "tsx scripts/validate-export.ts",
+    "import:users": "tsx scripts/import-users.ts",
     "email:preview": "tsx scripts/email-preview.ts",
     "jwks:rotate": "tsx scripts/jwks-rotate.ts",
     "supabase:push-jwks": "tsx scripts/supabase-push-jwks.ts",
