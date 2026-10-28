@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { tombstoneUser } from "@/lib/users/tombstone";
@@ -20,39 +21,43 @@ async function richUser() {
     isAdmin: true,
     legacyEmail: true,
   });
-  await createSession(user);
-  await createSession(user);
-  await prisma.twoFactor.create({
-    data: { userId: user.id, secret: "s", backupCodes: "b" },
-  });
-  await prisma.knownDevice.create({
-    data: { userId: user.id, tokenHash: `device-${user.id}` },
-  });
-  await prisma.unlockToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: `unlock-${user.id}`,
-      expiresAt: new Date(Date.now() + 60_000),
-    },
-  });
-  await prisma.accountLock.create({ data: { userId: user.id } });
-  const positions = [await createPosition(), await createPosition()];
+  // KnownDevice and UnlockToken CHECK their tokenHash as 64 lower-case hex.
+  const hexHash = () => randomBytes(32).toString("hex");
+  const [positions] = await Promise.all([
+    Promise.all([createPosition(), createPosition()]),
+    createSession(user),
+    createSession(user),
+    prisma.twoFactor.create({
+      data: { userId: user.id, secret: "s", backupCodes: "b" },
+    }),
+    prisma.knownDevice.create({
+      data: { userId: user.id, tokenHash: hexHash() },
+    }),
+    prisma.unlockToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hexHash(),
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    }),
+    prisma.accountLock.create({ data: { userId: user.id } }),
+    prisma.verification.createMany({
+      data: [
+        {
+          identifier: user.email,
+          value: "by-email",
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+        {
+          identifier: `set-password:${user.id}`,
+          value: user.id,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      ],
+    }),
+  ]);
   await prisma.userPosition.createMany({
     data: positions.map((p) => ({ userId: user.id, positionId: p.id })),
-  });
-  await prisma.verification.createMany({
-    data: [
-      {
-        identifier: user.email,
-        value: "by-email",
-        expiresAt: new Date(Date.now() + 60_000),
-      },
-      {
-        identifier: `set-password:${user.id}`,
-        value: user.id,
-        expiresAt: new Date(Date.now() + 60_000),
-      },
-    ],
   });
   return { user, positions };
 }

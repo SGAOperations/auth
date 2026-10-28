@@ -56,14 +56,14 @@ export type RouteHandler = (
 
 export interface AdminUserDeps {
   prisma: PrismaClient;
-  /** #44's guard, adapted: the 403 `REAUTH_REQUIRED` response, or null. */
+  /** Fresh-auth guard, adapted: the 403 `REAUTH_REQUIRED` response, or null. */
   requireFreshAuth(headers: Headers): Promise<Response | null>;
-  /** #76: lifts the lock and kills unlock links. Does not audit. */
+  /** Lifts the account lock and kills unlock links. Does not audit. */
   clearAccountLock(
     db: Prisma.TransactionClient,
     input: { userId: string; now: Date },
   ): Promise<{ wasLocked: boolean }>;
-  /** #34: mints the set-password token. Writes no audit row, sends no email. */
+  /** Mints the set-password token. Writes no audit row, sends no email. */
   issueAdminInvite(
     db: Prisma.TransactionClient,
     input: { userId: string; now: Date },
@@ -250,7 +250,7 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
     return user ? apiJson({ user }) : userError("USER_NOT_FOUND");
   });
 
-  // Create has no target: #47 has no separate create action, so the guard's
+  // Create has no target and no separate create action, so the guard's
   // `accessAdmin` gate is the whole authorization check.
   const create = guarded("create", async (request) => {
     const guard = await requireAdmin({ mutation: true, action: "accessAdmin" });
@@ -270,7 +270,7 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
         let user: User;
         try {
           // No Account row: the account has no password until the invite is
-          // used (#34). Prisma writes it, so Better Auth's hooks never run and
+          // used. Prisma writes it, so Better Auth's hooks never run and
           // there is no second USER_CREATED.
           user = await tx.user.create({
             data: {

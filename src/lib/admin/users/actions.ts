@@ -1,14 +1,25 @@
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 import type { MutationSpec } from "@/lib/admin/users/handlers";
 import type { UserTarget } from "@/lib/admin/users/queries";
 import type { AdminUserAction } from "@/lib/admin/users/schemas";
 import { audit } from "@/lib/audit";
 
-// The eight POST actions. Every state change is a conditional `updateMany`
-// whose `where` restates its precondition, so a lost race reads as a conflict
-// and commits nothing. The handlers refuse a tombstone up front; `live` repeats
-// that for a delete that lands between the load and the write.
+// The eight POST actions. Every state change on the user row is a conditional
+// `updateMany` whose `where` restates its precondition, so a lost race reads as
+// a conflict and commits nothing. `revoke-sessions`, `unlock` and
+// `resend-invite` change no user row, so they re-read `live` first instead. The
+// handlers refuse a tombstone up front; `live` repeats that for a delete that
+// lands between the load and the write.
 const live = (id: string) => ({ id, status: { not: "DELETED" } }) as const;
+
+/** True when the user was deleted after the handler loaded it. */
+async function isGone(tx: Prisma.TransactionClient, id: string) {
+  return (
+    (await tx.user.findFirst({ where: live(id), select: { id: true } })) ===
+    null
+  );
+}
 
 const displayName = (target: UserTarget) => target.preferredName ?? target.name;
 
@@ -19,7 +30,13 @@ const deactivate: Run = async ({ tx, target, now }) => {
     where: { id: target.id, status: "ACTIVE" },
     data: { status: "DEACTIVATED", deactivatedAt: now },
   });
-  if (changed.count === 0) return { fail: "ALREADY_DEACTIVATED" };
+  if (changed.count === 0) {
+    return {
+      fail: (await isGone(tx, target.id))
+        ? "USER_DELETED"
+        : "ALREADY_DEACTIVATED",
+    };
+  }
   // Prisma, not Better Auth, so its session hooks add no second audit row.
   const { count: revokedSessions } = await tx.session.deleteMany({
     where: { userId: target.id },
@@ -88,6 +105,7 @@ const revokeAdmin: Run = async ({ tx, target }) => {
 };
 
 const revokeSessions: Run = async ({ tx, target }) => {
+  if (await isGone(tx, target.id)) return { fail: "USER_DELETED" };
   const { count: revokedSessions } = await tx.session.deleteMany({
     where: { userId: target.id },
   });
@@ -101,6 +119,7 @@ const revokeSessions: Run = async ({ tx, target }) => {
 };
 
 const unlock: Run = async ({ tx, target, now }, deps) => {
+  if (await isGone(tx, target.id)) return { fail: "USER_DELETED" };
   const { wasLocked } = await deps.clearAccountLock(tx, {
     userId: target.id,
     now,
@@ -145,6 +164,7 @@ const resetMfa: Run = async ({ tx, target, now }, deps) => {
 const resendInvite: Run = async ({ tx, target, now }, deps) => {
   if (target.status !== "ACTIVE") return { fail: "USER_DEACTIVATED" };
   if (target.hasPassword) return { fail: "PASSWORD_ALREADY_SET" };
+  if (await isGone(tx, target.id)) return { fail: "USER_DELETED" };
   const invite = await deps.issueAdminInvite(tx, { userId: target.id, now });
   if (!invite.ok) return { fail: "INVITE_LIMIT" };
   await audit({
