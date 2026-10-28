@@ -94,6 +94,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     events: ["PASSWORD_SET"],
     emittedIn: ["src/lib/set-password/consumer.ts"],
   },
+  "src/app/login/actions.ts": {
+    kind: "exempt",
+    reason:
+      "reads the session and clears the post-login redirect cookie; no account or session state changes",
+  },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",
     reason:
