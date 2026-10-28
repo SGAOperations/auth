@@ -682,14 +682,23 @@ export function planImport(
     }
 
     const account = state.credentials.get(existing.id);
+    // An existing account is only touched when the export row proves ownership
+    // of the address: Chambers verified it, and it was not replaced. Otherwise
+    // the row could attach a password and positions to someone else's account.
+    const provesOwnership = row.emailVerified && !row.emailReplaced;
+    if (!provesOwnership) {
+      notes.push("unverified in Chambers; credential not merged");
+    }
     let credential: PlannedRow["credential"] = null;
-    if (row.bcryptHash !== null) {
+    if (provesOwnership && row.bcryptHash !== null) {
       if (account === undefined) credential = "create";
       else if (account.password === null) credential = "fill";
     }
     const held = state.holdings.get(existing.id) ?? new Set<string>();
     let positionKeys: string[] = [];
-    if (existing.status === "ACTIVE") {
+    if (!provesOwnership) {
+      // No positions either: they rely on the same proof.
+    } else if (existing.status === "ACTIVE") {
       positionKeys = wanted.filter(
         (key) => !held.has(state.positions.get(key)!),
       );

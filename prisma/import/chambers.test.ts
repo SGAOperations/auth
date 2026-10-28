@@ -741,7 +741,7 @@ describe("planImport", () => {
 
     it("adds only the positions the user lacks and never removes any", () => {
       const result = run(
-        importRow({ emailVerified: false, roles: ["admin_role:Comptroller"] }),
+        importRow({ roles: ["admin_role:Comptroller"] }),
         {
           credentials: new Map([["u1", { id: "a1", password: "x" }]]),
           holdings: new Map([["u1", new Set(["p-comptroller", "p-other"])]]),
@@ -757,11 +757,10 @@ describe("planImport", () => {
     it("adds no positions to a deactivated existing user and never changes status", () => {
       const result = run(
         importRow({
-          emailVerified: false,
           bcryptHash: null,
           roles: ["admin_role:Comptroller"],
         }),
-        { user: existing({ status: "DEACTIVATED" }) },
+        { user: existing({ status: "DEACTIVATED", emailVerified: true }) },
         { "admin_role:Comptroller": ["comptroller"] },
       );
       expect(result).toMatchObject({ outcome: "unchanged", positionKeys: [] });
@@ -771,7 +770,7 @@ describe("planImport", () => {
       expect(result.status).toBeNull();
     });
 
-    it("merges a replaced row into an existing user without changing name or verification", () => {
+    it("merges nothing from a replaced row into an existing user", () => {
       const row = importRow({
         sourceEmail: "old@gmail.com",
         emailReplaced: true,
@@ -780,18 +779,39 @@ describe("planImport", () => {
       });
       const result = run(
         row,
-        {
-          user: existing({ emailVerified: true }),
-          credentials: new Map([["u1", { id: "a1", password: "x" }]]),
-        },
+        { user: existing({ emailVerified: true }) },
         { "admin_role:Comptroller": ["comptroller"] },
       );
       expect(result).toMatchObject({
-        outcome: "merge",
+        outcome: "unchanged",
         userId: "u1",
         setVerified: false,
-        positionKeys: ["comptroller"],
+        credential: null,
+        positionKeys: [],
       });
+      expect(result.notes).toContain(
+        "unverified in Chambers; credential not merged",
+      );
+    });
+
+    it("merges no credential or positions from an unverified row", () => {
+      const result = run(
+        importRow({ emailVerified: false, roles: ["admin_role:Comptroller"] }),
+        { credentials: new Map([["u1", { id: "a1", password: null }]]) },
+        { "admin_role:Comptroller": ["comptroller"] },
+      );
+      expect(result).toMatchObject({
+        outcome: "unchanged",
+        setVerified: false,
+        credential: null,
+        positionKeys: [],
+      });
+      expect(result.notes).toContain(
+        "unverified in Chambers; credential not merged",
+      );
+      expect(
+        run(importRow({ emailVerified: false }), {}).credential,
+      ).toBeNull();
     });
 
     it("is unchanged when there is nothing to add", () => {

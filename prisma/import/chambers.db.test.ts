@@ -344,7 +344,7 @@ describe("applyImport against the database", () => {
         await prisma.account.count({
           where: { userId: existing.id, providerId: "credential" },
         }),
-      ).toBe(1);
+      ).toBe(0);
     },
     TIMEOUT,
   );
