@@ -496,8 +496,6 @@ export type PlannedRow = {
   userId: string | null;
   /** The status a created user gets. */
   status: "ACTIVE" | "DEACTIVATED" | null;
-  /** A merge sets emailVerified to true. */
-  setVerified: boolean;
   /** A merge adds a credential Account, or fills a null-password one. */
   credential: "create" | "fill" | null;
   credentialAccountId: string | null;
@@ -594,7 +592,6 @@ const emptyPlanned = (row: ImportRow): PlannedRow => ({
   notes: [],
   userId: null,
   status: null,
-  setVerified: false,
   credential: null,
   credentialAccountId: null,
   positionKeys: [],
@@ -681,6 +678,16 @@ export function planImport(
       return skipped(row, "tombstoned in SGAuth");
     }
 
+    // An unverified SGAuth account could have been pre-registered by someone
+    // holding the Chambers user's address: never merge into it.
+    if (!existing.emailVerified) {
+      return {
+        ...emptyPlanned(row),
+        notes: [...notes, "existing SGAuth account unverified; not merged"],
+        userId: existing.id,
+      };
+    }
+
     const account = state.credentials.get(existing.id);
     // An existing account is only touched when the export row proves ownership
     // of the address: Chambers verified it, and it was not replaced. Otherwise
@@ -708,15 +715,12 @@ export function planImport(
     if (positionKeys.length > 0) {
       notes.push(`positions +${positionKeys.join(",")}`);
     }
-    const setVerified = row.emailVerified && !existing.emailVerified;
-    const changed =
-      setVerified || credential !== null || positionKeys.length > 0;
+    const changed = credential !== null || positionKeys.length > 0;
     return {
       ...emptyPlanned(row),
       outcome: changed ? "merge" : "unchanged",
       notes,
       userId: existing.id,
-      setVerified,
       credential,
       credentialAccountId: credential === "fill" ? account!.id : null,
       positionKeys,
@@ -870,16 +874,6 @@ export async function applyImport(
             ? { ...entry, userId: createdIds.get(entry.row.email!)! }
             : entry,
         );
-
-        const verify = applied
-          .filter((entry) => entry.setVerified)
-          .map((entry) => entry.userId!);
-        if (verify.length > 0) {
-          await tx.user.updateMany({
-            where: { id: { in: verify }, emailVerified: false },
-            data: { emailVerified: true },
-          });
-        }
 
         const accounts = applied.filter(
           (entry) =>

@@ -138,14 +138,15 @@ What each outcome does:
 
 - **create**: a new user, with a credential Account when the export has a hash.
   An inactive Chambers user is created `DEACTIVATED` with no positions.
-- **merge**: the user already exists in SGAuth. The import sets
-  `emailVerified` to true when Chambers says so, adds a credential Account when
-  there is none (or fills one with no password), and adds mapped positions the
-  user lacks. It never changes a name or status, never replaces an existing
-  password, and never removes a position. A row only merges into an existing
-  account when Chambers verified the address and it was not replaced: otherwise
-  nothing is added, and the note `unverified in Chambers; credential not
-merged` appears in `report.json`.
+- **merge**: the user already exists in SGAuth. The import adds a credential
+  Account when there is none (or fills one with no password), and adds mapped
+  positions the user lacks. It never changes a name, status or `emailVerified`,
+  never replaces an existing password, and never removes a position. It merges
+  only when both sides prove ownership of the address: Chambers verified it and
+  it was not replaced, and the SGAuth account is itself verified (an unverified
+  one could have been pre-registered by someone else). Otherwise nothing is
+  added, and `report.json` carries the note `unverified in Chambers; credential
+not merged` or `existing SGAuth account unverified; not merged`.
 - **unchanged**: nothing to add.
 - **skip**: nothing is written for the row.
 
