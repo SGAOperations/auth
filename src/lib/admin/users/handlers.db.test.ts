@@ -1,7 +1,36 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { betterAuth } from "better-auth";
 
-const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getSession: vi.fn(),
+  // The transaction client the shared `prisma` is routed to while a Primary
+  // Admin test runs; `undefined` the rest of the time.
+  scope: { current: undefined as unknown },
+}));
+
+// A Primary Admin can never be removed once committed, and the Primary Admin
+// tests read and write it through the guard, the handlers and the fresh-auth
+// check, all of which use the shared client. So while such a test runs, that
+// client is routed to one transaction (and `$transaction` joins it), and the
+// transaction is rolled back at the end: no Primary Admin is ever committed.
+vi.mock("@/lib/prisma", async (importOriginal) => {
+  const { prisma: real } =
+    await importOriginal<typeof import("@/lib/prisma")>();
+  const routed = new Proxy(real, {
+    get(_target, key) {
+      const active = mocks.scope.current as object | undefined;
+      if (active && key === "$transaction") {
+        return (fn: (tx: unknown) => unknown) => fn(active);
+      }
+      const source = active ?? real;
+      const value = Reflect.get(source, key) as unknown;
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(source)
+        : value;
+    },
+  });
+  return { prisma: routed };
+});
 
 // The guard is the real one: only its session source and the limiter are
 // replaced, as in the positions suites.
@@ -27,10 +56,10 @@ import { createCapturingMailer } from "@/test/capturing-mailer";
 import {
   createAdmin,
   createPosition,
+  createPrimaryAdmin,
   createSession,
   createUser,
 } from "@/test/factories";
-import { ensureHarnessPrimaryAdmin } from "@/test/harness-primary-admin";
 import { testLockout } from "@/test/lockout-options";
 
 const BASE_URL = "http://localhost:3000";
@@ -165,15 +194,36 @@ function expectNoSecrets(value: unknown) {
 }
 
 let admin: Awaited<ReturnType<typeof createAdmin>>;
-let primary: Awaited<ReturnType<typeof ensureHarnessPrimaryAdmin>>;
 
-beforeAll(async () => {
-  primary = await ensureHarnessPrimaryAdmin({ password: PASSWORD });
-  primary = await prisma.user.update({
-    where: { id: primary.id },
-    data: { twoFactorEnabled: true },
-  });
-});
+class Rollback extends Error {}
+
+/**
+ * Runs `body` with a Primary Admin that exists only inside a transaction that is
+ * rolled back afterwards, so the test branch is left without one for the suites
+ * that assert it has none. The Primary Admin has MFA enrolled.
+ */
+async function withPrimaryAdmin(
+  body: (
+    primary: Awaited<ReturnType<typeof createPrimaryAdmin>>,
+  ) => Promise<void>,
+) {
+  await prisma
+    .$transaction(
+      async (tx) => {
+        mocks.scope.current = tx;
+        try {
+          await body(await createPrimaryAdmin({ twoFactorEnabled: true }, tx));
+        } finally {
+          mocks.scope.current = undefined;
+        }
+        throw new Rollback();
+      },
+      { timeout: 60_000, maxWait: 30_000 },
+    )
+    .catch((error: unknown) => {
+      if (!(error instanceof Rollback)) throw error;
+    });
+}
 
 beforeEach(async () => {
   mocks.getSession.mockReset();
@@ -527,12 +577,9 @@ describe("PATCH /:id", () => {
   it("allows an admin to edit the Primary Admin's profile and their own", async () => {
     const own = await patch(admin.id, { preferredName: "Me" });
     expect(own.status).toBe(200);
-    const original = primary.preferredName;
-    const other = await patch(primary.id, { preferredName: "PA nickname" });
-    expect(other.status).toBe(200);
-    await prisma.user.update({
-      where: { id: primary.id },
-      data: { preferredName: original },
+    await withPrimaryAdmin(async (primary) => {
+      const other = await patch(primary.id, { preferredName: "PA nickname" });
+      expect(other.status).toBe(200);
     });
   });
 });
@@ -728,51 +775,59 @@ describe("denials", () => {
   it.each(["deactivate", "revoke-admin", "reset-mfa"])(
     "refuses %s on the Primary Admin with PRIMARY_ADMIN_PROTECTED",
     async (action) => {
-      const { response, rows } = await withAudit(primary.id, () =>
-        act(primary.id, action),
-      );
-      expect(response.status).toBe(403);
-      expect(await json(response)).toMatchObject({
-        code: "PRIMARY_ADMIN_PROTECTED",
+      await withPrimaryAdmin(async (primary) => {
+        const { response, rows } = await withAudit(primary.id, () =>
+          act(primary.id, action),
+        );
+        expect(response.status).toBe(403);
+        expect(await json(response)).toMatchObject({
+          code: "PRIMARY_ADMIN_PROTECTED",
+        });
+        expect(rows).toHaveLength(0);
       });
-      expect(rows).toHaveLength(0);
     },
   );
 
   it("refuses to delete the Primary Admin", async () => {
-    const response = await remove(primary.id);
-    expect(response.status).toBe(403);
-    expect(await json(response)).toMatchObject({
-      code: "PRIMARY_ADMIN_PROTECTED",
+    await withPrimaryAdmin(async (primary) => {
+      const response = await remove(primary.id);
+      expect(response.status).toBe(403);
+      expect(await json(response)).toMatchObject({
+        code: "PRIMARY_ADMIN_PROTECTED",
+      });
+      expect(
+        (await prisma.user.findUniqueOrThrow({ where: { id: primary.id } }))
+          .status,
+      ).toBe("ACTIVE");
     });
-    expect(
-      (await prisma.user.findUniqueOrThrow({ where: { id: primary.id } }))
-        .status,
-    ).toBe("ACTIVE");
   });
 
   it("lets sessions be revoked and an account unlocked on the Primary Admin", async () => {
-    await prisma.accountLock.upsert({
-      where: { userId: primary.id },
-      create: {
-        userId: primary.id,
-        lockedUntil: new Date(Date.now() + 30 * MINUTE_MS),
-        lockLevel: 1,
-      },
-      update: { lockedUntil: new Date(Date.now() + 30 * MINUTE_MS) },
+    await withPrimaryAdmin(async (primary) => {
+      await prisma.accountLock.upsert({
+        where: { userId: primary.id },
+        create: {
+          userId: primary.id,
+          lockedUntil: new Date(Date.now() + 30 * MINUTE_MS),
+          lockLevel: 1,
+        },
+        update: { lockedUntil: new Date(Date.now() + 30 * MINUTE_MS) },
+      });
+      expect((await act(primary.id, "revoke-sessions")).status).toBe(200);
+      expect((await act(primary.id, "unlock")).status).toBe(200);
     });
-    expect((await act(primary.id, "revoke-sessions")).status).toBe(200);
-    expect((await act(primary.id, "unlock")).status).toBe(200);
   });
 
   it("lets the Primary Admin reset the MFA of another admin", async () => {
     const other = await createAdmin({ twoFactorEnabled: true });
-    await signInAs(primary);
-    const { response, rows } = await withAudit(other.id, () =>
-      act(other.id, "reset-mfa"),
-    );
-    expect(response.status).toBe(200);
-    expect(rows.map((r) => r.type)).toEqual(["MFA_RESET"]);
+    await withPrimaryAdmin(async (primary) => {
+      await signInAs(primary);
+      const { response, rows } = await withAudit(other.id, () =>
+        act(other.id, "reset-mfa"),
+      );
+      expect(response.status).toBe(200);
+      expect(rows.map((r) => r.type)).toEqual(["MFA_RESET"]);
+    });
   });
 
   it.each(["deactivate", "grant-admin", "revoke-admin", "reset-mfa"])(

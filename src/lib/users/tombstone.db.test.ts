@@ -5,10 +5,11 @@ import { tombstoneUser } from "@/lib/users/tombstone";
 import {
   createAdmin,
   createPosition,
+  createPrimaryAdmin,
   createSession,
   createUser,
 } from "@/test/factories";
-import { ensureHarnessPrimaryAdmin } from "@/test/harness-primary-admin";
+import type { PrismaClient } from "@/generated/prisma/client";
 
 const actorOf = (user: { id: string }) =>
   ({ actorType: "USER", actorUserId: user.id }) as const;
@@ -161,26 +162,37 @@ describe("tombstoneUser", () => {
   });
 
   it("refuses the Primary Admin and changes nothing", async () => {
-    const primary = await ensureHarnessPrimaryAdmin({
-      password: "x".repeat(16),
-    });
-    const events = await prisma.auditEvent.count({
-      where: { targetId: primary.id, type: "USER_DELETED" },
-    });
-    const result = await tombstoneUser(prisma, {
-      userId: primary.id,
-      reason: "admin",
-      actor: actorOf(actor),
-    });
-    expect(result).toEqual({ tombstoned: false });
-    expect(
-      await prisma.user.findUniqueOrThrow({ where: { id: primary.id } }),
-    ).toMatchObject({ status: "ACTIVE", isPrimaryAdmin: true });
-    expect(
-      await prisma.auditEvent.count({
-        where: { targetId: primary.id, type: "USER_DELETED" },
-      }),
-    ).toBe(events);
+    // A committed Primary Admin could never be removed, so this one lives in a
+    // transaction that rolls back, and tombstoneUser joins it.
+    class Rollback extends Error {}
+    await prisma
+      .$transaction(async (tx) => {
+        const primary = await createPrimaryAdmin({}, tx);
+        const joined = {
+          $transaction: (fn: (db: typeof tx) => Promise<unknown>) => fn(tx),
+        } as unknown as PrismaClient;
+        const events = await tx.auditEvent.count({
+          where: { targetId: primary.id, type: "USER_DELETED" },
+        });
+        const result = await tombstoneUser(joined, {
+          userId: primary.id,
+          reason: "admin",
+          actor: actorOf(actor),
+        });
+        expect(result).toEqual({ tombstoned: false });
+        expect(
+          await tx.user.findUniqueOrThrow({ where: { id: primary.id } }),
+        ).toMatchObject({ status: "ACTIVE", isPrimaryAdmin: true });
+        expect(
+          await tx.auditEvent.count({
+            where: { targetId: primary.id, type: "USER_DELETED" },
+          }),
+        ).toBe(events);
+        throw new Rollback();
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof Rollback)) throw error;
+      });
   });
 
   it("does nothing when the guard does not match", async () => {
