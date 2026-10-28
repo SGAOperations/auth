@@ -179,18 +179,6 @@ describe.skipIf(!url)("password reset", () => {
           knownTimes.push(await time(known.email));
         }
       }
-      // DIAGNOSTIC: print the samples so CI shows whether the gap is steady.
-      const fmt = (values: number[]) =>
-        [...values]
-          .sort((a, b) => a - b)
-          .map((v) => v.toFixed(1))
-          .join(" ");
-      console.log(
-        `TIMING known median=${median(knownTimes).toFixed(1)} sorted=${fmt(knownTimes)}`,
-      );
-      console.log(
-        `TIMING unknown median=${median(unknownTimes).toFixed(1)} sorted=${fmt(unknownTimes)}`,
-      );
       expect(Math.abs(median(knownTimes) - median(unknownTimes))).toBeLessThan(
         70,
       );
