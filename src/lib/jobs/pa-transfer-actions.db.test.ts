@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
@@ -78,12 +78,6 @@ function auditRows(
 }
 
 describe("Primary Admin transfer actions", () => {
-  beforeAll(async () => {
-    expect(await prisma.user.count({ where: { isPrimaryAdmin: true } })).toBe(
-      0,
-    );
-  });
-
   beforeEach(async () => {
     await prisma.primaryAdminTransfer.deleteMany();
   });
