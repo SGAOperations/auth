@@ -63,6 +63,8 @@
     "Bash(node scripts/port-budget.mjs *)",
     "Bash(node --test scripts/*.test.mjs)",
     "Bash(npx --no-install prisma generate)",
-    "Bash(npx --no-install prisma migrate diff *)"
+    "Bash(npx --no-install prisma migrate diff *)",
+    "Bash(npx shadcn@latest add skeleton empty)",
+    "Bash(npx shadcn@latest add table textarea switch checkbox alert-dialog)"
   ]
 }
