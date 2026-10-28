@@ -110,6 +110,35 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["POSITION_ASSIGNED"],
   },
+  // Admin user management (AUTH-T36). The route files only bind the handlers;
+  // each mutation writes its single audit row inside its own transaction.
+  "src/app/api/sgauth/admin/users/route.ts": {
+    kind: "audited",
+    events: ["USER_CREATED"],
+    emittedIn: ["src/lib/admin/users/handlers.ts"],
+  },
+  "src/app/api/sgauth/admin/users/[id]/route.ts": {
+    kind: "audited",
+    events: ["USER_UPDATED", "USER_DELETED"],
+    emittedIn: [
+      "src/lib/admin/users/handlers.ts",
+      "src/lib/users/tombstone.ts",
+    ],
+  },
+  "src/app/api/sgauth/admin/users/[id]/[action]/route.ts": {
+    kind: "audited",
+    events: [
+      "USER_DEACTIVATED",
+      "USER_REACTIVATED",
+      "ADMIN_GRANTED",
+      "ADMIN_REVOKED",
+      "SESSIONS_REVOKED",
+      "ACCOUNT_UNLOCKED",
+      "MFA_RESET",
+      "USER_INVITED",
+    ],
+    emittedIn: ["src/lib/admin/users/actions.ts"],
+  },
   // The set-password link (AUTH-T22). The two request routes write
   // PASSWORD_SET_REQUESTED in the service, only when a token is issued. The
   // confirm POST writes PASSWORD_SET in the consumer's transaction, then signs
@@ -254,7 +283,7 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   "/update-user": {
     kind: "exempt",
     reason:
-      "self-service name and image only; status and email are not writable here, and the catalog has no profile-edit event",
+      "self-service name and image only; status and email are not writable here; USER_UPDATED records admin edits (AUTH-T36)",
   },
   "/update-session": { kind: "exempt", reason: "no writable session fields" },
   "/send-verification-email": {

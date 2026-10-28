@@ -4,8 +4,20 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   findUnique: vi.fn(),
   limitRequest: vi.fn(),
+  can: vi.fn(),
 }));
 
+// Records the call, then runs the real rule matrix.
+vi.mock("@/lib/authz", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/authz")>();
+  return {
+    ...actual,
+    can: ((...args: Parameters<typeof actual.can>) => {
+      mocks.can(...args);
+      return (actual.can as (...a: unknown[]) => unknown)(...args);
+    }) as typeof actual.can,
+  };
+});
 vi.mock("@/lib/auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { user: { findUnique: mocks.findUnique } },
@@ -119,6 +131,14 @@ describe("requireAdmin", () => {
     expect(result).toMatchObject({ actor: { twoFactorEnabled: false } });
   });
 
+  it("gates on managePositions unless the caller names an action", async () => {
+    actorRow();
+    await requireAdmin({ mutation: false });
+    expect(mocks.can).toHaveBeenLastCalledWith(ACTOR, "managePositions");
+    await requireAdmin({ mutation: false, action: "accessAdmin" });
+    expect(mocks.can).toHaveBeenLastCalledWith(ACTOR, "accessAdmin");
+  });
+
   it("returns the limiter's 429 for a mutation", async () => {
     actorRow();
     mocks.limitRequest.mockResolvedValue(
@@ -172,6 +192,24 @@ describe("readJson", () => {
       });
     },
   );
+
+  async function issues(body: string) {
+    const result = await readJson(post(body), schema);
+    if (!("response" in result)) throw new Error("expected a refusal");
+    return ((await result.response.json()) as { issues: unknown }).issues;
+  }
+
+  it("names the failing path and never echoes the input value", async () => {
+    const found = await issues('{"a":42,"b":"secret-value"}');
+    expect(JSON.stringify(found)).not.toContain("secret-value");
+    expect(found).toEqual(
+      expect.arrayContaining([{ path: "a", message: expect.any(String) }]),
+    );
+  });
+
+  it("gives no issues for a body that is not JSON", async () => {
+    expect(await issues("not json")).toEqual([]);
+  });
 });
 
 describe("transferErrorResponse", () => {

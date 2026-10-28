@@ -1,7 +1,7 @@
 import "server-only";
 import type { z } from "zod";
 import type { User } from "@/generated/prisma/client";
-import { can } from "@/lib/authz";
+import { can, type GlobalAction } from "@/lib/authz";
 import { getSession } from "@/lib/auth/server";
 import { MFA_ENROLLMENT_PATH, MFA_ERROR_CODES } from "@/lib/auth/mfa-policy";
 import type {
@@ -44,15 +44,21 @@ export type AdminActor = Pick<
  * The one admin API guard (#48, #54, #55, #58). Admin MFA is on by default.
  * Add options here; don't write a second guard.
  *
- * In order: session, a fresh actor row, `can(actor, "managePositions")`, admin
- * MFA, then the rate limit for mutations. A non-admin gets the authorization
- * reason and learns nothing about MFA; an MFA refusal uses no rate-limit token.
+ * In order: session, a fresh actor row, `can(actor, action)`, admin MFA, then
+ * the rate limit for mutations. A non-admin gets the authorization reason and
+ * learns nothing about MFA; an MFA refusal uses no rate-limit token.
+ *
+ * `action` is the global action that gates the route and defaults to
+ * `managePositions`. Any caller passing `requireMfa: false` must say why next
+ * to the call.
  */
 export async function requireAdmin({
   mutation,
+  action = "managePositions",
   requireMfa = true,
 }: {
   mutation: boolean;
+  action?: GlobalAction;
   requireMfa?: boolean;
 }): Promise<{ actor: AdminActor } | { response: Response }> {
   const unauthenticated = () =>
@@ -77,7 +83,7 @@ export async function requireAdmin({
   if (!actor) return unauthenticated();
   setRequestUserId(actor.id);
 
-  const decision = can(actor, "managePositions");
+  const decision = can(actor, action);
   if (!decision.allowed) {
     return {
       response: apiError(
@@ -109,22 +115,33 @@ export async function requireAdmin({
 
 const INVALID_INPUT_MESSAGE = "Check the highlighted fields and try again.";
 
+/**
+ * 400 INVALID_INPUT. `issues` names the failing paths and the schema's own
+ * messages, never the input values; no error means an unparseable body.
+ */
+export function invalidInputResponse(error?: z.ZodError): Response {
+  const issues = (error?.issues ?? []).map((issue) => ({
+    path: issue.path.join("."),
+    message: issue.message,
+  }));
+  return apiError(400, "INVALID_INPUT", INVALID_INPUT_MESSAGE, { issues });
+}
+
 /** A body that is not JSON, or does not match `schema`, is 400 INVALID_INPUT. */
 export async function readJson<S extends z.ZodType>(
   request: Request,
   schema: S,
 ): Promise<{ data: z.output<S> } | { response: Response }> {
-  const invalid = {
-    response: apiError(400, "INVALID_INPUT", INVALID_INPUT_MESSAGE),
-  };
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return invalid;
+    return { response: invalidInputResponse() };
   }
   const parsed = schema.safeParse(body);
-  return parsed.success ? { data: parsed.data } : invalid;
+  return parsed.success
+    ? { data: parsed.data }
+    : { response: invalidInputResponse(parsed.error) };
 }
 
 // Exhaustive over PositionErrorCode, so a new code fails tsc until it has a row.
