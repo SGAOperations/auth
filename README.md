@@ -1,3 +1,5 @@
+<img src="public/sgauth-logo.svg" alt="SGAuth logo" width="96" height="96">
+
 # SGA Auth Manager
 
 SGAuth is the internal single sign-on service for SGA products. It is built on [Neon](https://neon.com/) serverless Postgres and does not use Supabase for anything. How the pieces fit together: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

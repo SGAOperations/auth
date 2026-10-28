@@ -220,6 +220,52 @@ describe("parseAuditEvent", () => {
     });
   });
 
+  describe("re-authentication events", () => {
+    const base = {
+      actorType: "USER",
+      actorUserId: "u1",
+      targetType: "USER",
+      targetId: "u1",
+    };
+
+    it.each(["password", "password_totp", "password_backup_code"])(
+      "accepts REAUTH_SUCCEEDED by %s",
+      (method) => {
+        expect(() =>
+          parseAuditEvent({
+            ...base,
+            type: "REAUTH_SUCCEEDED",
+            metadata: { method },
+          }),
+        ).not.toThrow();
+      },
+    );
+
+    it.each(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"])(
+      "accepts REAUTH_FAILED for %s",
+      (reason) => {
+        expect(() =>
+          parseAuditEvent({
+            ...base,
+            type: "REAUTH_FAILED",
+            metadata: { reason },
+          }),
+        ).not.toThrow();
+      },
+    );
+
+    it.each([
+      ["REAUTH_SUCCEEDED", {}],
+      ["REAUTH_SUCCEEDED", { method: "password", email: "a@northeastern.edu" }],
+      ["REAUTH_FAILED", {}],
+      ["REAUTH_FAILED", { reason: "INVALID_CREDENTIALS", email: "a@b.edu" }],
+    ])("rejects %s metadata %j", (type, metadata) => {
+      expect(() => parseAuditEvent({ ...base, type, metadata })).toThrow(
+        ZodError,
+      );
+    });
+  });
+
   it("rejects a USER actor without an id and a SYSTEM actor with one", () => {
     expect(() =>
       parseAuditEvent({
@@ -466,6 +512,130 @@ describe("position lifecycle metadata", () => {
     ["POSITION_DELETED", { ...deleted, extra: 1 }],
   ])("rejects %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
+  });
+});
+
+describe("PA_TRANSFER_CANCELLED metadata", () => {
+  const event = (metadata: unknown) => ({
+    type: "PA_TRANSFER_CANCELLED",
+    actorType: "SYSTEM",
+    targetType: "TRANSFER",
+    targetId: "t1",
+    metadata,
+  });
+
+  it.each([
+    [{ reason: "cancelled", via: "in_app" }],
+    [{ reason: "cancelled", via: "email_link" }],
+    [{ reason: "declined", via: "in_app" }],
+    [{ reason: "recipient_ineligible", via: "system" }],
+    [{ reason: "sender_not_primary_admin", via: "system" }],
+  ])("accepts %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).not.toThrow();
+  });
+
+  it.each([
+    [{}],
+    [{ reason: "cancelled" }],
+    [{ via: "system" }],
+    [{ reason: "expired", via: "system" }],
+    [{ reason: "cancelled", via: "carrier_pigeon" }],
+    [{ reason: "cancelled", via: "in_app", email: "a@northeastern.edu" }],
+  ])("rejects %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+});
+
+describe("admin user-management metadata", () => {
+  const event = (type: string, metadata: unknown) => ({
+    type,
+    actorType: "USER",
+    actorUserId: "admin-1",
+    targetType: "USER",
+    targetId: "u1",
+    metadata,
+  });
+  const deleted = { reason: "admin", removedPositionIds: ["p1", "p2"] };
+
+  it.each([
+    ["USER_UPDATED", { fields: ["name"] }],
+    ["USER_UPDATED", { fields: ["name", "preferredName"] }],
+    ["MFA_RESET", {}],
+    ["USER_DEACTIVATED", { revokedSessions: 0 }],
+    ["USER_DEACTIVATED", { revokedSessions: 3 }],
+    ["USER_DELETED", deleted],
+    ["USER_DELETED", { ...deleted, removedPositionIds: [] }],
+    ["USER_CREATED", { source: "admin", invited: true }],
+    ["USER_CREATED", { source: "admin" }],
+  ])("accepts %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();
+  });
+
+  it.each([
+    ["USER_UPDATED", { fields: [] }],
+    ["USER_UPDATED", { fields: ["email"] }],
+    ["USER_UPDATED", { fields: ["name"], name: "Sam" }],
+    ["MFA_RESET", { extra: 1 }],
+    ["USER_DEACTIVATED", {}],
+    ["USER_DEACTIVATED", { revokedSessions: -1 }],
+    ["USER_DEACTIVATED", { revokedSessions: 1.5 }],
+    ["USER_DELETED", {}],
+    ["USER_DELETED", { reason: "admin" }],
+    ["USER_DELETED", { ...deleted, reason: "retention" }],
+    ["USER_CREATED", { source: "admin", invited: "yes" }],
+  ])("rejects %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
+  });
+});
+
+describe("BULK_IMPORT metadata", () => {
+  const sha = "a".repeat(64);
+  const full = {
+    source: "chambers",
+    exportSource: "chambers-neon",
+    sourceSha256: sha,
+    mappingSha256: sha,
+    replacementsSha256: sha,
+    created: 3,
+    merged: 1,
+    unchanged: 0,
+    skipped: 2,
+    emailsReplaced: 1,
+    positionsAssigned: 5,
+  };
+  const event = (metadata: unknown, extra: object = {}) => ({
+    type: "BULK_IMPORT",
+    actorType: "SYSTEM",
+    metadata,
+    ...extra,
+  });
+
+  it.each([
+    ["full metadata", full],
+    ["no replacement file", { ...full, replacementsSha256: null }],
+    ["the supabase fallback", { ...full, exportSource: "supabase" }],
+  ])("accepts %s", (_label, metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).not.toThrow();
+  });
+
+  it.each([
+    ["a missing count", { ...full, created: undefined }],
+    ["a negative count", { ...full, skipped: -1 }],
+    ["a fractional count", { ...full, merged: 1.5 }],
+    ["an extra key", { ...full, email: "a@northeastern.edu" }],
+    ["a non-hex checksum", { ...full, sourceSha256: "z".repeat(64) }],
+    ["an upper-case checksum", { ...full, mappingSha256: "A".repeat(64) }],
+    ["a short checksum", { ...full, mappingSha256: "abc" }],
+    ["an unknown export source", { ...full, exportSource: "csv" }],
+    ["an unknown source", { ...full, source: "csv" }],
+  ])("rejects %s", (_label, metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+
+  it.each(["USER", "POSITION"])("rejects a %s target", (targetType) => {
+    expect(() =>
+      parseAuditEvent(event(full, { targetType, targetId: "t1" })),
+    ).toThrow(ZodError);
   });
 });
 

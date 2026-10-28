@@ -38,6 +38,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "delegated",
     to: "better-auth",
   },
+  // REAUTH_SUCCEEDED and REAUTH_FAILED come from the sgauth-reauth plugin
+  // endpoint that the POST reaches through auth.api.sgauthReauthenticate.
+  "src/app/api/sgauth/reauth/route.ts": {
+    kind: "delegated",
+    to: "better-auth",
+  },
   // EMAIL_VERIFIED and LOGIN_SUCCESS come from the Better Auth hooks that the
   // POST reaches through auth.api.verifyEmail.
   "src/app/verify-email/confirm/route.ts": {
@@ -59,6 +65,35 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["ACCOUNT_UNLOCKED"],
   },
+  // The Primary Admin transfer routes. Every transition writes its
+  // own audit row inside pa-transfer-actions.ts, in the transition's transaction.
+  "src/app/api/sgauth/admin/transfer/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_INITIATED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  "src/app/api/sgauth/admin/transfer/[id]/accept/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_ACCEPTED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  "src/app/api/sgauth/admin/transfer/[id]/decline/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_CANCELLED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  "src/app/api/sgauth/admin/transfer/[id]/cancel/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_CANCELLED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  // The emailed cancel link's POST. consumeCancelToken writes the event in the
+  // consuming transaction.
+  "src/app/transfer/cancel/confirm/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_CANCELLED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
   "src/app/api/sgauth/admin/positions/route.ts": {
     kind: "audited",
     events: ["POSITION_CREATED"],
@@ -74,6 +109,35 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
   "src/app/api/sgauth/admin/positions/[id]/holders/route.ts": {
     kind: "audited",
     events: ["POSITION_ASSIGNED"],
+  },
+  // Admin user management (AUTH-T36). The route files only bind the handlers;
+  // each mutation writes its single audit row inside its own transaction.
+  "src/app/api/sgauth/admin/users/route.ts": {
+    kind: "audited",
+    events: ["USER_CREATED"],
+    emittedIn: ["src/lib/admin/users/handlers.ts"],
+  },
+  "src/app/api/sgauth/admin/users/[id]/route.ts": {
+    kind: "audited",
+    events: ["USER_UPDATED", "USER_DELETED"],
+    emittedIn: [
+      "src/lib/admin/users/handlers.ts",
+      "src/lib/users/tombstone.ts",
+    ],
+  },
+  "src/app/api/sgauth/admin/users/[id]/[action]/route.ts": {
+    kind: "audited",
+    events: [
+      "USER_DEACTIVATED",
+      "USER_REACTIVATED",
+      "ADMIN_GRANTED",
+      "ADMIN_REVOKED",
+      "SESSIONS_REVOKED",
+      "ACCOUNT_UNLOCKED",
+      "MFA_RESET",
+      "USER_INVITED",
+    ],
+    emittedIn: ["src/lib/admin/users/actions.ts"],
   },
   // The set-password link (AUTH-T22). The two request routes write
   // PASSWORD_SET_REQUESTED in the service, only when a token is issued. The
@@ -94,6 +158,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     events: ["PASSWORD_SET"],
     emittedIn: ["src/lib/set-password/consumer.ts"],
   },
+  "src/app/login/actions.ts": {
+    kind: "exempt",
+    reason:
+      "reads the session and clears the post-login redirect cookie; no account or session state changes",
+  },
   "src/app/preview-gate/unlock/route.ts": {
     kind: "exempt",
     reason:
@@ -111,6 +180,7 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
       "PA_TRANSFER_COMPLETED",
       "PA_TRANSFER_EXPIRED",
       "PA_TRANSFER_CANCELLED",
+      "SESSIONS_REVOKED",
     ],
   },
   "src/app/api/jobs/alerts/route.ts": {
@@ -213,14 +283,22 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   "/update-user": {
     kind: "exempt",
     reason:
-      "self-service name and image only; status and email are not writable here, and the catalog has no profile-edit event",
+      "self-service name and image only; status and email are not writable here; USER_UPDATED records admin edits (AUTH-T36)",
   },
   "/update-session": { kind: "exempt", reason: "no writable session fields" },
   "/send-verification-email": {
     kind: "exempt",
     reason: "sends mail only; no account state changes",
   },
-  "/verify-password": { kind: "exempt", reason: "read-only password check" },
+  "/verify-password": {
+    kind: "exempt",
+    reason: "disabled over HTTP (disabledPaths); server-side callers only",
+  },
+  // SERVER_ONLY: reached only through src/app/api/sgauth/reauth/route.ts.
+  "/sgauth/reauth": {
+    kind: "audited",
+    events: ["REAUTH_SUCCEEDED", "REAUTH_FAILED", "MFA_BACKUP_USED"],
+  },
   "/jwks": {
     kind: "exempt",
     reason:

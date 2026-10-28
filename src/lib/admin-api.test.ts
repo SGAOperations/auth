@@ -4,8 +4,20 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   findUnique: vi.fn(),
   limitRequest: vi.fn(),
+  can: vi.fn(),
 }));
 
+// Records the call, then runs the real rule matrix.
+vi.mock("@/lib/authz", async (importActual) => {
+  const actual = await importActual<typeof import("@/lib/authz")>();
+  return {
+    ...actual,
+    can: ((...args: Parameters<typeof actual.can>) => {
+      mocks.can(...args);
+      return (actual.can as (...a: unknown[]) => unknown)(...args);
+    }) as typeof actual.can,
+  };
+});
 vi.mock("@/lib/auth/server", () => ({ getSession: mocks.getSession }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { user: { findUnique: mocks.findUnique } },
@@ -20,8 +32,10 @@ import {
   positionErrorResponse,
   readJson,
   requireAdmin,
+  transferErrorResponse,
 } from "@/lib/admin-api";
 import { MFA_ERROR_CODES } from "@/lib/auth/mfa-policy";
+import type { TransferErrorCode } from "@/lib/jobs/pa-transfer-actions";
 import { PositionError, type PositionErrorCode } from "@/lib/positions";
 
 const ACTOR = {
@@ -117,6 +131,14 @@ describe("requireAdmin", () => {
     expect(result).toMatchObject({ actor: { twoFactorEnabled: false } });
   });
 
+  it("gates on managePositions unless the caller names an action", async () => {
+    actorRow();
+    await requireAdmin({ mutation: false });
+    expect(mocks.can).toHaveBeenLastCalledWith(ACTOR, "managePositions");
+    await requireAdmin({ mutation: false, action: "accessAdmin" });
+    expect(mocks.can).toHaveBeenLastCalledWith(ACTOR, "accessAdmin");
+  });
+
   it("returns the limiter's 429 for a mutation", async () => {
     actorRow();
     mocks.limitRequest.mockResolvedValue(
@@ -170,6 +192,72 @@ describe("readJson", () => {
       });
     },
   );
+
+  async function issues(body: string) {
+    const result = await readJson(post(body), schema);
+    if (!("response" in result)) throw new Error("expected a refusal");
+    return ((await result.response.json()) as { issues: unknown }).issues;
+  }
+
+  it("names the failing path and never echoes the input value", async () => {
+    const found = await issues('{"a":42,"b":"secret-value"}');
+    expect(JSON.stringify(found)).not.toContain("secret-value");
+    expect(found).toEqual(
+      expect.arrayContaining([{ path: "a", message: expect.any(String) }]),
+    );
+  });
+
+  it("gives no issues for a body that is not JSON", async () => {
+    expect(await issues("not json")).toEqual([]);
+  });
+});
+
+describe("transferErrorResponse", () => {
+  const expected: Record<TransferErrorCode, number> = {
+    TRANSFER_NOT_FOUND: 404,
+    TRANSFER_INVALID_STATE: 409,
+    TRANSFER_IN_FLIGHT: 409,
+    CONFIRM_EMAIL_MISMATCH: 400,
+    RECIPIENT_INELIGIBLE: 409,
+  };
+
+  it.each(Object.entries(expected))("maps %s to %i", async (code, status) => {
+    const response = transferErrorResponse({
+      code: code as TransferErrorCode,
+    });
+    expect(response.status).toBe(status);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const body = await response.json();
+    expect(body).toMatchObject({ code });
+    expect(body).not.toHaveProperty("reason");
+  });
+
+  it("passes the ineligibility reason through", async () => {
+    const response = transferErrorResponse({
+      code: "RECIPIENT_INELIGIBLE",
+      reason: "NO_MFA",
+    });
+    expect(await response.json()).toMatchObject({
+      code: "RECIPIENT_INELIGIBLE",
+      reason: "NO_MFA",
+    });
+  });
+
+  it.each([
+    "NOT_TRANSFER_RECIPIENT",
+    "NOT_TRANSFER_INITIATOR",
+    "PRIMARY_ADMIN_REQUIRED",
+    "SELF_MODIFICATION",
+    "TARGET_NOT_ELIGIBLE",
+    "ACTOR_INACTIVE",
+  ] as const)("answers an authorization reason, %s, with 403", async (code) => {
+    const response = transferErrorResponse({ code });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code,
+      message: "You do not have permission to do this.",
+    });
+  });
 });
 
 describe("positionErrorResponse", () => {

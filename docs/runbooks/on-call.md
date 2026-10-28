@@ -63,6 +63,7 @@ is what keeps SGAuth inside the Free quota.
 - [neon-upgrade.md](neon-upgrade.md): move the project to the Launch plan.
 - [legacy-bcrypt.md](legacy-bcrypt.md): imported bcrypt hashes still awaiting re-hash, and when to remove the path.
 - [subdomain-review.md](subdomain-review.md): inventory the DNS zone and remove dangling records.
+- [chambers-import.md](chambers-import.md): one-time import of Chambers users, passwords and positions.
 
 ## Upgrade log
 

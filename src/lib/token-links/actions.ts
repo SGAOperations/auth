@@ -35,15 +35,11 @@ export const TOKEN_ACTIONS = {
     owner: "AUTH-T64 #76",
     status: "live",
   },
-  "pa-transfer-accept": {
-    path: "/admin/transfer/accept",
-    owner: "AUTH-T37 #49",
-    status: "pending",
-  },
+  // Public, so it sits outside /admin: the sender may have no session.
   "pa-transfer-cancel": {
-    path: "/admin/transfer/cancel",
+    path: "/transfer/cancel",
     owner: "AUTH-T37 #49",
-    status: "pending",
+    status: "live",
   },
 } as const satisfies Record<string, TokenAction>;
 
@@ -52,6 +48,9 @@ export type TokenActionName = keyof typeof TOKEN_ACTIONS;
 /** Links with no token and no GET side effect. */
 export const PLAIN_LINKS = {
   "sign-in": { path: "/sign-in" },
+  // Acceptance carries no token: its authority is the recipient's session and a
+  // fresh re-authentication, and only one transfer can be in flight.
+  "pa-transfer-accept": { path: "/admin/transfer/accept" },
 } as const satisfies Record<string, { path: string }>;
 
 export type PlainLinkName = keyof typeof PLAIN_LINKS;
@@ -75,7 +74,7 @@ export const TEMPLATE_LINK_TARGETS: Record<
   "account-unlock": { url: { kind: "token", action: "account-unlock" } },
   "security-notice": {},
   "pa-transfer-initiated": {
-    url: { kind: "token", action: "pa-transfer-accept" },
+    url: { kind: "plain", link: "pa-transfer-accept" },
   },
   "pa-transfer-accepted": {
     cancelUrl: { kind: "token", action: "pa-transfer-cancel" },

@@ -79,6 +79,12 @@ const SECURITY_EVENTS = {
     body: (when: string) =>
       `This happened at ${when}. If this wasn't you, reset your password right away and contact SGA.`,
   },
+  "mfa-reset": {
+    subject: "Two-factor authentication was reset on your SGA account",
+    heading: "Two-factor authentication was reset",
+    body: (when: string) =>
+      `An SGA admin reset two-factor authentication on your account at ${when}. Set it up again from your account page. If you didn't ask for this, contact SGA right away.`,
+  },
 } as const;
 
 const ALERT_HEADLINES: Record<RuleKey, string> = {
@@ -226,7 +232,12 @@ export const TEMPLATES = {
   "security-notice": defineTemplate({
     schema: z.object({
       name,
-      event: z.enum(["password-changed", "password-reset", "admin-granted"]),
+      event: z.enum([
+        "password-changed",
+        "password-reset",
+        "admin-granted",
+        "mfa-reset",
+      ]),
       occurredAt: z.date(),
     }),
     links: [],

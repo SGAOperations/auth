@@ -12,7 +12,6 @@ import {
   TEMPLATE_LINK_TARGETS,
   TOKEN_ACTIONS,
   resolveLinkTarget,
-  tokenLinkUrl,
   type TokenActionName,
 } from "@/lib/token-links/actions";
 
@@ -34,9 +33,8 @@ describe("every template link is registered", () => {
       if (!prepared.ok) throw new Error(`sample ${sample.id} did not parse`);
       for (const { field, url } of prepared.links) {
         const result = resolveLinkTarget(sample.template, field, url);
-        // A pending target has no page to check yet.
         expect(
-          result.ok || result.reason === "pending",
+          result.ok,
           `${sample.id}.${field}: ${JSON.stringify(result)}`,
         ).toBe(true);
       }
@@ -64,15 +62,5 @@ describe("every live action has a page implementing the pattern", () => {
     expect(source).not.toMatch(/export\s+(?:async\s+)?function\s+GET\b/);
     expect(source).not.toMatch(/export\s+(?:const|let|var)\s+GET\b/);
     expect(Object.keys(APP_ROUTE_AUDIT)).toContain(route);
-  });
-});
-
-describe("pending actions cannot be linked", () => {
-  const pending = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "pending");
-
-  it.each(pending)("tokenLinkUrl throws for %s", (action) => {
-    expect(() =>
-      tokenLinkUrl("https://auth.northeasternsga.com", action, "t"),
-    ).toThrow();
   });
 });

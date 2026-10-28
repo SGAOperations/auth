@@ -6,8 +6,10 @@ import { hashedBackupCodeStorage } from "@/lib/auth/backup-codes";
 import { buildJwtPlugin } from "@/lib/auth/jwt";
 import { totpIssuer } from "@/lib/auth/mfa-policy";
 import { sgauthMfa } from "@/lib/auth/mfa-plugin";
+import { sgauthReauth } from "@/lib/auth/reauth-plugin";
 import { signupAllowlist } from "@/lib/auth/signup-allowlist-plugin";
 import type { SignupAllowlist } from "@/lib/auth/signup-allowlist";
+import type { Mailer } from "@/lib/email/mailer";
 import type { SgauthEnv } from "@/lib/env-schema";
 
 interface AuthPluginsInput {
@@ -18,6 +20,8 @@ interface AuthPluginsInput {
   /** The auth secret; keys the backup-code hashes. */
   secret: string;
   sgauthEnv: SgauthEnv;
+  /** Sends the lock emails when a failed re-auth takes the account lock. */
+  mailer: Mailer;
 }
 
 /**
@@ -30,6 +34,7 @@ export function buildAuthPlugins({
   issuer,
   secret,
   sgauthEnv,
+  mailer,
 }: AuthPluginsInput) {
   return [
     ...(list ? [signupAllowlist(list)] : []),
@@ -43,6 +48,15 @@ export function buildAuthPlugins({
       backupCodeOptions: { storeBackupCodes: hashedBackupCodeStorage(secret) },
     }),
     sgauthMfa({ prisma, secret }),
+    // After sgauthMfa, so its admin refusal on /two-factor/disable answers
+    // before the re-auth prompt does.
+    sgauthReauth({
+      prisma,
+      sgauthEnv,
+      mailer,
+      linkOrigin: new URL(issuer).origin,
+      secret,
+    }),
     // nextCookies must stay the last plugin.
     nextCookies(),
   ];

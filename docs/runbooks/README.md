@@ -17,7 +17,8 @@ events it produces, so you can confirm the result in the audit log.
 | Restore the Neon `main` branch     | Production data needs a point-in-time restore | Neon org Admin                 | [neon-restore.md](neon-restore.md)                      |
 
 Other runbooks: [neon-upgrade.md](neon-upgrade.md), [on-call.md](on-call.md),
-[positions-sync.md](positions-sync.md), [legacy-bcrypt.md](legacy-bcrypt.md).
+[positions-sync.md](positions-sync.md), [legacy-bcrypt.md](legacy-bcrypt.md),
+[chambers-export.md](chambers-export.md).
 
 ## Verification log
 

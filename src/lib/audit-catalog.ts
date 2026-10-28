@@ -18,6 +18,7 @@ export const AUDIT_EVENT_TYPES = [
   "EMAIL_VERIFIED",
   "USER_CREATED",
   "USER_INVITED",
+  "USER_UPDATED",
   "USER_DEACTIVATED",
   "USER_REACTIVATED",
   "USER_DELETED",
@@ -42,8 +43,11 @@ export const AUDIT_EVENT_TYPES = [
   "ACCOUNT_UNLOCKED",
   "MFA_ENROLLED",
   "MFA_DISABLED",
+  "MFA_RESET",
   "MFA_BACKUP_USED",
   "MFA_BACKUP_CODES_REGENERATED",
+  "REAUTH_SUCCEEDED",
+  "REAUTH_FAILED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
 ] as const;
@@ -123,6 +127,22 @@ const positionUpdatedMetadata = z
     { message: "before and after must name the same fields" },
   );
 
+/**
+ * Why a Primary Admin transfer was cancelled. The last two are written only by
+ * the scheduled job; the rest come from a person.
+ */
+export const TRANSFER_CANCEL_REASONS = [
+  "cancelled",
+  "declined",
+  "recipient_ineligible",
+  "sender_not_primary_admin",
+] as const;
+
+export type TransferCancelReason = (typeof TRANSFER_CANCEL_REASONS)[number];
+
+const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
+const count = z.number().int().nonnegative();
+
 const breakGlassOperator = z.string().trim().min(1).max(100);
 const breakGlassReason = z.string().trim().min(10).max(500);
 
@@ -180,12 +200,35 @@ export const AUDIT_CATALOG = {
     targetType: "USER",
     metadata: z.strictObject({
       source: z.enum(["self_signup", "admin", "system"]),
+      // Set by the admin create endpoint only: whether an invite was issued.
+      invited: z.boolean().optional(),
     }),
   },
   USER_INVITED: userTarget,
-  USER_DEACTIVATED: userTarget,
+  // An admin edited a profile. Field names only, never the values (PII).
+  USER_UPDATED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      fields: z
+        .array(z.enum(["name", "preferredName"]))
+        .min(1)
+        .max(2),
+    }),
+  },
+  USER_DEACTIVATED: {
+    targetType: "USER",
+    metadata: z.strictObject({ revokedSessions: z.int().min(0) }),
+  },
   USER_REACTIVATED: userTarget,
-  USER_DELETED: userTarget,
+  // The tombstone (docs/DATA_HANDLING.md). `removedPositionIds` stands in for
+  // one POSITION_UNASSIGNED per position, so a delete writes a single row.
+  USER_DELETED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: z.enum(["admin"]),
+      removedPositionIds: z.array(z.string().min(1)).max(50),
+    }),
+  },
   ADMIN_GRANTED: userTarget,
   ADMIN_REVOKED: userTarget,
   POSITION_CREATED: {
@@ -213,7 +256,15 @@ export const AUDIT_CATALOG = {
   PRODUCT_DELETED: productTarget,
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,
-  PA_TRANSFER_CANCELLED: transferTarget,
+  // `via` says which door the cancel came through. The transfer row already
+  // holds both parties, so no name or address is recorded here.
+  PA_TRANSFER_CANCELLED: {
+    targetType: "TRANSFER",
+    metadata: z.strictObject({
+      reason: z.enum(TRANSFER_CANCEL_REASONS),
+      via: z.enum(["in_app", "email_link", "system"]),
+    }),
+  },
   PA_TRANSFER_COMPLETED: transferTarget,
   PA_TRANSFER_EXPIRED: transferTarget,
   // The one-time promotion of the first Primary Admin
@@ -262,9 +313,43 @@ export const AUDIT_CATALOG = {
   },
   MFA_ENROLLED: userTarget,
   MFA_DISABLED: userTarget,
+  // An admin reset another user's MFA. Apart from MFA_DISABLED, which is the
+  // user's own, so an alert can watch admin resets alone.
+  MFA_RESET: userTarget,
   MFA_BACKUP_USED: userTarget,
   MFA_BACKUP_CODES_REGENERATED: userTarget,
-  BULK_IMPORT: noTarget,
+  // Re-authentication for a sensitive action. `method` names the factors that
+  // were checked; `reason` never says which one was wrong.
+  REAUTH_SUCCEEDED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      method: z.enum(["password", "password_totp", "password_backup_code"]),
+    }),
+  },
+  REAUTH_FAILED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
+    }),
+  },
+  // One per `--apply` of scripts/import-users.ts. Counts and checksums only: no
+  // address, name or hash. A later import source widens `source`.
+  BULK_IMPORT: {
+    targetType: null,
+    metadata: z.strictObject({
+      source: z.enum(["chambers"]),
+      exportSource: z.enum(["chambers-neon", "supabase"]),
+      sourceSha256: sha256Hex,
+      mappingSha256: sha256Hex,
+      replacementsSha256: sha256Hex.nullable(),
+      created: count,
+      merged: count,
+      unchanged: count,
+      skipped: count,
+      emailsReplaced: count,
+      positionsAssigned: count,
+    }),
+  },
   JWKS_ROTATED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };
 

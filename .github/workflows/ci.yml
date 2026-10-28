@@ -136,9 +136,30 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run test:authz
 
+  # Unit tests need no database, so they run in parallel with the test job
+  # below instead of waiting in its Neon queue.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Cache prisma engines
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/prisma
+          key: prisma-engines-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx prisma generate
+        env:
+          DIRECT_URL: "postgresql://placeholder"
+      - run: npx vitest run --project unit
+
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     concurrency:
       group: neon-test-branch
       cancel-in-progress: false
@@ -180,4 +201,4 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
         run: npx neonctl branches reset test --parent --project-id "$NEON_PROJECT_ID"
-      - run: npm test
+      - run: npx vitest run --project db

@@ -112,11 +112,16 @@ export const SAMPLES: readonly Sample[] = [
     data: { event: "admin-granted", occurredAt: NOW },
   },
   {
+    id: "security-notice-mfa-reset",
+    template: "security-notice",
+    data: { name: "Avery", event: "mfa-reset", occurredAt: NOW },
+  },
+  {
     id: "pa-transfer-initiated-recipient",
     template: "pa-transfer-initiated",
     data: {
       role: "recipient",
-      url: sampleTokenUrl("pa-transfer-accept"),
+      url: plainLinkUrl(ORIGIN, "pa-transfer-accept"),
       fromName: "Jordan Lee",
       acceptBy: WEEK,
     },

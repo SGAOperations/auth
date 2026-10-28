@@ -111,7 +111,7 @@ exports[`rendering > renders pa-transfer-accepted-initiator with a subject, html
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer accepted</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hello,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Sam Rivera accepted. The transfer completes at October 17, 2026 at 3:00 PM ET.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">You can cancel until then.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Cancel transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/transfer/cancel?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Cancel transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/transfer/cancel?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/transfer/cancel?token=sample-token</a></p>
 
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -128,7 +128,7 @@ Sam Rivera accepted. The transfer completes at October 17, 2026 at 3:00 PM ET.
 You can cancel until then.
 
 Cancel transfer:
-https://auth.northeasternsga.com/admin/transfer/cancel?token=sample-token
+https://auth.northeasternsga.com/transfer/cancel?token=sample-token
 
 --
 Replies to this address aren't read.",
@@ -574,7 +574,7 @@ exports[`rendering > renders pa-transfer-initiated-recipient with a subject, htm
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
 <tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Primary Admin transfer request</h1>
 <p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hello,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Jordan Lee wants to make you Primary Admin of SGAuth.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Accept by October 23, 2026 at 3:00 PM ET.</p>
-<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Review transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token</a></p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/admin/transfer/accept" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Review transfer</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/admin/transfer/accept" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/admin/transfer/accept</a></p>
 
 </td></tr>
 <tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
@@ -591,7 +591,7 @@ Jordan Lee wants to make you Primary Admin of SGAuth.
 Accept by October 23, 2026 at 3:00 PM ET.
 
 Review transfer:
-https://auth.northeasternsga.com/admin/transfer/accept?token=sample-token
+https://auth.northeasternsga.com/admin/transfer/accept
 
 --
 Replies to this address aren't read.",
@@ -741,6 +741,37 @@ You now have admin access
 Hi,
 
 This happened at October 16, 2026 at 3:00 PM ET. If this wasn't you, reset your password right away and contact SGA.
+
+--
+Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders security-notice-mfa-reset with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Two-factor authentication was reset</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Two-factor authentication was reset</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Two-factor authentication was reset</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">An SGA admin reset two-factor authentication on your account at October 16, 2026 at 3:00 PM ET. Set it up again from your account page. If you didn&#39;t ask for this, contact SGA right away.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Two-factor authentication was reset on your SGA account",
+  "text": "SGAuth
+
+Two-factor authentication was reset
+
+Hi Avery,
+
+An SGA admin reset two-factor authentication on your account at October 16, 2026 at 3:00 PM ET. Set it up again from your account page. If you didn't ask for this, contact SGA right away.
 
 --
 Replies to this address aren't read.",

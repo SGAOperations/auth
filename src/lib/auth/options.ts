@@ -36,6 +36,7 @@ import type { Mailer } from "@/lib/email/mailer";
 import { setRequestUserId } from "@/lib/log/context";
 import { hasPassword } from "@/lib/set-password/service";
 import { tokenLinkUrl } from "@/lib/token-links/actions";
+import { uuidv7 } from "@/lib/uuid-v7";
 
 /**
  * Endpoint paths allowed to create a user outside the sign-up domain rule.
@@ -165,9 +166,12 @@ export function buildAuthOptions({
     secret,
     ...(secrets ? { secrets } : {}),
     trustedOrigins,
-    // Disabled so a GET never consumes the token; the /verify-email page and
-    // its POST call `auth.api.verifyEmail` in-process instead.
-    disabledPaths: ["/verify-email"],
+    // /verify-email: disabled so a GET never consumes the token; the
+    // /verify-email page and its POST call `auth.api.verifyEmail` in-process
+    // instead. /verify-password: over HTTP it is a password oracle for any
+    // session holder, with no rate limit and no lockout; re-auth replaces it.
+    // Server-side `auth.api` calls are unaffected by either.
+    disabledPaths: ["/verify-email", "/verify-password"],
     session: SESSION_OPTIONS,
     // Reset tokens are hashed at rest; every other identifier stays plain.
     verification: { storeIdentifier: RESET_PASSWORD_VERIFICATION_STORAGE },
@@ -205,6 +209,14 @@ export function buildAuthOptions({
       }),
       // `hash` stays unset so new hashes use Better Auth's default scrypt.
       password: { verify: verifyPassword },
+      // A duplicate sign-up must look like a fresh one: Postgres issues UUID v7
+      // ids and status defaults to ACTIVE, so the synthetic user does too.
+      customSyntheticUser: ({ coreFields, additionalFields }) => ({
+        ...coreFields,
+        ...additionalFields,
+        status: "ACTIVE",
+        id: uuidv7(),
+      }),
       // Better Auth has already answered with its generic duplicate response
       // and runs this in the background, so nothing here can change the
       // answer.

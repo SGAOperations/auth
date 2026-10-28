@@ -73,16 +73,15 @@ Northeastern mail is Microsoft 365, and Defender Safe Links pre-fetches every li
 
 The links are registered in `TOKEN_ACTIONS` in `src/lib/token-links/actions.ts`:
 
-| Action               | Page                     | Owner          | Status  |
-| -------------------- | ------------------------ | -------------- | ------- |
-| `verify-email`       | `/verify-email`          | T103, T18, T24 | live    |
-| `reset-password`     | `/reset-password`        | T19 #31        | pending |
-| `set-password`       | `/set-password`          | T22 #34        | live    |
-| `account-unlock`     | `/unlock`                | T64 #76        | live    |
-| `pa-transfer-accept` | `/admin/transfer/accept` | T37 #49        | pending |
-| `pa-transfer-cancel` | `/admin/transfer/cancel` | T37 #49        | pending |
+| Action               | Page               | Owner          | Status  |
+| -------------------- | ------------------ | -------------- | ------- |
+| `verify-email`       | `/verify-email`    | T103, T18, T24 | live    |
+| `reset-password`     | `/reset-password`  | T19 #31        | pending |
+| `set-password`       | `/set-password`    | T22 #34        | live    |
+| `account-unlock`     | `/unlock`          | T64 #76        | live    |
+| `pa-transfer-cancel` | `/transfer/cancel` | T37 #49        | live    |
 
-`TEMPLATE_LINK_TARGETS` maps each template's `links` field to one of these actions, or to a plain link with no token and no side effect (`sign-in`, used by `inactivity-notice`). `tokenLinkUrl(origin, action, token)` builds the URL, and the mailer refuses any link whose path is not the live target registered for its field. A `pending` action has no page: `tokenLinkUrl` throws for it, and the mailer throws for its templates, so nothing can mail a link to a missing page. A test enumerates every template link and every live page.
+`TEMPLATE_LINK_TARGETS` maps each template's `links` field to one of these actions, or to a plain link with no token and no side effect (`sign-in`, used by `inactivity-notice`, and `pa-transfer-accept`, the `/admin/transfer/accept` page that `pa-transfer-initiated` links to). The accept link carries no token because its authority is the recipient's session plus a fresh re-authentication, and only one transfer can be in flight. The cancel link is public, since the Primary Admin may have no session, so its page sits outside `/admin`. `tokenLinkUrl(origin, action, token)` builds the URL, and the mailer refuses any link whose path is not the live target registered for its field. A `pending` action has no page: `tokenLinkUrl` throws for it, and the mailer throws for its templates, so nothing can mail a link to a missing page. A test enumerates every template link and every live page.
 
 **Adding a consumer.** Build `src/app/<path>/page.tsx` with `TokenActionPage`, and `src/app/<path>/confirm/route.ts` with `createTokenActionHandler` and a POST export only. Write a `consume` with an atomic single-use guard, add the route to `APP_ROUTE_AUDIT`, and flip the action from `pending` to `live`. A flip without both files fails `src/lib/token-links/templates.test.ts`.
 

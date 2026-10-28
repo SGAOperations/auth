@@ -9,18 +9,24 @@ import { describe, expect, it } from "vitest";
 const EXEMPT: Record<string, string> = {
   "src/app/api/auth/[...all]/route.ts":
     "Better Auth's own handler: sign-in, sign-up and session flows act on the caller's own account, not on another user",
+  "src/app/login/actions.ts":
+    "Takes no input and acts only on the caller's own session: it reads it and sends the browser to its redirect target",
   "src/app/api/csp-report/route.ts":
     "Unauthenticated browser CSP report sink; it acts on no user and only writes a redacted log line",
   "src/app/api/sgauth/sessions/[id]/route.ts":
     "Revokes one of the caller's own sessions through ownSessions.revoke, whose lookup is filtered to the caller's userId and returns 404 for any other session; it never targets another user",
   "src/app/api/sgauth/sessions/revoke-all/route.ts":
     "Forwards to Better Auth's revoke-sessions, which acts only on the caller's own sessions; it never targets another user",
+  "src/app/api/sgauth/reauth/route.ts":
+    "Re-authenticates the caller's own session: it checks the caller's own password and stamps their own session row, and it never targets another user",
   "src/app/verify-email/confirm/route.ts":
     "Emailed-link confirm POST: anonymous by design, the signed single-use verify token is the authority, and it acts only on the account that token names",
   "src/app/verify-email/resend/route.ts":
     "Expired-link resend POST: anonymous by design, the signed verify token names the address and the response is the same whether or not an account exists",
   "src/app/unlock/confirm/route.ts":
     "Emailed-link confirm POST: anonymous by design, the single-use unlock token is the authority, and it acts only on the account that token names",
+  "src/app/transfer/cancel/confirm/route.ts":
+    "Emailed-link confirm POST: anonymous by design, the single-use cancel token is the authority, and it acts only on the one transfer that token names",
   "src/app/set-password/confirm/route.ts":
     "Emailed-link confirm POST: anonymous by design, the single-use set-password token is the authority, and it acts only on the account that token names",
   "src/app/reset-password/confirm/route.ts":
@@ -38,6 +44,17 @@ const EXEMPT: Record<string, string> = {
   "src/app/api/jobs/retention/route.ts":
     "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
 };
+
+// Thin route binders whose logic lives in a handler module. A binder counts as
+// guarded when it imports its handlers from `BINDER_MODULE` and the handler
+// file imports and calls both requireAdmin and can().
+const BINDER_MODULE = "@/lib/admin/users/server";
+const HANDLERS_FILE = "src/lib/admin/users/handlers.ts";
+const BINDERS = [
+  "src/app/api/sgauth/admin/users/route.ts",
+  "src/app/api/sgauth/admin/users/[id]/route.ts",
+  "src/app/api/sgauth/admin/users/[id]/[action]/route.ts",
+];
 
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
@@ -106,6 +123,37 @@ function importsAndCalls(
   ).test(source);
   return imported && new RegExp(`\\b${name}\\s*\\(`).test(source);
 }
+
+/** True when `handlersSource` itself runs both the admin guard and can(). */
+export function handlersAreGuarded(handlersSource: string): boolean {
+  return (
+    importsAndCalls(handlersSource, "requireAdmin", "@/lib/admin-api") &&
+    importsAndCalls(handlersSource, "can", "@/lib/authz")
+  );
+}
+
+/** True when `source` imports something from the binder module. */
+export function importsBinderModule(source: string): boolean {
+  const escapedModule = BINDER_MODULE.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  return new RegExp(
+    `import\\s*\\{[^}]+\\}\\s*from\\s*["']${escapedModule}["']`,
+  ).test(source);
+}
+
+describe("handlersAreGuarded", () => {
+  it("needs the requireAdmin call and the can() call", () => {
+    const both = `import { requireAdmin } from "@/lib/admin-api";\nimport { can } from "@/lib/authz";\nrequireAdmin({});\ncan(a, "x", t);`;
+    expect(handlersAreGuarded(both)).toBe(true);
+    expect(
+      handlersAreGuarded(
+        `import { requireAdmin } from "@/lib/admin-api";\nrequireAdmin({});`,
+      ),
+    ).toBe(false);
+    expect(
+      handlersAreGuarded(`import { can } from "@/lib/authz";\ncan(a, "x", t);`),
+    ).toBe(false);
+  });
+});
 
 describe("isMutatingEntry", () => {
   it.each([
@@ -196,12 +244,21 @@ describe("mutating routes and server actions", () => {
     .filter((entry) => statSync(path.join(appDir, entry)).isFile())
     .map((entry) => `src/app/${entry}`);
 
+  const handlersGuarded = handlersAreGuarded(
+    readFileSync(path.join(root, HANDLERS_FILE), "utf8"),
+  );
+
   it("every one imports and calls can(), or is exempt with a reason", () => {
     const unguarded = files.filter((relPath) => {
       const source = readFileSync(path.join(root, relPath), "utf8");
+      const delegated =
+        BINDERS.includes(relPath) &&
+        handlersGuarded &&
+        importsBinderModule(source);
       return (
         isMutatingEntry(relPath, source) &&
         !isGuarded(source) &&
+        !delegated &&
         !(relPath in EXEMPT)
       );
     });
@@ -209,6 +266,14 @@ describe("mutating routes and server actions", () => {
       unguarded,
       `These mutating routes or server actions do not import and call can() from "@/lib/authz". Guard them, or add them to EXEMPT with a reason:\n${unguarded.join("\n")}`,
     ).toEqual([]);
+  });
+
+  it("finds every binder, and each one is a mutating entry", () => {
+    for (const relPath of BINDERS) {
+      expect(files, `${relPath} no longer exists`).toContain(relPath);
+      const source = readFileSync(path.join(root, relPath), "utf8");
+      expect(isMutatingEntry(relPath, source), relPath).toBe(true);
+    }
   });
 
   it("lists only exempt files that still exist and still mutate", () => {

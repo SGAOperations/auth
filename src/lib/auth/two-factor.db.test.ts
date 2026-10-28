@@ -8,6 +8,7 @@ import { createAdminGuard } from "@/lib/auth/admin-guard";
 import { buildAuthOptions } from "@/lib/auth/options";
 import { testLockout } from "@/test/lockout-options";
 import { buildAuthPlugins } from "@/lib/auth/plugins";
+import { FRESH_AUTH_AUTH_PATHS } from "@/lib/auth/reauth-policy";
 import { currentTotpStep, hotp } from "@/lib/auth/totp";
 
 // eslint-disable-next-line no-restricted-syntax -- test-only variable, deliberately outside the app env schema
@@ -23,12 +24,13 @@ describe.skipIf(!url)("TOTP multi-factor authentication", () => {
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: url }),
   });
+  const lockout = testLockout();
   const auth = betterAuth({
     ...buildAuthOptions({
       prisma,
       baseURL: BASE_URL,
       secret: SECRET,
-      lockout: testLockout(),
+      lockout,
     }),
     plugins: buildAuthPlugins({
       signupAllowlist: null,
@@ -36,6 +38,7 @@ describe.skipIf(!url)("TOTP multi-factor authentication", () => {
       issuer: BASE_URL,
       secret: SECRET,
       sgauthEnv: "local",
+      mailer: lockout.mailer,
     }),
   });
   const guard = createAdminGuard({
@@ -73,7 +76,15 @@ describe.skipIf(!url)("TOTP multi-factor authentication", () => {
     return [...jar].map(([name, value]) => `${name}=${value}`).join("; ");
   }
 
-  function post(path: string, body: unknown, cookie = "") {
+  // Re-auth has its own suite (reauth.db.test.ts). Here a gated endpoint is
+  // reached by stamping this run's sessions first, as a fresh re-auth would.
+  async function post(path: string, body: unknown, cookie = "") {
+    if (FRESH_AUTH_AUTH_PATHS.includes(path)) {
+      await prisma.session.updateMany({
+        where: { user: { email: { contains: rand } } },
+        data: { lastReauthAt: new Date() },
+      });
+    }
     return auth.handler(
       new Request(`${BASE_URL}/api/auth${path}`, {
         method: "POST",

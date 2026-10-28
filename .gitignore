@@ -47,6 +47,10 @@ next-env.d.ts
 # SGAuth design tooling scratch
 docs/sgauth-design/out/tmp/
 
+# Chambers user export (AUTH-T86): never commit
+chambers-export*.json
+!docs/runbooks/chambers-export.sample.json
+
 # port pipeline
 .agents/
 .temp/
