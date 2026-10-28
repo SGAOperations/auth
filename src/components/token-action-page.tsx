@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 // Shared page of every emailed token link. `ready` is a form that POSTs to the
-// confirm route, the only way the token is consumed. No client JS.
+// confirm route, the only way the token is consumed. The form works without
+// JavaScript; the password fields only add show/hide and a length count.
 
 type Outcome = "done" | "invalid" | "used" | "rate" | "sent" | "error";
 
@@ -87,57 +82,30 @@ export function TokenActionPage({
     const message: Message =
       state === "done" ? messages.done : (override ?? DEFAULT_MESSAGES[state]);
     return (
-      <Shell>
-        <CardHeader>
-          <CardTitle>{message.title}</CardTitle>
-          <CardDescription>{message.body}</CardDescription>
-        </CardHeader>
+      <AuthShell title={message.title} description={message.body}>
         {message.cta ? (
-          <CardContent>
-            <a
-              href={message.cta.href}
-              className={cn(buttonVariants(), "w-full")}
-            >
-              {message.cta.label}
-            </a>
-          </CardContent>
+          <a href={message.cta.href} className={cn(buttonVariants(), "w-full")}>
+            {message.cta.label}
+          </a>
         ) : null}
-      </Shell>
+      </AuthShell>
     );
   }
 
   return (
-    <Shell>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          method="post"
-          action={confirmPath}
-          className="flex flex-col gap-4"
-        >
-          <input type="hidden" name="token" value={token ?? ""} />
-          {children}
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
-          <Button type="submit" className="w-full">
-            {actionLabel}
-          </Button>
-        </form>
-      </CardContent>
-    </Shell>
-  );
-}
-
-function Shell({ children }: { children: ReactNode }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">{children}</Card>
-    </main>
+    <AuthShell title={title} description={description}>
+      <form method="post" action={confirmPath} className="flex flex-col gap-4">
+        <input type="hidden" name="token" value={token ?? ""} />
+        {children}
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <Button type="submit" className="w-full">
+          {actionLabel}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

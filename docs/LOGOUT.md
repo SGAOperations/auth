@@ -12,7 +12,7 @@ Every endpoint below deletes the session row and expires the session cookie: `<_
 | `POST /api/sgauth/sessions/revoke-all` | all of the user's rows | `SESSIONS_REVOKED` (`all`)   | 200 `{ status: true }`; 400 `INVALID_BODY`; 401 with no session; 403 for an untrusted `Origin`. |
 | `GET /logout?redirect=<url>`           | the current session    | `LOGOUT`, when a row existed | 303 to the target or `/login`; 403 when `Sec-Fetch-Site` is `cross-site`; 204 for a prefetch.   |
 
-`revoke-all` takes an empty body or `{}`. It forwards to Better Auth's `/revoke-sessions`, so the origin check (fed by the product registry), the session middleware and the audit adapter all apply. An `after` hook expires the cookie, because that endpoint deletes the caller's own row too.
+`revoke-all` takes an empty body or `{}`. It forwards to Better Auth's `/revoke-sessions`, so the origin check (fed by the product registry), the session middleware and the audit adapter all apply. An `after` hook expires the cookie, because that endpoint deletes the caller's own row too. `/revoke-sessions` is a sensitive action, so a session that has not re-authenticated in the last 10 minutes gets 403 `REAUTH_REQUIRED` from `revoke-all` (see [`REAUTH.md`](REAUTH.md)).
 
 ## For products
 

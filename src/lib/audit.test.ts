@@ -220,6 +220,52 @@ describe("parseAuditEvent", () => {
     });
   });
 
+  describe("re-authentication events", () => {
+    const base = {
+      actorType: "USER",
+      actorUserId: "u1",
+      targetType: "USER",
+      targetId: "u1",
+    };
+
+    it.each(["password", "password_totp", "password_backup_code"])(
+      "accepts REAUTH_SUCCEEDED by %s",
+      (method) => {
+        expect(() =>
+          parseAuditEvent({
+            ...base,
+            type: "REAUTH_SUCCEEDED",
+            metadata: { method },
+          }),
+        ).not.toThrow();
+      },
+    );
+
+    it.each(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"])(
+      "accepts REAUTH_FAILED for %s",
+      (reason) => {
+        expect(() =>
+          parseAuditEvent({
+            ...base,
+            type: "REAUTH_FAILED",
+            metadata: { reason },
+          }),
+        ).not.toThrow();
+      },
+    );
+
+    it.each([
+      ["REAUTH_SUCCEEDED", {}],
+      ["REAUTH_SUCCEEDED", { method: "password", email: "a@northeastern.edu" }],
+      ["REAUTH_FAILED", {}],
+      ["REAUTH_FAILED", { reason: "INVALID_CREDENTIALS", email: "a@b.edu" }],
+    ])("rejects %s metadata %j", (type, metadata) => {
+      expect(() => parseAuditEvent({ ...base, type, metadata })).toThrow(
+        ZodError,
+      );
+    });
+  });
+
   it("rejects a USER actor without an id and a SYSTEM actor with one", () => {
     expect(() =>
       parseAuditEvent({

@@ -11,6 +11,7 @@ import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { hashBackupCode } from "@/lib/auth/backup-codes";
 import { MFA_ERROR_CODES, canDisableMfa } from "@/lib/auth/mfa-policy";
+import { claimTotpStep } from "@/lib/auth/second-factor";
 import { resolveChallengeUserId } from "@/lib/auth/two-factor-challenge";
 import { matchTotpStep } from "@/lib/auth/totp";
 
@@ -73,17 +74,8 @@ export function sgauthMfa({
             // failure.
             if (step === null) return noTrust;
 
-            // The conditional update is the atomic claim: of two concurrent
-            // requests with one code, exactly one sees a changed row.
-            const claimed = await prisma.twoFactor.updateMany({
-              where: {
-                id: row.id,
-                OR: [{ lastTotpStep: null }, { lastTotpStep: { lt: step } }],
-              },
-              data: { lastTotpStep: step },
-            });
             // The same error as a wrong guess, so a replay is indistinguishable.
-            if (claimed.count === 0) {
+            if (!(await claimTotpStep(prisma, row.id, step))) {
               throw APIError.from(
                 "UNAUTHORIZED",
                 TWO_FACTOR_ERROR_CODES.INVALID_CODE,
