@@ -588,6 +588,57 @@ describe("admin user-management metadata", () => {
   });
 });
 
+describe("BULK_IMPORT metadata", () => {
+  const sha = "a".repeat(64);
+  const full = {
+    source: "chambers",
+    exportSource: "chambers-neon",
+    sourceSha256: sha,
+    mappingSha256: sha,
+    replacementsSha256: sha,
+    created: 3,
+    merged: 1,
+    unchanged: 0,
+    skipped: 2,
+    emailsReplaced: 1,
+    positionsAssigned: 5,
+  };
+  const event = (metadata: unknown, extra: object = {}) => ({
+    type: "BULK_IMPORT",
+    actorType: "SYSTEM",
+    metadata,
+    ...extra,
+  });
+
+  it.each([
+    ["full metadata", full],
+    ["no replacement file", { ...full, replacementsSha256: null }],
+    ["the supabase fallback", { ...full, exportSource: "supabase" }],
+  ])("accepts %s", (_label, metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).not.toThrow();
+  });
+
+  it.each([
+    ["a missing count", { ...full, created: undefined }],
+    ["a negative count", { ...full, skipped: -1 }],
+    ["a fractional count", { ...full, merged: 1.5 }],
+    ["an extra key", { ...full, email: "a@northeastern.edu" }],
+    ["a non-hex checksum", { ...full, sourceSha256: "z".repeat(64) }],
+    ["an upper-case checksum", { ...full, mappingSha256: "A".repeat(64) }],
+    ["a short checksum", { ...full, mappingSha256: "abc" }],
+    ["an unknown export source", { ...full, exportSource: "csv" }],
+    ["an unknown source", { ...full, source: "csv" }],
+  ])("rejects %s", (_label, metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+
+  it.each(["USER", "POSITION"])("rejects a %s target", (targetType) => {
+    expect(() =>
+      parseAuditEvent(event(full, { targetType, targetId: "t1" })),
+    ).toThrow(ZodError);
+  });
+});
+
 describe("writeAuditEvent", () => {
   it("does not touch the database for an unknown type", async () => {
     const { db, create } = fakeDb();

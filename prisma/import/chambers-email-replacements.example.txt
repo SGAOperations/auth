@@ -1,0 +1,8 @@
+# Example email replacement file for scripts/import-users.ts --email-replacements.
+# One pair per line: the Chambers address, then its @northeastern.edu address.
+# Separate them with a comma or whitespace. Blank lines and # comments are ignored.
+# The new address must end in @northeastern.edu. Never list an address that is
+# already @northeastern.edu, list one old address twice, or point two old
+# addresses at one new address.
+former.student@example.com former.student@northeastern.edu
+j.smith@example.org,smith.j@northeastern.edu

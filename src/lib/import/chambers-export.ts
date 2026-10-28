@@ -26,6 +26,9 @@ export const SUPABASE_ADMIN_ROLES = [
   "Digital Innovation Project Member",
 ] as const;
 
+/** The two roles a board membership can carry in the export. */
+export const BOARD_ROLES = ["Leadership", "Member"] as const;
+
 /** A full 60-character bcrypt string, `$2a$` or `$2b$`, cost 04 to 31. */
 export const BCRYPT_EXPORT_HASH =
   /^\$2[ab]\$(0[4-9]|[12]\d|3[01])\$[./A-Za-z0-9]{53}$/;
@@ -35,7 +38,7 @@ const datetime = z.iso.datetime({ offset: true });
 const boardMembershipSchema = z.strictObject({
   body_id: z.guid(),
   body_name: z.string().trim().min(1),
-  role: z.enum(["Leadership", "Member"]),
+  role: z.enum(BOARD_ROLES),
 });
 
 const userSchema = z.strictObject({

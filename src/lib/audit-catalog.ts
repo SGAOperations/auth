@@ -140,6 +140,9 @@ export const TRANSFER_CANCEL_REASONS = [
 
 export type TransferCancelReason = (typeof TRANSFER_CANCEL_REASONS)[number];
 
+const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
+const count = z.number().int().nonnegative();
+
 const breakGlassOperator = z.string().trim().min(1).max(100);
 const breakGlassReason = z.string().trim().min(10).max(500);
 
@@ -329,7 +332,24 @@ export const AUDIT_CATALOG = {
       reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
     }),
   },
-  BULK_IMPORT: noTarget,
+  // One per `--apply` of scripts/import-users.ts. Counts and checksums only: no
+  // address, name or hash. A later import source widens `source`.
+  BULK_IMPORT: {
+    targetType: null,
+    metadata: z.strictObject({
+      source: z.enum(["chambers"]),
+      exportSource: z.enum(["chambers-neon", "supabase"]),
+      sourceSha256: sha256Hex,
+      mappingSha256: sha256Hex,
+      replacementsSha256: sha256Hex.nullable(),
+      created: count,
+      merged: count,
+      unchanged: count,
+      skipped: count,
+      emailsReplaced: count,
+      positionsAssigned: count,
+    }),
+  },
   JWKS_ROTATED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };
 
