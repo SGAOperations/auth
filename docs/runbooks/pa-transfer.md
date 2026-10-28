@@ -40,9 +40,9 @@ this runbook does not cover that case.
    cancel link by email, and the same cancel control is shown in the app. Audit
    event: `PA_TRANSFER_ACCEPTED`.
    <!-- screenshot: pa-transfer-04-cooling.png -->
-7. When the window ends, the scheduler executes the transfer. It runs every 15
-   minutes, so execution can lag the window by a few minutes. Audit event:
-   `PA_TRANSFER_COMPLETED`.
+7. When the window ends, the scheduler executes the transfer. It runs hourly, so
+   execution can lag the window by up to an hour. Until it runs, the outgoing PA
+   keeps the role and can still cancel. Audit event: `PA_TRANSFER_COMPLETED`.
 8. Both users are signed out everywhere and must sign in again. Every admin gets
    an email.
 
@@ -71,6 +71,6 @@ Every cancellation writes `PA_TRANSFER_CANCELLED`.
 ## If something goes wrong
 
 - **The transfer did not execute after the window.** Check that the scheduled
-  job ran (`/api/jobs/pa-transfer`, every 15 minutes) and that the recipient is
+  job ran (`/api/jobs/pa-transfer`, hourly) and that the recipient is
   still an active admin. An ineligible recipient cancels the transfer.
 - **The old PA lost access mid-handoff.** Use [break-glass.md](break-glass.md).

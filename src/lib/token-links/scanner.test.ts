@@ -53,7 +53,7 @@ describe("isTokenLinkPath", () => {
   it("matches a token link, with or without a trailing slash", () => {
     expect(isTokenLinkPath("/verify-email")).toBe(true);
     expect(isTokenLinkPath("/verify-email/")).toBe(true);
-    expect(isTokenLinkPath("/admin/transfer/accept")).toBe(true);
+    expect(isTokenLinkPath("/transfer/cancel")).toBe(true);
   });
 
   it("is an exact match", () => {

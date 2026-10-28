@@ -44,7 +44,9 @@ export type AuthzDenialReason =
   | "SELF_MODIFICATION"
   | "PRIMARY_ADMIN_PROTECTED"
   | "PRIMARY_ADMIN_REQUIRED"
-  | "TARGET_NOT_ELIGIBLE";
+  | "TARGET_NOT_ELIGIBLE"
+  | "NOT_TRANSFER_RECIPIENT"
+  | "NOT_TRANSFER_INITIATOR";
 
 export type AuthzDecision =
   | { allowed: true }
@@ -147,4 +149,34 @@ export function can(
   }
 
   return allow;
+}
+
+/** The two people a Primary Admin transfer names. */
+export type TransferParties = { fromUserId: string; toUserId: string };
+
+/**
+ * Whether `actor` may act on a transfer that already exists. Initiating one is
+ * `can(actor, "initiateTransfer", recipient)`. Only the recipient accepts or
+ * declines; only the sender, and only while still the Primary Admin, cancels.
+ * Whether the transfer's state allows the action is the state machine's call.
+ */
+export function canActOnTransfer(
+  actor: AuthzSubject,
+  transfer: TransferParties,
+  action: "accept" | "decline" | "cancel",
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  if (!actor.isAdmin) {
+    return deny("NOT_ADMIN");
+  }
+  if (action === "cancel") {
+    return actor.id === transfer.fromUserId && actor.isPrimaryAdmin
+      ? allow
+      : deny("NOT_TRANSFER_INITIATOR");
+  }
+  return actor.id === transfer.toUserId
+    ? allow
+    : deny("NOT_TRANSFER_RECIPIENT");
 }

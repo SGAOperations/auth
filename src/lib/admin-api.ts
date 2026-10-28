@@ -4,6 +4,10 @@ import type { User } from "@/generated/prisma/client";
 import { can, type GlobalAction } from "@/lib/authz";
 import { getSession } from "@/lib/auth/server";
 import { MFA_ENROLLMENT_PATH, MFA_ERROR_CODES } from "@/lib/auth/mfa-policy";
+import type {
+  TransferError,
+  TransferErrorCode,
+} from "@/lib/jobs/pa-transfer-actions";
 import { setRequestUserId } from "@/lib/log/context";
 import { PositionError, type PositionErrorCode } from "@/lib/positions";
 import { prisma } from "@/lib/prisma";
@@ -183,4 +187,53 @@ export function positionErrorResponse(err: PositionError): Response {
 
 export function positionNotFound(): Response {
   return positionErrorResponse(new PositionError("POSITION_NOT_FOUND"));
+}
+
+// Exhaustive over TransferErrorCode, so a new code fails tsc until it has a row.
+const TRANSFER_ERRORS: Record<
+  TransferErrorCode,
+  { status: number; message: string }
+> = {
+  TRANSFER_NOT_FOUND: {
+    status: 404,
+    message: "This Primary Admin transfer doesn't exist.",
+  },
+  TRANSFER_INVALID_STATE: {
+    status: 409,
+    message: "This transfer can't be changed in its current state.",
+  },
+  TRANSFER_IN_FLIGHT: {
+    status: 409,
+    message: "A Primary Admin transfer is already in progress.",
+  },
+  CONFIRM_EMAIL_MISMATCH: {
+    status: 400,
+    message: "Type the recipient's email address exactly to confirm.",
+  },
+  RECIPIENT_INELIGIBLE: {
+    status: 409,
+    message:
+      "That person can't receive the Primary Admin role. They must be an active admin with MFA enabled.",
+  },
+};
+
+/**
+ * A transfer error is either a service code (a row of TRANSFER_ERRORS) or an
+ * authorization reason, which answers 403 exactly as `requireAdmin` does.
+ */
+export function transferErrorResponse(
+  err: Pick<TransferError, "code" | "reason">,
+): Response {
+  const entry = Object.hasOwn(TRANSFER_ERRORS, err.code)
+    ? TRANSFER_ERRORS[err.code as TransferErrorCode]
+    : null;
+  if (!entry) {
+    return apiError(403, err.code, "You do not have permission to do this.");
+  }
+  return apiError(
+    entry.status,
+    err.code,
+    entry.message,
+    err.reason ? { reason: err.reason } : {},
+  );
 }
