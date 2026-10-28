@@ -38,6 +38,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "delegated",
     to: "better-auth",
   },
+  // REAUTH_SUCCEEDED and REAUTH_FAILED come from the sgauth-reauth plugin
+  // endpoint that the POST reaches through auth.api.sgauthReauthenticate.
+  "src/app/api/sgauth/reauth/route.ts": {
+    kind: "delegated",
+    to: "better-auth",
+  },
   // EMAIL_VERIFIED and LOGIN_SUCCESS come from the Better Auth hooks that the
   // POST reaches through auth.api.verifyEmail.
   "src/app/verify-email/confirm/route.ts": {
@@ -225,7 +231,15 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason: "sends mail only; no account state changes",
   },
-  "/verify-password": { kind: "exempt", reason: "read-only password check" },
+  "/verify-password": {
+    kind: "exempt",
+    reason: "disabled over HTTP (disabledPaths); server-side callers only",
+  },
+  // SERVER_ONLY: reached only through src/app/api/sgauth/reauth/route.ts.
+  "/sgauth/reauth": {
+    kind: "audited",
+    events: ["REAUTH_SUCCEEDED", "REAUTH_FAILED", "MFA_BACKUP_USED"],
+  },
   "/jwks": {
     kind: "exempt",
     reason:

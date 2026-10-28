@@ -90,5 +90,6 @@ export const auth = betterAuth({
     issuer: settings.baseURL,
     secret: settings.secret,
     sgauthEnv: settings.sgauthEnv,
+    mailer,
   }),
 });
