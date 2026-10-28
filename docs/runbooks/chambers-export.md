@@ -52,7 +52,8 @@ Each user:
 - `password_hash: null` means the user has no credential and imports
   password-less. `$2y$`, scrypt and truncated values are rejected.
 - `role` in a membership is `"Leadership"` or `"Member"`. `body_id` is the stable
-  identifier #99 uses for its `board:<id>` mapping key.
+  identifier in #99's mapping key, `board:<body_id>:<role>`, so a body's
+  Leadership and Member seats map separately.
 - Datetimes accept the `+00:00` offset and microseconds that Postgres writes.
 - `admin_role` must be one a source's `users_admin_role_check` allows:
   - `chambers-neon`: Executive Vice President, Vice President of Operational
@@ -210,7 +211,7 @@ index, not the value. Exit codes: `0` valid, `1` invalid (including a count
 mismatch), `2` a usage error, a missing file, or JSON that does not parse.
 
 The validated file is ready for #99 when it exits `0` with the `--expect-*`
-numbers taken from the source.
+numbers taken from the source. Next: [chambers-import.md](chambers-import.md).
 
 ## Handling
 

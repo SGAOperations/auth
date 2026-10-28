@@ -1,0 +1,26 @@
+{
+  "$comment": "Example mapping for scripts/import-users.ts; copy it, do not edit it. Every role key in the export must have an entry here, and a key may map to [] when that role should grant no position: an unmapped role aborts the run. admin_role: values come from NEON_ADMIN_ROLES in src/lib/import/chambers-export.ts. Board keys are board:<body_id>:Leadership and board:<body_id>:Member: map Leadership to the body's director or chair key and Member to its -member or -committee-member key in prisma/seed/positions.json. The two bodies below use placeholder uuids, not real bodies. chambers-iems is a product role that an admin must create before the import. The admin_role entries are a starting point for the Primary Admin, not an approval. Set approvedBy (the Primary Admin's email) and approvedAt (YYYY-MM-DD) once the Primary Admin has approved the mapping.",
+  "roles": {
+    "admin_role:Student Body President": ["student-body-president"],
+    "admin_role:Executive Vice President": ["executive-vice-president"],
+    "admin_role:Vice President of Operational Affairs": [
+      "vice-president-of-operational-affairs"
+    ],
+    "admin_role:Comptroller": ["comptroller"],
+    "admin_role:Digital Innovation Manager": ["digital-innovation-manager"],
+    "admin_role:Information Manager": ["information-manager"],
+    "iems_role:member": ["chambers-iems"],
+    "board:00000000-0000-4000-8000-000000000001:Leadership": [
+      "director-of-elections"
+    ],
+    "board:00000000-0000-4000-8000-000000000001:Member": [
+      "elections-board-member"
+    ],
+    "board:00000000-0000-4000-8000-000000000002:Leadership": [
+      "director-of-academic-services"
+    ],
+    "board:00000000-0000-4000-8000-000000000002:Member": [
+      "academic-services-committee-member"
+    ]
+  }
+}
