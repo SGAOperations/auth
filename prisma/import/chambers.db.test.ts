@@ -249,10 +249,7 @@ describe("applyImport against the database", () => {
     "merges into an existing user: keeps their password, adds positions",
     async () => {
       const position = await createPosition();
-      const existing = await createUser({
-        password: "an existing password",
-        emailVerified: false,
-      });
+      const existing = await createUser({ password: "an existing password" });
       const before = await prisma.account.findFirstOrThrow({
         where: { userId: existing.id, providerId: "credential" },
       });
@@ -278,6 +275,31 @@ describe("applyImport against the database", () => {
         name: existing.name,
         emailVerified: true,
       });
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "does not merge into an unverified existing account",
+    async () => {
+      const position = await createPosition();
+      const existing = await createUser({ emailVerified: false });
+
+      const plan = await apply(
+        sourceOf([
+          exportUser({ email: existing.email, admin_role: "Comptroller" }),
+        ]),
+        { "admin_role:Comptroller": [position.key] },
+      );
+
+      expect(plan.counts).toMatchObject({ create: 0, merge: 0, unchanged: 1 });
+      expect(await byEmail(existing.email)).toMatchObject({
+        emailVerified: false,
+      });
+      expect(
+        await prisma.account.count({ where: { userId: existing.id } }),
+      ).toBe(0);
+      expect(await heldKeys(existing.id)).toEqual([]);
     },
     TIMEOUT,
   );

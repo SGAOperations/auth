@@ -694,7 +694,7 @@ describe("planImport", () => {
     ) => ({
       id: "u1",
       status: "ACTIVE" as const,
-      emailVerified: false,
+      emailVerified: true,
       ...overrides,
     });
     const run = (
@@ -709,14 +709,28 @@ describe("planImport", () => {
       }).rows[0];
     };
 
-    it("upgrades emailVerified but never downgrades it", () => {
-      expect(run(importRow(), {}).setVerified).toBe(true);
+    it("leaves an unverified existing account unchanged, whatever the row says", () => {
+      const result = run(
+        importRow({ roles: ["admin_role:Comptroller"] }),
+        {
+          user: existing({ emailVerified: false }),
+          credentials: new Map([["u1", { id: "a1", password: null }]]),
+        },
+        { "admin_role:Comptroller": ["comptroller"] },
+      );
+      expect(result).toMatchObject({
+        outcome: "unchanged",
+        userId: "u1",
+        credential: null,
+        positionKeys: [],
+      });
+      expect(result.notes).toContain(
+        "existing SGAuth account unverified; not merged",
+      );
       expect(
-        run(importRow({ emailVerified: false }), {
-          user: existing({ emailVerified: true }),
-          credentials: new Map([["u1", { id: "a1", password: "x" }]]),
-        }),
-      ).toMatchObject({ outcome: "unchanged", setVerified: false });
+        run(importRow(), { user: existing({ emailVerified: false }) })
+          .credential,
+      ).toBeNull();
     });
 
     it("adds a credential only when absent, and fills a null password", () => {
@@ -785,7 +799,6 @@ describe("planImport", () => {
       expect(result).toMatchObject({
         outcome: "unchanged",
         userId: "u1",
-        setVerified: false,
         credential: null,
         positionKeys: [],
       });
@@ -802,7 +815,6 @@ describe("planImport", () => {
       );
       expect(result).toMatchObject({
         outcome: "unchanged",
-        setVerified: false,
         credential: null,
         positionKeys: [],
       });
