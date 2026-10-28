@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -21,10 +21,10 @@ import {
 } from "./positions";
 
 describe("curated positions.json", () => {
-  it("has 82 valid, unique positions", async () => {
+  it("has 83 valid, unique positions", async () => {
     const curated = await loadCuratedPositions();
 
-    expect(curated).toHaveLength(82);
+    expect(curated).toHaveLength(83);
     for (const { key } of curated) {
       expect(key).toMatch(POSITION_KEY_PATTERN);
       expect(key.length).toBeGreaterThanOrEqual(POSITION_KEY_MIN);
@@ -32,6 +32,27 @@ describe("curated positions.json", () => {
     }
     expect(new Set(curated.map((p) => p.key)).size).toBe(curated.length);
     expect(new Set(curated.map((p) => p.name)).size).toBe(curated.length);
+  });
+
+  it("no longer carries the retired digital-innovation-team-lead key", async () => {
+    const curated = await loadCuratedPositions();
+
+    expect(curated.map((p) => p.key)).not.toContain(
+      "digital-innovation-team-lead",
+    );
+  });
+
+  it("is identical in the seed, the design source and the generated copy", async () => {
+    const [seed, design, generated] = await Promise.all(
+      [
+        "../../prisma/seed/positions.json",
+        "../../docs/sgauth-design/positions.json",
+        "../../docs/sgauth-design/out/positions.json",
+      ].map((path) => readFile(new URL(path, import.meta.url), "utf8")),
+    );
+
+    expect(design).toBe(seed);
+    expect(generated).toBe(seed);
   });
 });
 

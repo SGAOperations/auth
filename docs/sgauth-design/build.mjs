@@ -1,6 +1,6 @@
 // Generates Linear-importable CSVs (one per team) and a readable Markdown ticket set.
 // Usage: node build.mjs
-import { writeFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EPICS, TICKETS } from "./tickets-auth.mjs";
@@ -228,6 +228,10 @@ for (const team of teams) {
   }
 }
 writeFileSync(join(out, "SGAuth-tickets.md"), md.join("\n"), "utf8");
+
+// ---------- curated positions ----------
+// A straight copy, so out/positions.json cannot drift from the source.
+copyFileSync(join(here, "positions.json"), join(out, "positions.json"));
 
 // ---------- stats ----------
 const stats = {};

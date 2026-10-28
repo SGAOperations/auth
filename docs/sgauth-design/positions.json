@@ -362,8 +362,13 @@
       "category": "Operational Affairs"
     },
     {
-      "key": "digital-innovation-team-lead",
-      "name": "Digital Innovation Team Lead",
+      "key": "digital-innovation-senateportal-team-lead",
+      "name": "Digital Innovation SenatePortal Team Lead",
+      "category": "Operational Affairs"
+    },
+    {
+      "key": "digital-innovation-website-creation-team-lead",
+      "name": "Digital Innovation Website Creation Team Lead",
       "category": "Operational Affairs"
     },
     {
