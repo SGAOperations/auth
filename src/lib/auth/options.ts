@@ -36,6 +36,7 @@ import type { Mailer } from "@/lib/email/mailer";
 import { setRequestUserId } from "@/lib/log/context";
 import { hasPassword } from "@/lib/set-password/service";
 import { tokenLinkUrl } from "@/lib/token-links/actions";
+import { uuidv7 } from "@/lib/uuid-v7";
 
 /**
  * Endpoint paths allowed to create a user outside the sign-up domain rule.
@@ -208,6 +209,14 @@ export function buildAuthOptions({
       }),
       // `hash` stays unset so new hashes use Better Auth's default scrypt.
       password: { verify: verifyPassword },
+      // A duplicate sign-up must look like a fresh one: Postgres issues UUID v7
+      // ids and status defaults to ACTIVE, so the synthetic user does too.
+      customSyntheticUser: ({ coreFields, additionalFields }) => ({
+        ...coreFields,
+        ...additionalFields,
+        status: "ACTIVE",
+        id: uuidv7(),
+      }),
       // Better Auth has already answered with its generic duplicate response
       // and runs this in the background, so nothing here can change the
       // answer.
