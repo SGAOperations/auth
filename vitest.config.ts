@@ -41,10 +41,31 @@ export default defineConfig({
         },
       },
       {
+        // The transfer suites assume no committed Primary Admin, and the
+        // harness suites commit one. CI resets the test branch to its parent
+        // before each run, so running these first keeps that assumption true.
+        extends: true,
+        test: {
+          name: "db-transfer",
+          include: ["src/lib/jobs/pa-transfer*.db.test.ts"],
+          globalSetup: ["src/test/global-setup.ts"],
+          setupFiles: ["src/test/db-setup.ts"],
+          fileParallelism: false,
+          hookTimeout: 60_000,
+          testTimeout: 15_000,
+          env: dbEnv,
+          sequence: { groupOrder: 1 },
+        },
+      },
+      {
         extends: true,
         test: {
           name: "db",
           include: ["src/**/*.db.test.ts", "prisma/**/*.db.test.ts"],
+          exclude: [
+            ...configDefaults.exclude,
+            "src/lib/jobs/pa-transfer*.db.test.ts",
+          ],
           globalSetup: ["src/test/global-setup.ts"],
           setupFiles: ["src/test/db-setup.ts"],
           // Files share one Neon branch, so they run one at a time.
@@ -53,6 +74,7 @@ export default defineConfig({
           hookTimeout: 60_000,
           testTimeout: 15_000,
           env: dbEnv,
+          sequence: { groupOrder: 2 },
         },
       },
     ],
