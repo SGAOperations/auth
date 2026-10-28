@@ -65,6 +65,35 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["ACCOUNT_UNLOCKED"],
   },
+  // The Primary Admin transfer routes (AUTH-T37). Every transition writes its
+  // own audit row inside pa-transfer-actions.ts, in the transition's transaction.
+  "src/app/api/sgauth/admin/transfer/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_INITIATED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  "src/app/api/sgauth/admin/transfer/[id]/accept/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_ACCEPTED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  "src/app/api/sgauth/admin/transfer/[id]/decline/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_CANCELLED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  "src/app/api/sgauth/admin/transfer/[id]/cancel/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_CANCELLED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
+  // The emailed cancel link's POST. consumeCancelToken writes the event in the
+  // consuming transaction.
+  "src/app/transfer/cancel/confirm/route.ts": {
+    kind: "audited",
+    events: ["PA_TRANSFER_CANCELLED"],
+    emittedIn: ["src/lib/jobs/pa-transfer-actions.ts"],
+  },
   "src/app/api/sgauth/admin/positions/route.ts": {
     kind: "audited",
     events: ["POSITION_CREATED"],
@@ -122,6 +151,7 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
       "PA_TRANSFER_COMPLETED",
       "PA_TRANSFER_EXPIRED",
       "PA_TRANSFER_CANCELLED",
+      "SESSIONS_REVOKED",
     ],
   },
   "src/app/api/jobs/alerts/route.ts": {

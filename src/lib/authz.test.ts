@@ -3,6 +3,7 @@ import {
   GLOBAL_ACTIONS,
   USER_ACTIONS,
   can,
+  canActOnTransfer,
   type AuthzDenialReason,
   type AuthzSubject,
   type UserAction,
@@ -203,6 +204,81 @@ describe("can(): edge cases", () => {
       // @ts-expect-error a user action requires a target; this is the runtime guard
       can(admin, "deactivate"),
     ).toThrow("can(): deactivate requires a target");
+  });
+});
+
+describe("canActOnTransfer()", () => {
+  const initiatorPa = subject("from", { isAdmin: true, isPrimaryAdmin: true });
+  // The sender after another path (break-glass) took the role from them.
+  const initiatorNoLongerPa = subject("from", { isAdmin: true });
+  const recipient = subject("to", { isAdmin: true });
+  const thirdAdmin = subject("third", { isAdmin: true });
+  const deactivatedRecipient = subject("to", {
+    isAdmin: true,
+    status: "DEACTIVATED",
+  });
+  const recipientNoLongerAdmin = subject("to");
+  const transfer = { fromUserId: "from", toUserId: "to" };
+
+  const actors = {
+    "the initiating Primary Admin": initiatorPa,
+    "an initiator who is no longer Primary Admin": initiatorNoLongerPa,
+    "the recipient": recipient,
+    "a third admin": thirdAdmin,
+    "a deactivated recipient": deactivatedRecipient,
+    "a recipient who lost admin": recipientNoLongerAdmin,
+  } as const;
+  type ActorName = keyof typeof actors;
+  type Outcome = "allow" | AuthzDenialReason;
+
+  const EXPECTED: Record<
+    ActorName,
+    Record<"accept" | "decline" | "cancel", Outcome>
+  > = {
+    "the initiating Primary Admin": {
+      accept: "NOT_TRANSFER_RECIPIENT",
+      decline: "NOT_TRANSFER_RECIPIENT",
+      cancel: "allow",
+    },
+    "an initiator who is no longer Primary Admin": {
+      accept: "NOT_TRANSFER_RECIPIENT",
+      decline: "NOT_TRANSFER_RECIPIENT",
+      cancel: "NOT_TRANSFER_INITIATOR",
+    },
+    "the recipient": {
+      accept: "allow",
+      decline: "allow",
+      cancel: "NOT_TRANSFER_INITIATOR",
+    },
+    "a third admin": {
+      accept: "NOT_TRANSFER_RECIPIENT",
+      decline: "NOT_TRANSFER_RECIPIENT",
+      cancel: "NOT_TRANSFER_INITIATOR",
+    },
+    "a deactivated recipient": {
+      accept: "ACTOR_INACTIVE",
+      decline: "ACTOR_INACTIVE",
+      cancel: "ACTOR_INACTIVE",
+    },
+    "a recipient who lost admin": {
+      accept: "NOT_ADMIN",
+      decline: "NOT_ADMIN",
+      cancel: "NOT_ADMIN",
+    },
+  };
+
+  const cases = (Object.keys(EXPECTED) as ActorName[]).flatMap((name) =>
+    (["accept", "decline", "cancel"] as const).map(
+      (action) => [name, action, EXPECTED[name][action]] as const,
+    ),
+  );
+
+  it.each(cases)("%s > %s: %s", (name, action, expected) => {
+    expect(canActOnTransfer(actors[name], transfer, action)).toEqual(
+      expected === "allow"
+        ? { allowed: true }
+        : { allowed: false, reason: expected },
+    );
   });
 });
 

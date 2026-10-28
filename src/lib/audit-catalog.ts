@@ -125,6 +125,19 @@ const positionUpdatedMetadata = z
     { message: "before and after must name the same fields" },
   );
 
+/**
+ * Why a Primary Admin transfer was cancelled. The last two are written only by
+ * the scheduled job; the rest come from a person.
+ */
+export const TRANSFER_CANCEL_REASONS = [
+  "cancelled",
+  "declined",
+  "recipient_ineligible",
+  "sender_not_primary_admin",
+] as const;
+
+export type TransferCancelReason = (typeof TRANSFER_CANCEL_REASONS)[number];
+
 const breakGlassOperator = z.string().trim().min(1).max(100);
 const breakGlassReason = z.string().trim().min(10).max(500);
 
@@ -215,7 +228,15 @@ export const AUDIT_CATALOG = {
   PRODUCT_DELETED: productTarget,
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,
-  PA_TRANSFER_CANCELLED: transferTarget,
+  // `via` says which door the cancel came through. The transfer row already
+  // holds both parties, so no name or address is recorded here.
+  PA_TRANSFER_CANCELLED: {
+    targetType: "TRANSFER",
+    metadata: z.strictObject({
+      reason: z.enum(TRANSFER_CANCEL_REASONS),
+      via: z.enum(["in_app", "email_link", "system"]),
+    }),
+  },
   PA_TRANSFER_COMPLETED: transferTarget,
   PA_TRANSFER_EXPIRED: transferTarget,
   // The one-time promotion of the first Primary Admin

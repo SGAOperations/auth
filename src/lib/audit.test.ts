@@ -515,6 +515,37 @@ describe("position lifecycle metadata", () => {
   });
 });
 
+describe("PA_TRANSFER_CANCELLED metadata", () => {
+  const event = (metadata: unknown) => ({
+    type: "PA_TRANSFER_CANCELLED",
+    actorType: "SYSTEM",
+    targetType: "TRANSFER",
+    targetId: "t1",
+    metadata,
+  });
+
+  it.each([
+    [{ reason: "cancelled", via: "in_app" }],
+    [{ reason: "cancelled", via: "email_link" }],
+    [{ reason: "declined", via: "in_app" }],
+    [{ reason: "recipient_ineligible", via: "system" }],
+    [{ reason: "sender_not_primary_admin", via: "system" }],
+  ])("accepts %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).not.toThrow();
+  });
+
+  it.each([
+    [{}],
+    [{ reason: "cancelled" }],
+    [{ via: "system" }],
+    [{ reason: "expired", via: "system" }],
+    [{ reason: "cancelled", via: "carrier_pigeon" }],
+    [{ reason: "cancelled", via: "in_app", email: "a@northeastern.edu" }],
+  ])("rejects %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+});
+
 describe("writeAuditEvent", () => {
   it("does not touch the database for an unknown type", async () => {
     const { db, create } = fakeDb();

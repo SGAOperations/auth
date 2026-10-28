@@ -1,33 +1,39 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import { writeAuditEvent } from "@/lib/audit";
+import { writeAuditEvent, type TransferCancelReason } from "@/lib/audit";
 import { logger } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 
-// Database side of the Primary Admin transfer: executes a COOLING transfer
-// whose window has ended, and expires a PENDING_ACCEPTANCE one nobody accepted.
-// Initiate, accept and cancel belong to the transfer service.
+// Database side of the Primary Admin transfer that the scheduled job owns:
+// executes a COOLING transfer whose window has ended, expires a
+// PENDING_ACCEPTANCE one nobody accepted, and cancels one whose recipient is no
+// longer an eligible admin. Initiate, accept, decline and cancel are the user
+// actions in pa-transfer-actions.ts, which reuse the helpers exported here.
 //
-// Concurrency: each transfer is claimed with FOR UPDATE SKIP LOCKED inside its
-// own transaction, and everything is decided while that lock is held. A second
-// run either skips the row or, once the first commits, no longer matches the
-// status it selects on, so a transfer is acted on once.
+// Concurrency: the job claims each transfer with FOR UPDATE SKIP LOCKED inside
+// its own transaction, and everything is decided while that lock is held. A
+// second run either skips the row or, once the first commits, no longer matches
+// the status it selects on, so a transfer is acted on once. A user action takes
+// the same row lock with a blocking FOR UPDATE (lockTransfer), so it waits for
+// a running job and then re-reads the row.
 
 /** Caps one run; the one-in-flight index means one pending row is the norm. */
 const MAX_PER_RUN = 5;
 
 export type TransferNotice = {
-  kind: "completed" | "cancelled" | "expired";
+  kind: "initiated" | "accepted" | "cancelled" | "completed" | "expired";
   transferId: string;
   fromUserId: string;
   toUserId: string;
-  reason?: string;
+  reason?: TransferCancelReason;
+  /** The raw cancel token, on `accepted` only. It is mailed and never logged. */
+  cancelToken?: string;
 };
 
 /** Called after the state change commits. */
 export type TransferNotifier = (notice: TransferNotice) => Promise<void> | void;
 
-type Tx = Prisma.TransactionClient;
+export type Tx = Prisma.TransactionClient;
 
 type ClaimedTransfer = Prisma.PrimaryAdminTransferGetPayload<{
   include: { fromUser: true; toUser: true };
@@ -60,11 +66,31 @@ export type PaTransferResult = {
   notifyFailures: number;
 };
 
-const logOnlyNotifier: TransferNotifier = (notice) => {
-  logger.info("pa_transfer.notification_pending", { ...notice });
+// Loaded on the first notice: the notifier builds the mailer, which reads the
+// whole environment, and a run with nothing to announce never needs it.
+const notifyByEmail: TransferNotifier = async (notice) => {
+  const { notifyTransfer } = await import("@/lib/jobs/pa-transfer-notify");
+  await notifyTransfer(notice);
 };
 
 const SYSTEM = { actorType: "SYSTEM" } as const;
+
+type SystemCancelReason = Extract<
+  TransferCancelReason,
+  "recipient_ineligible" | "sender_not_primary_admin"
+>;
+
+async function claimIneligibleInFlight(tx: Tx) {
+  // The recipient test is the one the execute path applies, so a transfer that
+  // would be refused at execution is cancelled as soon as the job sees it.
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT t."id" FROM "PrimaryAdminTransfer" t
+    JOIN "User" u ON u."id" = t."toUserId"
+    WHERE t."status" IN ('PENDING_ACCEPTANCE', 'COOLING')
+      AND (u."status" <> 'ACTIVE' OR NOT u."isAdmin")
+    ORDER BY t."createdAt" LIMIT 1 FOR UPDATE OF t SKIP LOCKED`;
+  return rows[0] ? readTransfer(tx, rows[0].id) : null;
+}
 
 async function claimDueCooling(tx: Tx, now: Date) {
   const rows = await tx.$queryRaw<{ id: string }[]>`
@@ -82,6 +108,11 @@ async function claimStalePending(tx: Tx, now: Date) {
   return rows[0] ? readTransfer(tx, rows[0].id) : null;
 }
 
+/** Takes the row lock a user action holds for its whole transaction. */
+export async function lockTransfer(tx: Tx, id: string): Promise<void> {
+  await tx.$queryRaw`SELECT "id" FROM "PrimaryAdminTransfer" WHERE "id" = ${id} FOR UPDATE`;
+}
+
 function readTransfer(tx: Tx, id: string) {
   return tx.primaryAdminTransfer.findUniqueOrThrow({
     where: { id },
@@ -89,17 +120,18 @@ function readTransfer(tx: Tx, id: string) {
   });
 }
 
-function noticeFor(
+export function noticeFor(
   kind: TransferNotice["kind"],
-  transfer: ClaimedTransfer,
-  reason?: string,
+  transfer: Pick<ClaimedTransfer, "id" | "fromUserId" | "toUserId">,
+  extra: Pick<TransferNotice, "reason" | "cancelToken"> = {},
 ): TransferNotice {
   return {
     kind,
     transferId: transfer.id,
     fromUserId: transfer.fromUserId,
     toUserId: transfer.toUserId,
-    ...(reason ? { reason } : {}),
+    ...(extra.reason ? { reason: extra.reason } : {}),
+    ...(extra.cancelToken ? { cancelToken: extra.cancelToken } : {}),
   };
 }
 
@@ -107,7 +139,7 @@ async function cancelIneligible(
   tx: Tx,
   transfer: ClaimedTransfer,
   now: Date,
-  reason: string,
+  reason: SystemCancelReason,
 ): Promise<TransferNotice> {
   await tx.primaryAdminTransfer.update({
     where: { id: transfer.id },
@@ -115,6 +147,7 @@ async function cancelIneligible(
       status: "CANCELLED",
       cancelledAt: now,
       cancelledById: null,
+      cancelTokenHash: null,
       reason,
     },
   });
@@ -123,8 +156,32 @@ async function cancelIneligible(
     ...SYSTEM,
     targetType: "TRANSFER",
     targetId: transfer.id,
+    metadata: { reason, via: "system" },
   });
-  return noticeFor("cancelled", transfer, reason);
+  return noticeFor("cancelled", transfer, { reason });
+}
+
+/**
+ * For the revoke-admin and deactivate paths: inside their transaction, after
+ * they change `userId`, cancel the in-flight transfer that names that user as
+ * recipient if they can no longer receive it. Returns the notice to send after
+ * commit, or `null` when there is nothing to cancel.
+ */
+export async function cancelForIneligibleRecipient(
+  tx: Tx,
+  userId: string,
+  now: Date,
+): Promise<TransferNotice | null> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "PrimaryAdminTransfer"
+    WHERE "toUserId" = ${userId} AND "status" IN ('PENDING_ACCEPTANCE', 'COOLING')
+    FOR UPDATE`;
+  if (!rows[0]) return null;
+  const transfer = await readTransfer(tx, rows[0].id);
+  if (transfer.toUser.status === "ACTIVE" && transfer.toUser.isAdmin) {
+    return null;
+  }
+  return cancelIneligible(tx, transfer, now, "recipient_ineligible");
 }
 
 async function execute(
@@ -149,9 +206,19 @@ async function execute(
   await tx.session.deleteMany({
     where: { userId: { in: [transfer.fromUserId, transfer.toUserId] } },
   });
+  for (const userId of [transfer.fromUserId, transfer.toUserId]) {
+    await writeAuditEvent(tx, {
+      type: "SESSIONS_REVOKED",
+      ...SYSTEM,
+      targetType: "USER",
+      targetId: userId,
+      metadata: { scope: "all" },
+    });
+  }
+  // The cancel link dies with the transfer.
   await tx.primaryAdminTransfer.update({
     where: { id: transfer.id },
-    data: { status: "COMPLETED", completedAt: now },
+    data: { status: "COMPLETED", completedAt: now, cancelTokenHash: null },
   });
   await writeAuditEvent(tx, {
     type: "PA_TRANSFER_COMPLETED",
@@ -184,6 +251,21 @@ async function processOne(
   now: Date,
   hooks: PaTransferHooks,
 ): Promise<TransferNotice | null> {
+  // First, so a transfer to a user who lost admin or was deactivated is
+  // cancelled promptly even when nothing called cancelForIneligibleRecipient.
+  const ineligible = await claimIneligibleInFlight(tx);
+  if (ineligible) {
+    await hooks.afterClaim?.(tx, ineligible);
+    const notice = await cancelIneligible(
+      tx,
+      ineligible,
+      now,
+      "recipient_ineligible",
+    );
+    await hooks.beforeCommit?.(tx);
+    return notice;
+  }
+
   const due = await claimDueCooling(tx, now);
   if (due) {
     await hooks.afterClaim?.(tx, due);
@@ -213,7 +295,7 @@ export async function runPaTransferJob(
   options: PaTransferOptions = {},
 ): Promise<PaTransferResult> {
   const now = options.now ?? new Date();
-  const notify = options.notify ?? logOnlyNotifier;
+  const notify = options.notify ?? notifyByEmail;
   const hooks = options.hooks ?? {};
   const result: PaTransferResult = {
     executed: 0,

@@ -13,16 +13,20 @@ const ORIGIN = "https://auth.northeasternsga.com";
 
 const ACTIONS = Object.keys(TOKEN_ACTIONS) as TokenActionName[];
 const live = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "live");
-const pending = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "pending");
 
 describe("registry", () => {
-  it("has exactly four live actions today: verify-email, reset-password, set-password and account-unlock", () => {
+  it("has exactly five live actions today", () => {
     expect(live).toEqual([
       "verify-email",
       "reset-password",
       "set-password",
       "account-unlock",
+      "pa-transfer-cancel",
     ]);
+  });
+
+  it("registers the Primary Admin cancel link on a public page", () => {
+    expect(TOKEN_ACTIONS["pa-transfer-cancel"].path).toBe("/transfer/cancel");
   });
 
   it("gives every action its own path", () => {
@@ -30,7 +34,7 @@ describe("registry", () => {
     expect(new Set(paths).size).toBe(paths.length);
   });
 
-  it("lists every action path, pending ones included, in TOKEN_LINK_PATHS", () => {
+  it("lists every action path in TOKEN_LINK_PATHS", () => {
     expect([...TOKEN_LINK_PATHS].sort()).toEqual(
       ACTIONS.map((a) => TOKEN_ACTIONS[a].path).sort(),
     );
@@ -41,12 +45,6 @@ describe("tokenLinkUrl", () => {
   it("builds the URL and encodes the token", () => {
     expect(tokenLinkUrl(ORIGIN, "verify-email", "a b/c+d")).toBe(
       `${ORIGIN}/verify-email?token=a%20b%2Fc%2Bd`,
-    );
-  });
-
-  it.each(pending)("throws for the pending action %s", (action) => {
-    expect(() => tokenLinkUrl(ORIGIN, action, "t")).toThrow(
-      `Token link action ${action} has no page yet (pending)`,
     );
   });
 
@@ -95,14 +93,31 @@ describe("resolveLinkTarget", () => {
     ).toEqual({ ok: false, reason: "unmapped" });
   });
 
-  it("reports pending for a target with no page yet", () => {
+  it("accepts the Primary Admin accept link as a plain link, and refuses a token on it", () => {
+    expect(
+      resolveLinkTarget(
+        "pa-transfer-initiated",
+        "url",
+        `${ORIGIN}/admin/transfer/accept`,
+      ),
+    ).toEqual({ ok: true });
     expect(
       resolveLinkTarget(
         "pa-transfer-initiated",
         "url",
         `${ORIGIN}/admin/transfer/accept?token=t`,
       ),
-    ).toEqual({ ok: false, reason: "pending" });
+    ).toEqual({ ok: false, reason: "query" });
+  });
+
+  it("accepts the Primary Admin cancel link with one token", () => {
+    expect(
+      resolveLinkTarget(
+        "pa-transfer-accepted",
+        "cancelUrl",
+        `${ORIGIN}/transfer/cancel?token=t`,
+      ),
+    ).toEqual({ ok: true });
   });
 
   it("reports path for the wrong path", () => {

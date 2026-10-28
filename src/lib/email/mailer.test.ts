@@ -179,7 +179,7 @@ describe("sendEmail programmer errors", () => {
     expect(transport.send).not.toHaveBeenCalled();
   });
 
-  it("throws on a link to a pending target, without the URL in the message", async () => {
+  it("throws on a token in a plain link, without the URL in the message", async () => {
     const { mailer, transport } = setup();
     const error = await mailer
       .sendEmail({
@@ -194,7 +194,7 @@ describe("sendEmail programmer errors", () => {
       })
       .catch((e: unknown) => e as Error);
     expect((error as Error).message).toBe(
-      "Email template pa-transfer-initiated link url is not a registered token-link page (pending)",
+      "Email template pa-transfer-initiated link url is not a registered token-link page (query)",
     );
     expect((error as Error).message).not.toContain("secret-token");
     expect(transport.send).not.toHaveBeenCalled();

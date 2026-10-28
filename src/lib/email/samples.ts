@@ -116,7 +116,7 @@ export const SAMPLES: readonly Sample[] = [
     template: "pa-transfer-initiated",
     data: {
       role: "recipient",
-      url: sampleTokenUrl("pa-transfer-accept"),
+      url: plainLinkUrl(ORIGIN, "pa-transfer-accept"),
       fromName: "Jordan Lee",
       acceptBy: WEEK,
     },
