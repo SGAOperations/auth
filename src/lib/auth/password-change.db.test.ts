@@ -239,6 +239,9 @@ describe.skipIf(!url)("change password (AUTH-T23)", () => {
       await stampSessions(user.id);
       lockout.mailer.clear();
       const hashBefore = await passwordHashOf(user.id);
+      const sessionsBefore = await prisma.session.count({
+        where: { userId: user.id },
+      });
 
       const first = await changePassword(cookie, { currentPassword: WRONG });
       expect(first.status).toBe(400);
@@ -248,7 +251,7 @@ describe.skipIf(!url)("change password (AUTH-T23)", () => {
         { metadata: { reason: "INVALID_CURRENT_PASSWORD" } },
       ]);
       expect(await prisma.session.count({ where: { userId: user.id } })).toBe(
-        1,
+        sessionsBefore,
       );
       expect(await passwordHashOf(user.id)).toBe(hashBefore);
 
@@ -350,12 +353,17 @@ describe.skipIf(!url)("change password (AUTH-T23)", () => {
       await stampSessions(user.id);
 
       for (let i = 0; i < 11; i++) {
-        const response = await auth.api.changePassword({
-          headers: new Headers({ cookie }),
-          body: { currentPassword: STRONG, newPassword: STRONG },
-          asResponse: true,
+        // A too-short password is refused before the same-password check, so
+        // each call fails on its own validation and never on the limiter.
+        await expect(
+          auth.api.changePassword({
+            headers: new Headers({ cookie }),
+            body: { currentPassword: STRONG, newPassword: "short" },
+          }),
+        ).rejects.toMatchObject({
+          statusCode: 400,
+          body: { code: "PASSWORD_TOO_SHORT" },
         });
-        expect(response.status).toBe(400);
       }
     });
   });
