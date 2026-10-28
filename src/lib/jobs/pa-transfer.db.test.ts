@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import {
   cancelForIneligibleRecipient,
@@ -57,14 +57,6 @@ async function auditCount(transferId: string, type: string) {
 }
 
 describe("runPaTransferJob", () => {
-  beforeAll(async () => {
-    // A committed Primary Admin would break the execute-path assertions, and
-    // the reset cannot remove one.
-    expect(await prisma.user.count({ where: { isPrimaryAdmin: true } })).toBe(
-      0,
-    );
-  });
-
   beforeEach(async () => {
     await prisma.primaryAdminTransfer.deleteMany();
   });
@@ -78,12 +70,25 @@ describe("runPaTransferJob", () => {
     const claimed = gate();
     const release = gate();
     const seen: Record<string, unknown> = {};
+    // The test branch can start with a Primary Admin (its parent branch may
+    // hold one), so record it and compare against it at the end.
+    const baseline = (
+      await prisma.user.findMany({
+        where: { isPrimaryAdmin: true },
+        select: { id: true },
+      })
+    ).map((user) => user.id);
 
     const first = runPaTransferJob({
       hooks: {
-        // The sender is promoted inside the transaction only, so no Primary
-        // Admin is ever committed.
+        // Inside the transaction only, so nothing is committed: any existing
+        // Primary Admin is demoted, then the sender is promoted.
         afterClaim: async (tx) => {
+          await tx.$executeRaw`SELECT set_config('sgauth.pa_transfer', 'on', true)`;
+          await tx.user.updateMany({
+            where: { isPrimaryAdmin: true },
+            data: { isPrimaryAdmin: false },
+          });
           await tx.user.update({
             where: { id: from.id },
             data: { isPrimaryAdmin: true },
@@ -155,14 +160,19 @@ describe("runPaTransferJob", () => {
       cancelTokenHash: null,
     });
 
-    // Rolled back: nothing changed and no Primary Admin was committed.
+    // Rolled back: nothing changed, and the Primary Admin is exactly as before.
     const after = await prisma.primaryAdminTransfer.findUniqueOrThrow({
       where: { id: transfer.id },
     });
     expect(after.status).toBe("COOLING");
-    expect(await prisma.user.count({ where: { isPrimaryAdmin: true } })).toBe(
-      0,
-    );
+    expect(
+      (
+        await prisma.user.findMany({
+          where: { isPrimaryAdmin: true },
+          select: { id: true },
+        })
+      ).map((user) => user.id),
+    ).toEqual(baseline);
     expect(await prisma.session.count({ where: { userId: from.id } })).toBe(1);
     expect(await auditCount(transfer.id, "PA_TRANSFER_COMPLETED")).toBe(0);
   });
