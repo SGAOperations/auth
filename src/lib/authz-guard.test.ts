@@ -132,8 +132,9 @@ export function handlersAreGuarded(handlersSource: string): boolean {
 
 /** True when `source` imports something from the binder module. */
 export function importsBinderModule(source: string): boolean {
+  const escapedModule = BINDER_MODULE.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
   return new RegExp(
-    `import\\s*\\{[^}]+\\}\\s*from\\s*["']${BINDER_MODULE.replace(/\//g, "\\/")}["']`,
+    `import\\s*\\{[^}]+\\}\\s*from\\s*["']${escapedModule}["']`,
   ).test(source);
 }
 
