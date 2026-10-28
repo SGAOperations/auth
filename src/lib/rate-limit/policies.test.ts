@@ -50,6 +50,7 @@ describe("POLICIES", () => {
       ["reauth:user:1m", 5, 60, "user"],
       ["change-password:user:10m", 10, 600, "user"],
       ["admin:user:1m", 100, 60, "user"],
+      ["admin-export:user:10m", 10, 600, "user"],
       ["set-password:ip:10m", 10, 600, "ip"],
       ["set-password:email:10m", 5, 600, "email"],
       ["set-password-link:user:1h", 3, 3600, "user"],

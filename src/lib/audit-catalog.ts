@@ -51,6 +51,7 @@ export const AUDIT_EVENT_TYPES = [
   "REAUTH_FAILED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
+  "AUDIT_EXPORTED",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
@@ -359,6 +360,9 @@ export const AUDIT_CATALOG = {
     }),
   },
   JWKS_ROTATED: noTarget,
+  // An admin downloaded the audit log as CSV. No filter values: a user filter
+  // is an email address, and the catalog keeps PII out of audit rows.
+  AUDIT_EXPORTED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };
 
 export type AuditMetadata<T extends AuditEventType> = z.input<

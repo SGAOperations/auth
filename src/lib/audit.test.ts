@@ -657,6 +657,30 @@ describe("BULK_IMPORT metadata", () => {
   });
 });
 
+describe("AUDIT_EXPORTED", () => {
+  const event = {
+    type: "AUDIT_EXPORTED",
+    actorType: "USER",
+    actorUserId: "u1",
+  };
+
+  it("accepts an admin actor with no target and no metadata", () => {
+    expect(() => parseAuditEvent(event)).not.toThrow();
+  });
+
+  it("rejects metadata, so no filter value can reach the row", () => {
+    expect(() =>
+      parseAuditEvent({ ...event, metadata: { email: "x" } }),
+    ).toThrow(ZodError);
+  });
+
+  it("rejects a target", () => {
+    expect(() =>
+      parseAuditEvent({ ...event, targetType: "USER", targetId: "u2" }),
+    ).toThrow(ZodError);
+  });
+});
+
 describe("writeAuditEvent", () => {
   it("does not touch the database for an unknown type", async () => {
     const { db, create } = fakeDb();
