@@ -89,6 +89,24 @@ describe("envelope", () => {
     expect(result.errors[0].id).toBe(sample().users[0].id);
   });
 
+  it("accepts ids that are UUID-shaped but not RFC 4122 versioned", () => {
+    const result = run((d) => {
+      d.users[0].id = "00000000-0000-0000-0000-000000000001";
+      d.users[0].board_memberships[0].body_id =
+        "ffffffff-ffff-ffff-ffff-ffffffffffff";
+    });
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects an id that is not UUID-shaped", () => {
+    const result = run((d) => {
+      d.users[0].id = "not-a-uuid";
+    });
+    expect(result.ok).toBe(false);
+    expect(paths(result)).toContain("users[0].id");
+  });
+
   it("reports unparseable bytes without an excerpt", () => {
     const result = validateChambersExport('{"format": "sgauth-chambers-ex');
     expect(result.unparseable).toBe(true);

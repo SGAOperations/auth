@@ -33,13 +33,13 @@ export const BCRYPT_EXPORT_HASH =
 const datetime = z.iso.datetime({ offset: true });
 
 const boardMembershipSchema = z.strictObject({
-  body_id: z.uuid(),
+  body_id: z.guid(),
   body_name: z.string().trim().min(1),
   role: z.enum(["Leadership", "Member"]),
 });
 
 const userSchema = z.strictObject({
-  id: z.uuid(),
+  id: z.guid(),
   email: z.email(),
   full_name: z.string().trim().min(1),
   password_hash: z

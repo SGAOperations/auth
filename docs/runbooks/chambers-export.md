@@ -150,7 +150,7 @@ from (
     au.id,
     au.email,
     pu.full_name,
-    au.encrypted_password as password_hash,
+    nullif(au.encrypted_password, '') as password_hash,
     (au.email_confirmed_at is not null) as email_verified,
     au.email_confirmed_at,
     au.last_sign_in_at,
@@ -183,9 +183,20 @@ The count queries are the same as above, run against `auth.users` joined to
 
 ## Validate
 
-Save the query result as a file whose name starts with `chambers-export` (for
+Write the query result to a file whose name starts with `chambers-export` (for
 example `chambers-export-2026-11-02.json`). The repository ignores that pattern,
-so the file cannot be committed. Then:
+so the file cannot be committed. The file must hold the bare JSON value only: not
+the `export` column header, the row-count footer or the table borders that the
+SQL editor or `psql` print by default. With `psql`, save the query in
+`export.sql` and run:
+
+```bash
+psql "$DATABASE_URL" -At -f export.sql -o chambers-export-2026-11-02.json
+```
+
+`-A` turns off alignment and `-t` turns off the header and footer, so the output
+is the single JSON value. In the Neon SQL editor, copy the value of the `export`
+cell into the file. Then:
 
 ```bash
 npm run validate-export -- chambers-export-2026-11-02.json \
