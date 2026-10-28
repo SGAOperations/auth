@@ -18,6 +18,7 @@ export const AUDIT_EVENT_TYPES = [
   "EMAIL_VERIFIED",
   "USER_CREATED",
   "USER_INVITED",
+  "USER_UPDATED",
   "USER_DEACTIVATED",
   "USER_REACTIVATED",
   "USER_DELETED",
@@ -42,6 +43,7 @@ export const AUDIT_EVENT_TYPES = [
   "ACCOUNT_UNLOCKED",
   "MFA_ENROLLED",
   "MFA_DISABLED",
+  "MFA_RESET",
   "MFA_BACKUP_USED",
   "MFA_BACKUP_CODES_REGENERATED",
   "REAUTH_SUCCEEDED",
@@ -182,12 +184,35 @@ export const AUDIT_CATALOG = {
     targetType: "USER",
     metadata: z.strictObject({
       source: z.enum(["self_signup", "admin", "system"]),
+      // Set by the admin create endpoint only: whether an invite was issued.
+      invited: z.boolean().optional(),
     }),
   },
   USER_INVITED: userTarget,
-  USER_DEACTIVATED: userTarget,
+  // An admin edited a profile. Field names only, never the values (PII).
+  USER_UPDATED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      fields: z
+        .array(z.enum(["name", "preferredName"]))
+        .min(1)
+        .max(2),
+    }),
+  },
+  USER_DEACTIVATED: {
+    targetType: "USER",
+    metadata: z.strictObject({ revokedSessions: z.int().min(0) }),
+  },
   USER_REACTIVATED: userTarget,
-  USER_DELETED: userTarget,
+  // The tombstone (docs/DATA_HANDLING.md). `removedPositionIds` stands in for
+  // one POSITION_UNASSIGNED per position, so a delete writes a single row.
+  USER_DELETED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: z.enum(["admin"]),
+      removedPositionIds: z.array(z.string().min(1)).max(50),
+    }),
+  },
   ADMIN_GRANTED: userTarget,
   ADMIN_REVOKED: userTarget,
   POSITION_CREATED: {
@@ -264,6 +289,9 @@ export const AUDIT_CATALOG = {
   },
   MFA_ENROLLED: userTarget,
   MFA_DISABLED: userTarget,
+  // An admin reset another user's MFA. Apart from MFA_DISABLED, which is the
+  // user's own, so an alert can watch admin resets alone.
+  MFA_RESET: userTarget,
   MFA_BACKUP_USED: userTarget,
   MFA_BACKUP_CODES_REGENERATED: userTarget,
   // Re-authentication for a sensitive action. `method` names the factors that

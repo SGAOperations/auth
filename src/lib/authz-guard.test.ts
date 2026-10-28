@@ -35,6 +35,12 @@ const EXEMPT: Record<string, string> = {
     "Anonymous login email step: it answers every address the same, and any set-password link goes only to the mailbox of the account it names",
   "src/app/preview-gate/unlock/route.ts":
     "Preview-environment password gate; it acts on no user and runs before any sign-in",
+  "src/app/api/sgauth/admin/users/route.ts":
+    "Thin binder: the handlers in src/lib/admin/users run requireAdmin (the shared admin guard, which calls can()) first, and handlers.db.test.ts drives them",
+  "src/app/api/sgauth/admin/users/[id]/route.ts":
+    "Thin binder: the handlers in src/lib/admin/users run requireAdmin and then can() on the target, and handlers.db.test.ts drives them",
+  "src/app/api/sgauth/admin/users/[id]/[action]/route.ts":
+    "Thin binder: the handlers in src/lib/admin/users run requireAdmin and then can() on the target, and handlers.db.test.ts drives them",
   "src/app/api/jobs/alerts/route.ts":
     "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
   "src/app/api/jobs/pa-transfer/route.ts":

@@ -515,6 +515,48 @@ describe("position lifecycle metadata", () => {
   });
 });
 
+describe("admin user-management metadata", () => {
+  const event = (type: string, metadata: unknown) => ({
+    type,
+    actorType: "USER",
+    actorUserId: "admin-1",
+    targetType: "USER",
+    targetId: "u1",
+    metadata,
+  });
+  const deleted = { reason: "admin", removedPositionIds: ["p1", "p2"] };
+
+  it.each([
+    ["USER_UPDATED", { fields: ["name"] }],
+    ["USER_UPDATED", { fields: ["name", "preferredName"] }],
+    ["MFA_RESET", {}],
+    ["USER_DEACTIVATED", { revokedSessions: 0 }],
+    ["USER_DEACTIVATED", { revokedSessions: 3 }],
+    ["USER_DELETED", deleted],
+    ["USER_DELETED", { ...deleted, removedPositionIds: [] }],
+    ["USER_CREATED", { source: "admin", invited: true }],
+    ["USER_CREATED", { source: "admin" }],
+  ])("accepts %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();
+  });
+
+  it.each([
+    ["USER_UPDATED", { fields: [] }],
+    ["USER_UPDATED", { fields: ["email"] }],
+    ["USER_UPDATED", { fields: ["name"], name: "Sam" }],
+    ["MFA_RESET", { extra: 1 }],
+    ["USER_DEACTIVATED", {}],
+    ["USER_DEACTIVATED", { revokedSessions: -1 }],
+    ["USER_DEACTIVATED", { revokedSessions: 1.5 }],
+    ["USER_DELETED", {}],
+    ["USER_DELETED", { reason: "admin" }],
+    ["USER_DELETED", { ...deleted, reason: "retention" }],
+    ["USER_CREATED", { source: "admin", invited: "yes" }],
+  ])("rejects %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
+  });
+});
+
 describe("writeAuditEvent", () => {
   it("does not touch the database for an unknown type", async () => {
     const { db, create } = fakeDb();
