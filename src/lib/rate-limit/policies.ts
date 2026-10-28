@@ -43,6 +43,17 @@ export const POLICIES = {
     { id: "token-link:ip:10m", limit: 20, windowSeconds: 600, by: "ip" },
   ],
   reauth: [{ id: "reauth:user:1m", limit: 5, windowSeconds: 60, by: "user" }],
+  // Checked in the Better Auth `before` hook (src/lib/auth/password-change.ts),
+  // not by matchAuthRoute: the user id is known only after the session lookup.
+  // Above the 5-failure lockout on purpose, so the lock trips first on guessing.
+  changePassword: [
+    {
+      id: "change-password:user:10m",
+      limit: 10,
+      windowSeconds: 600,
+      by: "user",
+    },
+  ],
   adminMutation: [
     { id: "admin:user:1m", limit: 100, windowSeconds: 60, by: "user" },
   ],

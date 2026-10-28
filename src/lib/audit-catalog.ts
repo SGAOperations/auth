@@ -14,6 +14,7 @@ export const AUDIT_EVENT_TYPES = [
   "PASSWORD_SET_REQUESTED",
   "PASSWORD_SET",
   "PASSWORD_CHANGED",
+  "PASSWORD_CHANGE_FAILED",
   "PASSWORD_REHASHED",
   "EMAIL_VERIFIED",
   "USER_CREATED",
@@ -193,6 +194,13 @@ export const AUDIT_CATALOG = {
   PASSWORD_CHANGED: {
     targetType: "USER",
     metadata: z.strictObject({ revokedOtherSessions: z.boolean() }),
+  },
+  // A wrong current password at change-password, or a refusal while locked.
+  PASSWORD_CHANGE_FAILED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: z.enum(["INVALID_CURRENT_PASSWORD", "ACCOUNT_LOCKED"]),
+    }),
   },
   PASSWORD_REHASHED: userTarget,
   EMAIL_VERIFIED: userTarget,

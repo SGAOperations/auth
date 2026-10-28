@@ -46,20 +46,23 @@ export function namespaceFor(env: SgauthEnv): string {
   }
 }
 
+export const TOO_MANY_REQUESTS_BODY = {
+  code: "TOO_MANY_REQUESTS",
+  message: "Too many requests. Try again later.",
+} as const;
+
+export function tooManyRequestsHeaders(retryAfterSeconds: number) {
+  return {
+    "Retry-After": String(retryAfterSeconds),
+    "Cache-Control": "no-store",
+  };
+}
+
 export function tooManyRequests(retryAfterSeconds: number): Response {
-  return Response.json(
-    {
-      code: "TOO_MANY_REQUESTS",
-      message: "Too many requests. Try again later.",
-    },
-    {
-      status: 429,
-      headers: {
-        "Retry-After": String(retryAfterSeconds),
-        "Cache-Control": "no-store",
-      },
-    },
-  );
+  return Response.json(TOO_MANY_REQUESTS_BODY, {
+    status: 429,
+    headers: tooManyRequestsHeaders(retryAfterSeconds),
+  });
 }
 
 function sha256Hex(value: string): string {

@@ -227,7 +227,10 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["PASSWORD_RESET", "ACCOUNT_UNLOCKED"],
   },
-  "/change-password": { kind: "audited", events: ["PASSWORD_CHANGED"] },
+  "/change-password": {
+    kind: "audited",
+    events: ["PASSWORD_CHANGED", "PASSWORD_CHANGE_FAILED", "ACCOUNT_LOCKED"],
+  },
   "/revoke-session": { kind: "audited", events: ["SESSION_REVOKED"] },
   "/revoke-sessions": { kind: "audited", events: ["SESSIONS_REVOKED"] },
   "/revoke-other-sessions": { kind: "audited", events: ["SESSIONS_REVOKED"] },

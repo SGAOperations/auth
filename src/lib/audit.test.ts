@@ -254,7 +254,25 @@ describe("parseAuditEvent", () => {
       },
     );
 
+    it.each(["INVALID_CURRENT_PASSWORD", "ACCOUNT_LOCKED"])(
+      "accepts PASSWORD_CHANGE_FAILED for %s",
+      (reason) => {
+        expect(() =>
+          parseAuditEvent({
+            ...base,
+            type: "PASSWORD_CHANGE_FAILED",
+            metadata: { reason },
+          }),
+        ).not.toThrow();
+      },
+    );
+
     it.each([
+      ["PASSWORD_CHANGE_FAILED", {}],
+      [
+        "PASSWORD_CHANGE_FAILED",
+        { reason: "INVALID_CURRENT_PASSWORD", email: "a@b.edu" },
+      ],
       ["REAUTH_SUCCEEDED", {}],
       ["REAUTH_SUCCEEDED", { method: "password", email: "a@northeastern.edu" }],
       ["REAUTH_FAILED", {}],
