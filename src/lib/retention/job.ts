@@ -153,7 +153,7 @@ export async function runRetention({
     report.tombstoned.deactivated = await tombstoneAll(
       "deactivated",
       "deactivated_30d",
-      users.map(({ id }) => ({ id, guard: due })),
+      users.map(({ id }) => ({ id, guard: { ...due, isAdmin: false } })),
     );
 
     const exempt = await db.user.findMany({
@@ -199,7 +199,7 @@ export async function runRetention({
       batch.map(({ id, lastLoginAt }) => ({
         id,
         // A sign-in since the select changes `lastLoginAt` and misses this.
-        guard: { status: "ACTIVE", lastLoginAt },
+        guard: { status: "ACTIVE", isAdmin: false, lastLoginAt },
       })),
     );
 

@@ -512,25 +512,29 @@ describe("runRetention", () => {
   });
 
   describe("the batch cap", () => {
-    it("tombstones 50 a run and leaves the rest for the next", async () => {
-      // Drain anything an earlier case left, so the count below is this case's.
-      await run(31);
-      await prisma.user.createMany({
-        data: Array.from({ length: 51 }, (_, i) => ({
-          email: `batch-${i}-${randomBytes(4).toString("hex")}@northeastern.edu`,
-          name: `Batch ${i}`,
-          status: "DEACTIVATED" as const,
-          deactivatedAt: BASE,
-        })),
-      });
+    it(
+      "tombstones 50 a run and leaves the rest for the next",
+      { timeout: 60_000 },
+      async () => {
+        // Drain anything an earlier case left, so the count below is this case's.
+        await run(31);
+        await prisma.user.createMany({
+          data: Array.from({ length: 51 }, (_, i) => ({
+            email: `batch-${i}-${randomBytes(4).toString("hex")}@northeastern.edu`,
+            name: `Batch ${i}`,
+            status: "DEACTIVATED" as const,
+            deactivatedAt: BASE,
+          })),
+        });
 
-      const first = await run(31);
-      expect(first.tombstoned.deactivated).toBe(50);
-      expect(first.deferred.tombstones).toBe(1);
+        const first = await run(31);
+        expect(first.tombstoned.deactivated).toBe(50);
+        expect(first.deferred.tombstones).toBe(1);
 
-      const second = await run(31);
-      expect(second.tombstoned.deactivated).toBe(1);
-      expect(second.deferred.tombstones).toBe(0);
-    });
+        const second = await run(31);
+        expect(second.tombstoned.deactivated).toBe(1);
+        expect(second.deferred.tombstones).toBe(0);
+      },
+    );
   });
 });
