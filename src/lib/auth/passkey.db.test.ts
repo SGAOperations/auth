@@ -468,6 +468,87 @@ describe.skipIf(!url)("passkeys", () => {
       },
     );
 
+    const newPasskey = (userId: string, tag: string) => ({
+      userId,
+      credentialID: `${tag}-${rand}-${userId}`,
+      publicKey: "unused",
+      counter: 0,
+      deviceType: "singleDevice",
+      backedUp: false,
+    });
+    const pause = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
+    it("refuses a passkey for a user who is not active", async () => {
+      const { user } = await verifiedUser();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: "DEACTIVATED" },
+      });
+      await expect(
+        prisma.passkey.create({ data: newPasskey(user.id, "inactive") }),
+      ).rejects.toThrow();
+      expect(await passkeyRowsOf(user.id)).toHaveLength(0);
+    });
+
+    it("removes a passkey inserted while a deactivation is racing it", async () => {
+      const { user } = await verifiedUser();
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let inserted: () => void = () => {};
+      const insertedP = new Promise<void>((resolve) => (inserted = resolve));
+
+      // The insert has passed its status check and holds the User row.
+      const insertTx = prisma.$transaction(async (tx) => {
+        await tx.passkey.create({ data: newPasskey(user.id, "race-a") });
+        inserted();
+        await gate;
+      });
+      await insertedP;
+      const deactivate = prisma.user.update({
+        where: { id: user.id },
+        data: { status: "DEACTIVATED" },
+      });
+      await pause(300);
+      release();
+      await insertTx;
+      await deactivate;
+
+      expect(await passkeyRowsOf(user.id)).toHaveLength(0);
+    });
+
+    it("refuses a passkey inserted after a deactivation that has not committed yet", async () => {
+      const { user } = await verifiedUser();
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      let deactivated: () => void = () => {};
+      const deactivatedP = new Promise<void>(
+        (resolve) => (deactivated = resolve),
+      );
+
+      const deactivateTx = prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { status: "DEACTIVATED" },
+        });
+        deactivated();
+        await gate;
+      });
+      await deactivatedP;
+      const insert = prisma.passkey
+        .create({ data: newPasskey(user.id, "race-b") })
+        .then(
+          () => "inserted",
+          () => "refused",
+        );
+      await pause(300);
+      release();
+      await deactivateTx;
+
+      expect(await insert).toBe("refused");
+      expect(await passkeyRowsOf(user.id)).toHaveLength(0);
+    });
+
     it("leaves passkeys alone when the status does not change", async () => {
       const { user, cookie } = await freshUser();
       await enroll(cookie);
