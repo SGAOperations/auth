@@ -22,7 +22,8 @@ import {
 
 const BASE_URL = "http://localhost:3000";
 const MINUTE_MS = 60 * 1000;
-const tag = Math.random().toString(36).slice(2, 8);
+// Reassigned in beforeEach so imported() only counts this test's users.
+let tag = "";
 let counter = 0;
 const address = () => `route-${(counter += 1)}-${tag}@northeastern.edu`;
 
@@ -87,6 +88,7 @@ async function signInAs(actor: { id: string }, { fresh = true } = {}) {
 let admin: Awaited<ReturnType<typeof createAdmin>>;
 
 beforeEach(async () => {
+  tag = Math.random().toString(36).slice(2, 8);
   mocks.getSession.mockReset();
   invited.length = 0;
   inviteResult.next = () => ({ status: "sent" });
