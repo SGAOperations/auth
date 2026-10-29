@@ -197,6 +197,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED"],
   },
+  // LOGIN_SUCCESS and LOGIN_FAILED come from the Better Auth hooks that the
+  // action reaches through auth.api.signInEmailOTP.
+  "src/app/login/code/actions.ts": {
+    kind: "delegated",
+    to: "better-auth",
+  },
   "src/app/login/actions.ts": {
     kind: "exempt",
     reason:
@@ -241,6 +247,9 @@ const NO_DELETE =
 
 const NO_OTP =
   "email and SMS OTP is not configured (no otpOptions.sendOTP); always fails";
+
+const NO_EMAIL_OTP_HTTP =
+  "disabled over HTTP (EMAIL_OTP_DISABLED_PATHS); no in-process caller, because an emailed code only signs in";
 
 /** Every Better Auth endpoint of the live plugin list, by path. */
 export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
@@ -344,6 +353,34 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["REAUTH_SUCCEEDED", "REAUTH_FAILED", "MFA_BACKUP_USED"],
   },
+  // The emailed sign-in code (plugins only while SGAUTH_EMAIL_OTP_ENABLED).
+  // LOGIN_SUCCESS comes from the session hook; LOGIN_FAILED from the plugin's
+  // before and after hooks, through audit-hooks.ts.
+  "/sign-in/email-otp": {
+    kind: "audited",
+    events: ["LOGIN_SUCCESS", "LOGIN_FAILED"],
+  },
+  "/email-otp/send-verification-otp": {
+    kind: "exempt",
+    reason:
+      "sends mail only; no account state changes. The sign-in it enables is audited at /sign-in/email-otp, and sends are logged with a recipient hash (audit rows carry no PII)",
+  },
+  "/email-otp/verify-email": { kind: "exempt", reason: NO_EMAIL_OTP_HTTP },
+  "/email-otp/check-verification-otp": {
+    kind: "exempt",
+    reason: NO_EMAIL_OTP_HTTP,
+  },
+  "/email-otp/request-password-reset": {
+    kind: "exempt",
+    reason: NO_EMAIL_OTP_HTTP,
+  },
+  "/forget-password/email-otp": { kind: "exempt", reason: NO_EMAIL_OTP_HTTP },
+  "/email-otp/reset-password": { kind: "exempt", reason: NO_EMAIL_OTP_HTTP },
+  "/email-otp/request-email-change": {
+    kind: "exempt",
+    reason: NO_EMAIL_OTP_HTTP,
+  },
+  "/email-otp/change-email": { kind: "exempt", reason: NO_EMAIL_OTP_HTTP },
   "/jwks": {
     kind: "exempt",
     reason:

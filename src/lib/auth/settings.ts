@@ -114,5 +114,9 @@ export function toAuthSettings(env: z.infer<typeof authEnvSchema>) {
     baseURL,
     signupAllowlist,
     previewGate,
+    emailOtp: {
+      enabled: env.SGAUTH_EMAIL_OTP_ENABLED === "true",
+      dailyCap: env.SGAUTH_EMAIL_OTP_DAILY_CAP,
+    },
   };
 }

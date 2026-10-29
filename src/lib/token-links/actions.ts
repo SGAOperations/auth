@@ -92,6 +92,7 @@ export const TEMPLATE_LINK_TARGETS: Record<
   "pa-transfer-completed": {},
   "inactivity-notice": { signInUrl: { kind: "plain", link: "sign-in" } },
   "security-alert": {},
+  "sign-in-code": {},
 };
 
 /** Every token-action path, pending ones included. The proxy matches on it. */
