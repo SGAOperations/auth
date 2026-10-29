@@ -312,3 +312,57 @@ describe("parseAuthEnv gates", () => {
     expect(message).not.toContain(secretish);
   });
 });
+
+describe("parseAuthEnv email OTP", () => {
+  const base = { SGAUTH_ENV: "local", BETTER_AUTH_SECRET: SECRET };
+
+  it("is disabled with a cap of 100 when both variables are absent", () => {
+    expect(parseAuthEnv(base).emailOtp).toEqual({
+      enabled: false,
+      dailyCap: 100,
+    });
+  });
+
+  it("treats empty strings as unset", () => {
+    expect(
+      parseAuthEnv({
+        ...base,
+        SGAUTH_EMAIL_OTP_ENABLED: "",
+        SGAUTH_EMAIL_OTP_DAILY_CAP: "",
+      }).emailOtp,
+    ).toEqual({ enabled: false, dailyCap: 100 });
+  });
+
+  it("is enabled by exactly true", () => {
+    expect(
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_ENABLED: "true" }).emailOtp
+        .enabled,
+    ).toBe(true);
+  });
+
+  it("is disabled by false", () => {
+    expect(
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_ENABLED: "false" }).emailOtp
+        .enabled,
+    ).toBe(false);
+  });
+
+  it("fails startup on any other flag value, naming the variable", () => {
+    expect(() =>
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_ENABLED: "yes" }),
+    ).toThrow(/SGAUTH_EMAIL_OTP_ENABLED/);
+  });
+
+  it("reads the cap", () => {
+    expect(
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_DAILY_CAP: "25" }).emailOtp
+        .dailyCap,
+    ).toBe(25);
+  });
+
+  it("rejects a cap of 0, naming the variable", () => {
+    expect(() =>
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_DAILY_CAP: "0" }),
+    ).toThrow(/SGAUTH_EMAIL_OTP_DAILY_CAP/);
+  });
+});

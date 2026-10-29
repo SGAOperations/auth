@@ -200,6 +200,27 @@ export const TEMPLATES = {
     },
   }),
 
+  // A code and no link, so a scanner pre-fetch cannot consume it and the mail
+  // does not read like a phishing lure. The name is left out: the sender looks
+  // the account up only to decide whether to send.
+  "sign-in-code": defineTemplate({
+    schema: z.object({
+      otp: z.string().regex(/^\d{6}$/),
+      expiresMinutes: expiresInMinutes,
+    }),
+    links: [],
+    render: (d) =>
+      compose("Your SGA sign-in code", {
+        preheader: `Your SGA sign-in code is ${d.otp}.`,
+        heading: "Your sign-in code",
+        paragraphs: [
+          `Your SGA sign-in code is ${d.otp}. It expires in ${formatDuration(d.expiresMinutes)}.`,
+          "If you didn't ask for this, you can ignore this email. Nobody can sign in without the code, and your password still works.",
+          "Sent by SGA Auth (auth.northeasternsga.com)",
+        ],
+      }),
+  }),
+
   "account-locked": defineTemplate({
     schema: z.object({ name, lockedUntil: z.date() }),
     links: [],
