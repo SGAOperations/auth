@@ -39,6 +39,10 @@ const eslintConfig = defineConfig([
     "coverage/**",
     // Generated files:
     "src/generated/**",
+    // e2e build output and Playwright reports:
+    "e2e/product-stub/.next/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 
