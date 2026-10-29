@@ -71,18 +71,18 @@ export async function signInFast(page: Page, email: string): Promise<void> {
 }
 
 /**
- * The session cookies the browser still holds. Specs assert this is empty after
- * a logout, so a failure prints the leftover cookie's domain, path and expiry.
+ * The live session cookies the browser holds. A cleared cookie (empty value) is
+ * not a session, so it is not counted. Specs assert this is empty after a
+ * logout, so a failure prints the leftover cookie's domain, path and expiry.
  */
 export async function sessionCookies(context: BrowserContext) {
   return (await context.cookies())
-    .filter((cookie) => cookie.name === COOKIE)
-    .map(({ name, domain, path, expires, value }) => ({
+    .filter((cookie) => cookie.name === COOKIE && cookie.value !== "")
+    .map(({ name, domain, path, expires }) => ({
       name,
       domain,
       path,
       expires,
-      emptyValue: value === "",
     }));
 }
 
