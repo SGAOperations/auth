@@ -48,7 +48,10 @@ export default async function AcceptTransferPage() {
                   You become the only Primary Admin. {state.fromName} stays an
                   admin.
                 </li>
-                <li>You&apos;ll re-enter your password and code to accept.</li>
+                <li>
+                  You may be asked for your password and an authentication code
+                  to accept.
+                </li>
                 <li>
                   After you accept, {state.fromName} has 24 hours to cancel.
                 </li>
