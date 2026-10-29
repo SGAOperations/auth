@@ -47,6 +47,10 @@ export const serverShape = z.object({
     .min(1)
     .max(100_000)
     .default(500),
+  // Sign-in by emailed code (docs/runbooks/email-otp.md). Off unless the value
+  // is exactly "true"; any other value fails startup.
+  SGAUTH_EMAIL_OTP_ENABLED: z.enum(["true", "false"]).default("false"),
+  SGAUTH_EMAIL_OTP_DAILY_CAP: z.coerce.number().int().positive().default(100),
   UPSTASH_REDIS_REST_URL: z.url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
@@ -74,6 +78,8 @@ export const authEnvSchema = serverShape.pick({
   SGAUTH_SIGNUP_ALLOWLIST: true,
   SGAUTH_PREVIEW_GATE_PASSWORD: true,
   SGAUTH_PREVIEW_GATE: true,
+  SGAUTH_EMAIL_OTP_ENABLED: true,
+  SGAUTH_EMAIL_OTP_DAILY_CAP: true,
 });
 
 export interface VersionedSecret {

@@ -6,31 +6,37 @@ How SGAuth limits mutating and expensive endpoints (AUTH-T63, #75). Code is in `
 
 Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limits there, never inline. A rule id is part of the Redis key, so renaming one resets its counters.
 
-| Rule id                     | Endpoint                                                               | Keyed by      | Limit | Window     |
-| --------------------------- | ---------------------------------------------------------------------- | ------------- | ----- | ---------- |
-| `sign-in:ip:1m`             | `POST /api/auth/sign-in/email`                                         | IP            | 10    | 1 minute   |
-| `sign-in:ip:1h`             | `POST /api/auth/sign-in/email`                                         | IP            | 50    | 1 hour     |
-| `sign-up:ip:1h`             | `POST /api/auth/sign-up/email`                                         | IP            | 5     | 1 hour     |
-| `reset:ip:10m`              | `POST /api/auth/request-password-reset`                                | IP            | 3     | 10 minutes |
-| `reset:email:10m`           | `POST /api/auth/request-password-reset`                                | email         | 3     | 10 minutes |
-| `verify:email:1h`           | `POST /api/auth/send-verification-email`                               | email         | 3     | 1 hour     |
-| `token:session:1m`          | `/api/auth/token` (any method)                                         | session token | 60    | 1 minute   |
-| `session-lookup:session:1m` | `GET /api/sgauth/session` and `/minimal` (in-memory only, never Redis) | session token | 120   | 1 minute   |
-| `token-link:ip:10m`         | `POST /<token-link>/confirm` (AUTH-T103)                               | IP            | 20    | 10 minutes |
-| `reauth:user:1m`            | re-auth handler (AUTH-T32)                                             | user id       | 5     | 1 minute   |
-| `change-password:user:10m`  | `POST /api/auth/change-password` (AUTH-T23)                            | user id       | 10    | 10 minutes |
-| `admin:user:1m`             | admin mutation handlers (AUTH-T36)                                     | user id       | 100   | 1 minute   |
-| `admin-export:user:10m`     | `GET /api/sgauth/admin/audit/export`                                   | user id       | 10    | 10 minutes |
-| `set-password:ip:10m`       | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | IP            | 10    | 10 minutes |
-| `set-password:email:10m`    | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | email         | 5     | 10 minutes |
-| `set-password-link:user:1h` | set-password links emailed to one account (AUTH-T22)                   | user id       | 3     | 1 hour     |
-| `invite:user:1d`            | admin invites to one user, `issueAdminInvite` (AUTH-T22)               | user id       | 3     | 1 day      |
+| Rule id                       | Endpoint                                                               | Keyed by      | Limit | Window     |
+| ----------------------------- | ---------------------------------------------------------------------- | ------------- | ----- | ---------- |
+| `sign-in:ip:1m`               | `POST /api/auth/sign-in/email`                                         | IP            | 10    | 1 minute   |
+| `sign-in:ip:1h`               | `POST /api/auth/sign-in/email`                                         | IP            | 50    | 1 hour     |
+| `sign-up:ip:1h`               | `POST /api/auth/sign-up/email`                                         | IP            | 5     | 1 hour     |
+| `reset:ip:10m`                | `POST /api/auth/request-password-reset`                                | IP            | 3     | 10 minutes |
+| `reset:email:10m`             | `POST /api/auth/request-password-reset`                                | email         | 3     | 10 minutes |
+| `verify:email:1h`             | `POST /api/auth/send-verification-email`                               | email         | 3     | 1 hour     |
+| `token:session:1m`            | `/api/auth/token` (any method)                                         | session token | 60    | 1 minute   |
+| `session-lookup:session:1m`   | `GET /api/sgauth/session` and `/minimal` (in-memory only, never Redis) | session token | 120   | 1 minute   |
+| `token-link:ip:10m`           | `POST /<token-link>/confirm` (AUTH-T103)                               | IP            | 20    | 10 minutes |
+| `reauth:user:1m`              | re-auth handler (AUTH-T32)                                             | user id       | 5     | 1 minute   |
+| `change-password:user:10m`    | `POST /api/auth/change-password` (AUTH-T23)                            | user id       | 10    | 10 minutes |
+| `admin:user:1m`               | admin mutation handlers (AUTH-T36)                                     | user id       | 100   | 1 minute   |
+| `admin-export:user:10m`       | `GET /api/sgauth/admin/audit/export`                                   | user id       | 10    | 10 minutes |
+| `set-password:ip:10m`         | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | IP            | 10    | 10 minutes |
+| `set-password:email:10m`      | `POST /api/sgauth/sign-in/email-step`, `POST /set-password/request`    | email         | 5     | 10 minutes |
+| `set-password-link:user:1h`   | set-password links emailed to one account (AUTH-T22)                   | user id       | 3     | 1 hour     |
+| `invite:user:1d`              | admin invites to one user, `issueAdminInvite` (AUTH-T22)               | user id       | 3     | 1 day      |
+| `email-otp-send:email:15m`    | emailed sign-in code request (#112)                                    | email         | 3     | 15 minutes |
+| `email-otp-send:email:1d`     | emailed sign-in code request (#112)                                    | email         | 6     | 1 day      |
+| `email-otp-send:ip:1h`        | emailed sign-in code request (#112)                                    | IP            | 10    | 1 hour     |
+| `email-otp-sign-in:email:15m` | emailed sign-in code sign-in (#112)                                    | email         | 10    | 15 minutes |
+| `email-otp-sign-in:ip:1h`     | emailed sign-in code sign-in (#112)                                    | IP            | 20    | 1 hour     |
 
 - A request is blocked when any rule of its policy denies it. The response is `429` with `Retry-After` (whole seconds, at least 1), `Cache-Control: no-store` and the body `{"code":"TOO_MANY_REQUESTS","message":"Too many requests. Try again later."}`. The request never reaches Better Auth.
 - Emails are normalised (`normalizeEmail`) and hashed with SHA-256, and session tokens are hashed, before they become part of a key. IPs and user ids are used as they are. Per-email buckets count a request whether or not the account exists, so the 429 is identical either way.
 - The Better Auth routes are limited by `withAuthRateLimit` in `src/app/api/auth/[...all]/route.ts`. A route that cannot supply its identifier falls back to the IP: a verification resend with no parseable email, and a token call with no session cookie. A reset with no email runs only its IP rule.
 - The `/verify-email` expired-link resend is `POST /verify-email/resend`, not a Better Auth route, so `withAuthRateLimit` never sees it. It calls `checkRateLimit("verificationResend", { email })` itself, so it shares `verify:email:1h` with `POST /api/auth/send-verification-email`: three resends per address per hour across both. It also carries the `token-link:ip:10m` IP rule of every emailed-link page.
 - **Re-auth** is `POST /api/sgauth/reauth` in `src/app/api/sgauth/reauth/route.ts`. It calls `limitRequest("reauth", userId)` before it parses the body (5 a minute per user, see [REAUTH.md](REAUTH.md)). **The admin handlers do not exist yet.** AUTH-T36 must call `limitRequest("adminMutation", userId)` from `@/lib/rate-limit/server` first in each handler, and return the response when it is not `null`.
+- **The emailed sign-in code** (`SGAUTH_EMAIL_OTP_ENABLED`, [runbooks/email-otp.md](runbooks/email-otp.md)) is limited in the Better Auth `before` hooks of `src/lib/auth/email-otp.ts`, not by `withAuthRateLimit`, because its server actions call `auth.api` in process. Its global daily counter (`SGAUTH_EMAIL_OTP_DAILY_CAP`) is the one exception to fail-open: when the counter store is down the request answers `503 EMAIL_OTP_UNAVAILABLE`, so an outage cannot let email volume run away. Password sign-in is unaffected.
 - **The audit-log export** is `GET /api/sgauth/admin/audit/export`. It calls `limitRequest("adminExport", userId)` after the admin guard and before it writes the `AUDIT_EXPORTED` row, because each call can stream 50,000 rows.
 - **Change-password** is checked in SGAuth's Better Auth `before` hook (`src/lib/auth/password-change.ts`), not by `withAuthRateLimit`, because the user id is known only after the session lookup. An anonymous request answers 401 with no Redis call. The 429 has the same status, headers and body as the wrapper's, and nothing is verified, counted or audited for it. The limit sits above the lockout threshold on purpose: the lock stays the per-account guessing control, and this bounds scrypt cost and request volume, including requests that never reach verification. A trusted server-side `auth.api.changePassword` call is not limited.
 - The jwt plugin (AUTH-T29) mounts `/token`, and `matchAuthRoute` matches that path. If the plugin is ever moved to another path, update `matchAuthRoute`.

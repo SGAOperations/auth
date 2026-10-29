@@ -13,6 +13,8 @@ const EXEMPT: Record<string, string> = {
     "Takes no input and acts only on the caller's own session: it reads it and sends the browser to its redirect target",
   "src/app/(app)/account/actions.ts":
     "Edits only the caller's own name and preferredName: the target is the session user, never an input, and canUpdateOwnProfile denies any other id",
+  "src/app/login/code/actions.ts":
+    "Anonymous emailed-code sign-in: control of the mailbox is the credential, the plugin refuses ineligible accounts at send and at sign-in, and every accepted request answers the same for every address",
   "src/app/api/csp-report/route.ts":
     "Unauthenticated browser CSP report sink; it acts on no user and only writes a redacted log line",
   "src/app/api/sgauth/sessions/[id]/route.ts":
@@ -48,15 +50,40 @@ const EXEMPT: Record<string, string> = {
 };
 
 // Thin route binders whose logic lives in a handler module. A binder counts as
-// guarded when it imports its handlers from `BINDER_MODULE` and the handler
-// file imports and calls both requireAdmin and can().
-const BINDER_MODULE = "@/lib/admin/users/server";
-const HANDLERS_FILE = "src/lib/admin/users/handlers.ts";
-const BINDERS = [
-  "src/app/api/sgauth/admin/users/route.ts",
-  "src/app/api/sgauth/admin/users/[id]/route.ts",
-  "src/app/api/sgauth/admin/users/[id]/[action]/route.ts",
+// guarded when it imports its handlers from its group's `module` and the
+// group's handler file passes the group's `guarded` check. The user handlers
+// call requireAdmin and can() on the target. The import handlers act on no
+// single target: requireAdmin runs can(actor, "accessAdmin"), and the plan runs
+// can() per row.
+interface BinderGroup {
+  module: string;
+  handlersFile: string;
+  routes: string[];
+  guarded(handlersSource: string): boolean;
+}
+const BINDER_GROUPS: BinderGroup[] = [
+  {
+    module: "@/lib/admin/users/server",
+    handlersFile: "src/lib/admin/users/handlers.ts",
+    routes: [
+      "src/app/api/sgauth/admin/users/route.ts",
+      "src/app/api/sgauth/admin/users/[id]/route.ts",
+      "src/app/api/sgauth/admin/users/[id]/[action]/route.ts",
+    ],
+    guarded: (source) => handlersAreGuarded(source),
+  },
+  {
+    module: "@/lib/user-import/server",
+    handlersFile: "src/lib/user-import/handlers.ts",
+    routes: [
+      "src/app/api/sgauth/admin/users/import/route.ts",
+      "src/app/api/sgauth/admin/users/import/preview/route.ts",
+    ],
+    guarded: (source) =>
+      importsAndCalls(source, "requireAdmin", "@/lib/admin-api"),
+  },
 ];
+const BINDERS = BINDER_GROUPS.flatMap((group) => group.routes);
 
 const MUTATING_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
 
@@ -134,9 +161,9 @@ export function handlersAreGuarded(handlersSource: string): boolean {
   );
 }
 
-/** True when `source` imports something from the binder module. */
-export function importsBinderModule(source: string): boolean {
-  const escapedModule = BINDER_MODULE.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+/** True when `source` imports something from the binder `module`. */
+export function importsBinderModule(source: string, module: string): boolean {
+  const escapedModule = module.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
   return new RegExp(
     `import\\s*\\{[^}]+\\}\\s*from\\s*["']${escapedModule}["']`,
   ).test(source);
@@ -246,17 +273,18 @@ describe("mutating routes and server actions", () => {
     .filter((entry) => statSync(path.join(appDir, entry)).isFile())
     .map((entry) => `src/app/${entry}`);
 
-  const handlersGuarded = handlersAreGuarded(
-    readFileSync(path.join(root, HANDLERS_FILE), "utf8"),
+  const guardedGroups = BINDER_GROUPS.filter((group) =>
+    group.guarded(readFileSync(path.join(root, group.handlersFile), "utf8")),
   );
 
   it("every one imports and calls can(), or is exempt with a reason", () => {
     const unguarded = files.filter((relPath) => {
       const source = readFileSync(path.join(root, relPath), "utf8");
-      const delegated =
-        BINDERS.includes(relPath) &&
-        handlersGuarded &&
-        importsBinderModule(source);
+      const delegated = guardedGroups.some(
+        (group) =>
+          group.routes.includes(relPath) &&
+          importsBinderModule(source, group.module),
+      );
       return (
         isMutatingEntry(relPath, source) &&
         !isGuarded(source) &&
