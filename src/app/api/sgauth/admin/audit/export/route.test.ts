@@ -63,12 +63,24 @@ describe("GET /api/sgauth/admin/audit/export", () => {
     const denied = Response.json({ code: "NOT_ADMIN" }, { status: 403 });
     mocks.requireAdmin.mockResolvedValue({ response: denied });
 
-    expect(await get()).toBe(denied);
+    const response = await get();
+    expect(response).toBe(denied);
+    expect(response.status).toBe(403);
     expect(mocks.requireAdmin).toHaveBeenCalledWith({
       mutation: false,
       action: "accessAdmin",
     });
     expect(mocks.limitRequest).not.toHaveBeenCalled();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("passes a 401 for a signed-out caller through", async () => {
+    const denied = Response.json({ code: "UNAUTHENTICATED" }, { status: 401 });
+    mocks.requireAdmin.mockResolvedValue({ response: denied });
+
+    const response = await get();
+    expect(response).toBe(denied);
+    expect(response.status).toBe(401);
     expect(mocks.audit).not.toHaveBeenCalled();
   });
 
