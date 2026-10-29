@@ -69,6 +69,8 @@ interface ActionDef {
   authz: UserAction;
   /** The audit event type a success writes. */
   audit: string;
+  /** A repeat on the same user is a no-op: no write and no audit row. */
+  idempotent?: true;
   call(
     as: Actor | null,
     target: User,
@@ -117,6 +119,7 @@ const ACTIONS: ActionDef[] = [
     name: "update-profile",
     authz: "updateProfile",
     audit: "USER_UPDATED",
+    idempotent: true,
     call: (as, target) =>
       callRoute(patchUser, {
         method: "PATCH",
@@ -130,6 +133,7 @@ const ACTIONS: ActionDef[] = [
     name: "assign-position",
     authz: "assignPosition",
     audit: "POSITION_ASSIGNED",
+    idempotent: true,
     call: (as, target, { positionId }) =>
       callRoute(assignPositions, {
         method: "PATCH",
@@ -261,6 +265,7 @@ async function runCell({
   positionId,
   tracker,
   checkDrift,
+  repeat = false,
 }: {
   world: World;
   action: ActionDef;
@@ -269,6 +274,8 @@ async function runCell({
   positionId: string;
   tracker: ReturnType<typeof auditTracker>;
   checkDrift: boolean;
+  /** This action already succeeded on this very user earlier in the row. */
+  repeat?: boolean;
 }) {
   const label = `${world.kind} > ${action.name} > ${targetKey}`;
   const target = world.targets[targetKey];
@@ -304,7 +311,7 @@ async function runCell({
     expect(
       rows.map((row) => row.type),
       label,
-    ).toEqual([action.audit]);
+    ).toEqual(repeat ? [] : [action.audit]);
   } else {
     expect(rows, label).toEqual([]);
     expect(await snapshotUser(target.id), label).toEqual(before);
@@ -356,7 +363,12 @@ describe.each([
         const { id: positionId } = await createPosition();
         const tracker = auditTracker(() => involved(world));
         const row = table[action.name];
+        // The Primary Admin's `self` and Primary Admin columns are one user. A
+        // second identical write to the same user changes nothing, so the
+        // handlers correctly write no audit row for it.
+        const done = new Set<string>();
         for (const [index, targetKey] of TARGET_KEYS.entries()) {
+          const targetId = world.targets[targetKey].id;
           await runCell({
             world,
             action,
@@ -365,7 +377,9 @@ describe.each([
             positionId,
             tracker,
             checkDrift: true,
+            repeat: Boolean(action.idempotent) && done.has(targetId),
           });
+          done.add(targetId);
         }
       });
     },
