@@ -105,6 +105,10 @@ test("logout on product A signs product B out", async ({
 test("a missing or expired session redirects to login and returns afterwards", async ({
   page,
 }) => {
+  // The run's earlier sign-ins have used the sign-in budget by now, so this
+  // test's two sign-ins can wait up to a minute for the window to clear.
+  test.setTimeout(120_000);
+
   // No cookie: the proxy redirects, keeping the path and query.
   await page.goto(`${A}/protected?x=1`);
   expect(new URL(page.url()).origin + new URL(page.url()).pathname).toBe(
