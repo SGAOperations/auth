@@ -146,6 +146,9 @@ export function AuditFilters({
           maxLength={254}
           autoComplete="off"
           {...describe("user")}
+          {...(!errors.user && userNote
+            ? { "aria-describedby": "user-error" }
+            : {})}
         />
       </Field>
 

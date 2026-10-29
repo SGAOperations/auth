@@ -260,7 +260,7 @@ export function AuditTable({ rows }: { rows: AuditTableRow[] }) {
                     {entry.actorHref ? (
                       <FilterLink
                         href={entry.actorHref}
-                        label="Filter by this user"
+                        label="Filter by actor"
                       />
                     ) : null}
                   </div>
@@ -271,7 +271,7 @@ export function AuditTable({ rows }: { rows: AuditTableRow[] }) {
                     {entry.targetHref ? (
                       <FilterLink
                         href={entry.targetHref}
-                        label="Filter by this user"
+                        label="Filter by target"
                       />
                     ) : null}
                   </div>
