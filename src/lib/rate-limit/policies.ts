@@ -57,6 +57,10 @@ export const POLICIES = {
   adminMutation: [
     { id: "admin:user:1m", limit: 100, windowSeconds: 60, by: "user" },
   ],
+  // GET /api/sgauth/admin/audit/export: each call streams up to 50,000 rows.
+  adminExport: [
+    { id: "admin-export:user:10m", limit: 10, windowSeconds: 600, by: "user" },
+  ],
   // The email step and the expired-link form. Per-email buckets count whether
   // or not the account exists, so a 429 is identical either way.
   setPasswordRequest: [
