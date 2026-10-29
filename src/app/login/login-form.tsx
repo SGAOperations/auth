@@ -36,7 +36,12 @@ const linkClass = "underline underline-offset-4 hover:text-foreground";
 // Two steps of client state; the URL and its `redirect` param never change.
 // Step 2 is the same for every address, so nothing here reveals whether an
 // account exists or has a password.
-export function LoginForm() {
+export function LoginForm({
+  emailCodeEnabled = false,
+}: {
+  /** Shows the link to /login/code; off while SGAUTH_EMAIL_OTP_ENABLED is off. */
+  emailCodeEnabled?: boolean;
+}) {
   const [step, setStep] = useState<"email" | "password">("email");
   const [email, setEmail] = useState("");
   const [hint, setHint] = useState(false);
@@ -228,6 +233,15 @@ export function LoginForm() {
                   <FormDescription>{AUTH_COPY.firstSignInHint}</FormDescription>
                 ) : null}
                 <FormMessage />
+                {emailCodeEnabled ? (
+                  <p className="text-sm text-muted-foreground">
+                    Forgot your password?{" "}
+                    <Link href="/login/code" className={linkClass}>
+                      Email me a sign-in code instead
+                    </Link>
+                    .
+                  </p>
+                ) : null}
               </FormItem>
             )}
           />

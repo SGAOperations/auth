@@ -55,6 +55,11 @@ describe("POLICIES", () => {
       ["set-password:email:10m", 5, 600, "email"],
       ["set-password-link:user:1h", 3, 3600, "user"],
       ["invite:user:1d", 3, 86400, "user"],
+      ["email-otp-send:email:15m", 3, 900, "email"],
+      ["email-otp-send:email:1d", 6, 86400, "email"],
+      ["email-otp-send:ip:1h", 10, 3600, "ip"],
+      ["email-otp-sign-in:email:15m", 10, 900, "email"],
+      ["email-otp-sign-in:ip:1h", 20, 3600, "ip"],
     ]);
   });
 
