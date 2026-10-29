@@ -8,6 +8,7 @@ export const REASON_COPY: Record<AuthzDenialReason, string> = {
   ACTOR_INACTIVE: "Your account isn't active.",
   NOT_ADMIN: "Only admins can do this.",
   SELF_MODIFICATION: "You can't change your own admin access or status.",
+  NOT_SELF: "You can only do this to your own account.",
   PRIMARY_ADMIN_PROTECTED:
     "The Primary Admin can only be changed through a Primary Admin transfer.",
   PRIMARY_ADMIN_REQUIRED:

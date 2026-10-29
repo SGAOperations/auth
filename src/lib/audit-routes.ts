@@ -209,6 +209,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
       "src/app/api/sgauth/admin/users/[id]/positions/route.ts",
     ],
   },
+  "src/app/(app)/account/actions.ts": {
+    kind: "exempt",
+    reason:
+      "self-service name and preferredName on the caller's own row; the catalog has no profile-edit event (same decision as /update-user)",
+  },
   // LOGIN_SUCCESS and LOGIN_FAILED come from the Better Auth hooks that the
   // action reaches through auth.api.signInEmailOTP.
   "src/app/login/code/actions.ts": {
