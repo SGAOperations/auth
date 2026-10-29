@@ -5,7 +5,19 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 export type JobResult = Record<string, unknown>;
 
-export type JobRun = () => Promise<JobResult>;
+/** Thrown by a job for a request it refuses to act on; answered 400, not 500. */
+export class JobInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "JobInputError";
+  }
+}
+
+/**
+ * Most jobs take no input and ignore the request. One that does, such as a dry
+ * run flag, reads the URL only: the body is never parsed.
+ */
+export type JobRun = (req: Request) => Promise<JobResult>;
 
 export interface JobLogger {
   info(msg: string, fields?: Record<string, unknown>): void;
@@ -52,9 +64,9 @@ function json(body: unknown, status: number): Response {
 }
 
 /**
- * Wraps a job in the bearer check. The request body is ignored: a job takes no
- * input. Every unauthorized case answers the same 401, so a caller learns
- * nothing about why it was refused.
+ * Wraps a job in the bearer check. The request body is ignored. Every
+ * unauthorized case answers the same 401, so a caller learns nothing about why
+ * it was refused.
  */
 export function createJobHandler({
   name,
@@ -71,10 +83,13 @@ export function createJobHandler({
     }
 
     try {
-      const result = await run();
+      const result = await run(req);
       log.info("job.completed", { job: name, ...result });
       return json({ job: name, ok: true, result }, 200);
     } catch (err) {
+      if (err instanceof JobInputError) {
+        return json({ job: name, ok: false, error: "bad_request" }, 400);
+      }
       log.error("job.failed", { job: name, err });
       try {
         await onFailure?.(name);
@@ -84,9 +99,4 @@ export function createJobHandler({
       return json({ job: name, ok: false, error: "job_failed" }, 500);
     }
   };
-}
-
-/** Body of a job whose ticket has not landed yet. It changes nothing. */
-export function notImplementedJob(ticket: string): JobRun {
-  return async () => ({ status: "not_implemented", ticket });
 }

@@ -583,6 +583,9 @@ describe("admin user-management metadata", () => {
     ["USER_DEACTIVATED", { revokedSessions: 3 }],
     ["USER_DELETED", deleted],
     ["USER_DELETED", { ...deleted, removedPositionIds: [] }],
+    ["USER_DELETED", { ...deleted, reason: "deactivated_30d" }],
+    ["USER_DELETED", { ...deleted, reason: "inactive_12mo" }],
+    ["USER_DELETED", { ...deleted, reason: "unverified_7d" }],
     ["USER_CREATED", { source: "admin", invited: true }],
     ["USER_CREATED", { source: "admin" }],
   ])("accepts %s %j", (type, metadata) => {
@@ -600,6 +603,16 @@ describe("admin user-management metadata", () => {
     ["USER_DELETED", {}],
     ["USER_DELETED", { reason: "admin" }],
     ["USER_DELETED", { ...deleted, reason: "retention" }],
+    ["USER_DELETED", { removedPositionIds: [] }],
+    ["USER_DELETED", { ...deleted, removedPositionIds: [""] }],
+    [
+      "USER_DELETED",
+      {
+        ...deleted,
+        removedPositionIds: Array.from({ length: 51 }, (_, i) => `p${i}`),
+      },
+    ],
+    ["USER_DELETED", { ...deleted, extra: 1 }],
     ["USER_CREATED", { source: "admin", invited: "yes" }],
   ])("rejects %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);

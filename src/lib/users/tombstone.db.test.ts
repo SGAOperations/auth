@@ -148,6 +148,31 @@ describe("tombstoneUser", () => {
     );
   });
 
+  it("records a retention rule as the reason, as a system action", async () => {
+    const user = await createUser({
+      lastLoginAt: new Date(),
+      inactivityNoticeSentAt: new Date(),
+    });
+    await tombstoneUser(prisma, {
+      userId: user.id,
+      reason: "inactive_12mo",
+      actor: { actorType: "SYSTEM" },
+    });
+
+    expect(
+      await prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
+    ).toMatchObject({ status: "DELETED", inactivityNoticeSentAt: null });
+    const rows = await prisma.auditEvent.findMany({
+      where: { targetId: user.id, type: "USER_DELETED" },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      actorType: "SYSTEM",
+      actorUserId: null,
+      metadata: { reason: "inactive_12mo", removedPositionIds: [] },
+    });
+  });
+
   it("lets the old address sign up again as a different user", async () => {
     const { user } = await richUser();
     await tombstoneUser(prisma, {

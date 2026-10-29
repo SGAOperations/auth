@@ -231,10 +231,16 @@ export const AUDIT_CATALOG = {
   USER_REACTIVATED: userTarget,
   // The tombstone (docs/DATA_HANDLING.md). `removedPositionIds` stands in for
   // one POSITION_UNASSIGNED per position, so a delete writes a single row.
+  // `reason` names the rule that fired: an admin, or a retention rule (#90).
   USER_DELETED: {
     targetType: "USER",
     metadata: z.strictObject({
-      reason: z.enum(["admin"]),
+      reason: z.enum([
+        "admin",
+        "deactivated_30d",
+        "inactive_12mo",
+        "unverified_7d",
+      ]),
       removedPositionIds: z.array(z.string().min(1)).max(50),
     }),
   },
