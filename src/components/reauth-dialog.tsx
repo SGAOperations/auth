@@ -54,11 +54,17 @@ const ERROR_COPY = {
 
 interface ReauthContextValue {
   fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  /** Opens the prompt. Resolves true once the session is fresh, false on cancel. */
+  prompt: () => Promise<boolean>;
 }
 
 const ReauthContext = createContext<ReauthContextValue | null>(null);
 
-/** A `fetch` that prompts for credentials when the server asks for them. */
+/**
+ * A `fetch` that prompts for credentials when the server asks for them, and the
+ * bare `prompt` for a caller that learns of the need some other way, such as a
+ * Server Action's result.
+ */
 export function useReauth(): ReauthContextValue {
   const value = useContext(ReauthContext);
   if (!value) throw new Error("useReauth must be used inside <ReauthProvider>");
@@ -99,6 +105,7 @@ export function ReauthProvider({
     () => ({
       fetch: (input, init) =>
         fetchWithReauth(input, init, { onReauthRequired: prompt }),
+      prompt,
     }),
     [prompt],
   );

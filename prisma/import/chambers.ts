@@ -4,6 +4,10 @@ import { z } from "zod";
 import type { Prisma, PrismaClient } from "../../src/generated/prisma/index.js";
 import { parseAuditEvent } from "../../src/lib/audit-catalog.js";
 import {
+  NORTHEASTERN_DOMAIN,
+  isNortheasternEmail,
+} from "../../src/lib/import/email-domain.js";
+import {
   BOARD_ROLES,
   NEON_ADMIN_ROLES,
   SUPABASE_ADMIN_ROLES,
@@ -22,7 +26,7 @@ import { UsageError } from "../seed/sync-env.js";
 // in memory and in Account.password: never in a report, a log or an error. See
 // docs/runbooks/chambers-import.md.
 
-export const NORTHEASTERN_DOMAIN = "northeastern.edu";
+export { NORTHEASTERN_DOMAIN, isNortheasternEmail };
 export const LEGACY_BCRYPT_PREFIX = "bcrypt$";
 
 /** The input is unusable: bad file, bad mapping, unmapped roles, no approval. */
@@ -255,11 +259,6 @@ export async function loadMapping(path: string): Promise<ImportMapping> {
     roles,
     sha256: sha256Of(bytes),
   };
-}
-
-/** True only for an address ending in exactly `@northeastern.edu`. */
-export function isNortheasternEmail(email: string): boolean {
-  return email.trim().toLowerCase().endsWith(`@${NORTHEASTERN_DOMAIN}`);
 }
 
 /** Old address to its replacement, with the line it came from. */
@@ -817,7 +816,7 @@ export type ApplyInput = {
   now: Date;
 };
 
-function isUniqueViolation(error: unknown): boolean {
+export function isUniqueViolation(error: unknown): boolean {
   return (
     typeof error === "object" &&
     error !== null &&

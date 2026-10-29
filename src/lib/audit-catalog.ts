@@ -211,7 +211,12 @@ export const AUDIT_CATALOG = {
     }),
   },
   LOGOUT: sessionTarget,
-  SESSION_REVOKED: sessionTarget,
+  // An admin revoking one of another user's sessions names that user, so the
+  // user's timeline can find the row. The user's own revoke leaves it out.
+  SESSION_REVOKED: {
+    targetType: "SESSION",
+    metadata: z.strictObject({ userId: z.uuid().optional() }),
+  },
   SESSIONS_REVOKED: {
     targetType: "USER",
     metadata: z.strictObject({ scope: z.enum(["all", "others"]) }),
@@ -244,7 +249,14 @@ export const AUDIT_CATALOG = {
   USER_CREATED: {
     targetType: "USER",
     metadata: z.strictObject({
-      source: z.enum(["self_signup", "admin", "bulk_import", "system"]),
+      source: z.enum([
+        "self_signup",
+        "admin",
+        "bulk_import",
+        "system",
+        // Aplio's server, through POST /api/provision/aplio/users.
+        "aplio_dual_write",
+      ]),
       // Set by the admin create endpoint only: whether an invite was issued.
       invited: z.boolean().optional(),
     }),
@@ -388,7 +400,8 @@ export const AUDIT_CATALOG = {
       reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
     }),
   },
-  // One per `--apply` of scripts/import-users.ts, and one per admin CSV import.
+  // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
+  // and one per admin CSV import.
   // Counts and checksums only: no address, name, position key or hash. A later
   // import source adds a member keyed on `source`.
   BULK_IMPORT: {
@@ -406,6 +419,16 @@ export const AUDIT_CATALOG = {
         skipped: count,
         emailsReplaced: count,
         positionsAssigned: count,
+      }),
+      z.strictObject({
+        source: z.literal("aplio"),
+        sourceSha256: sha256Hex,
+        created: count,
+        merged: count,
+        duplicateInSource: count,
+        skipped: count,
+        legacyEmails: count,
+        aplioAdmins: count,
       }),
       z.strictObject({
         source: z.literal("csv"),
