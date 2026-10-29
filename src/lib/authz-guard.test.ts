@@ -25,6 +25,8 @@ const EXEMPT: Record<string, string> = {
     "Expired-link resend POST: anonymous by design, the signed verify token names the address and the response is the same whether or not an account exists",
   "src/app/unlock/confirm/route.ts":
     "Emailed-link confirm POST: anonymous by design, the single-use unlock token is the authority, and it acts only on the account that token names",
+  "src/app/verify-email-change/confirm/route.ts":
+    "Emailed-link confirm POST: anonymous by design, the single-use email-change token is the authority, and it acts only on the account that token names; the admin's can(changeEmail) ran when the request was made",
   "src/app/transfer/cancel/confirm/route.ts":
     "Emailed-link confirm POST: anonymous by design, the single-use cancel token is the authority, and it acts only on the one transfer that token names",
   "src/app/set-password/confirm/route.ts":

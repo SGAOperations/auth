@@ -17,6 +17,8 @@ export const AUDIT_EVENT_TYPES = [
   "PASSWORD_CHANGE_FAILED",
   "PASSWORD_REHASHED",
   "EMAIL_VERIFIED",
+  "EMAIL_CHANGE_REQUESTED",
+  "EMAIL_CHANGED",
   "USER_CREATED",
   "USER_INVITED",
   "USER_UPDATED",
@@ -161,6 +163,7 @@ export type TransferCancelReason = (typeof TRANSFER_CANCEL_REASONS)[number];
 
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 const count = z.number().int().nonnegative();
+const emailAddress = z.string().min(3).max(320);
 
 const breakGlassOperator = z.string().trim().min(1).max(100);
 const breakGlassReason = z.string().trim().min(10).max(500);
@@ -222,6 +225,31 @@ export const AUDIT_CATALOG = {
   },
   PASSWORD_REHASHED: userTarget,
   EMAIL_VERIFIED: userTarget,
+  // An admin asked to change a user's email (AUTH-T24). Both addresses are PII,
+  // so they are listed in AUDIT_PII_METADATA_FIELDS and the tombstone scrubs them.
+  EMAIL_CHANGE_REQUESTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      requestId: z.string().min(1),
+      fromEmail: emailAddress,
+      toEmail: emailAddress,
+      // Set when this request replaced a still-open one.
+      supersededRequestId: z.string().min(1).optional(),
+    }),
+  },
+  // The new mailbox confirmed. Written with a SYSTEM actor: the token holder has
+  // no session, and `requestedById` names the admin.
+  EMAIL_CHANGED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      requestId: z.string().min(1),
+      requestedById: z.string().min(1),
+      fromEmail: emailAddress,
+      toEmail: emailAddress,
+      legacyEmail: z.strictObject({ from: z.boolean(), to: z.boolean() }),
+      sessionsRevoked: count,
+    }),
+  },
   USER_CREATED: {
     targetType: "USER",
     metadata: z.strictObject({
@@ -406,6 +434,16 @@ export const AUDIT_CATALOG = {
   // is an email address, and the catalog keeps PII out of audit rows.
   AUDIT_EXPORTED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };
+
+/**
+ * The metadata keys that hold personal data, by event type. The tombstone
+ * removes them from every row that targets the deleted user. An event that
+ * carries PII in `metadata` must be listed here, and nowhere else.
+ */
+export const AUDIT_PII_METADATA_FIELDS = {
+  EMAIL_CHANGE_REQUESTED: ["fromEmail", "toEmail"],
+  EMAIL_CHANGED: ["fromEmail", "toEmail"],
+} as const satisfies Partial<Record<AuditEventType, readonly string[]>>;
 
 export type AuditMetadata<T extends AuditEventType> = z.input<
   (typeof AUDIT_CATALOG)[T]["metadata"]
