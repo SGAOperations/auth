@@ -87,7 +87,6 @@ interface AuditEventSpec {
 const noMetadata = z.strictObject({});
 
 const userTarget = { targetType: "USER", metadata: noMetadata } as const;
-const productTarget = { targetType: "PRODUCT", metadata: noMetadata } as const;
 const transferTarget = {
   targetType: "TRANSFER",
   metadata: noMetadata,
@@ -114,6 +113,24 @@ const positionChanges = z.strictObject({
   category: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
 });
+
+/** The product fields an update can change. `slug` is immutable and absent. */
+export const PRODUCT_AUDIT_FIELDS = [
+  "name",
+  "description",
+  "baseUrl",
+  "iconUrl",
+  "isActive",
+  "sortOrder",
+  "visibleToPositionKeys",
+  "loginRedirectPath",
+] as const;
+
+export type ProductAuditField = (typeof PRODUCT_AUDIT_FIELDS)[number];
+
+// Slugs and field names are not PII, and the slug keeps the history readable
+// after a delete. Never put values here: an update records field names only.
+const productSlugMetadata = z.strictObject({ slug: z.string().min(2).max(64) });
 
 const hasChange = (changes: Record<string, unknown>) =>
   Object.keys(changes).length > 0;
@@ -142,6 +159,21 @@ export const TRANSFER_CANCEL_REASONS = [
 
 export type TransferCancelReason = (typeof TRANSFER_CANCEL_REASONS)[number];
 
+/**
+ * Why an emailed-code sign-in failed: a wrong, expired or spent code, or the
+ * refusal rule that applied (email-otp-policy.ts). Rule names only, never an
+ * address or a code.
+ */
+export const OTP_LOGIN_FAILED_REASONS = [
+  "OTP_INVALID",
+  "OTP_NO_ACCOUNT",
+  "OTP_INACTIVE",
+  "OTP_UNVERIFIED",
+  "OTP_ADMIN",
+  "OTP_MFA",
+  "OTP_LOCKED",
+] as const;
+
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 const count = z.number().int().nonnegative();
 
@@ -157,6 +189,7 @@ export const AUDIT_CATALOG = {
         "email_verification",
         "totp",
         "backup_code",
+        "email_otp",
         "other",
       ]),
     }),
@@ -170,8 +203,11 @@ export const AUDIT_CATALOG = {
         "ACCOUNT_DEACTIVATED",
         "ACCOUNT_LOCKED",
         "INVALID_TWO_FACTOR_CODE",
+        ...OTP_LOGIN_FAILED_REASONS,
         "OTHER",
       ]),
+      // Set on an emailed-code sign-in only; the password path omits it.
+      method: z.literal("email_otp").optional(),
     }),
   },
   LOGOUT: sessionTarget,
@@ -208,7 +244,7 @@ export const AUDIT_CATALOG = {
   USER_CREATED: {
     targetType: "USER",
     metadata: z.strictObject({
-      source: z.enum(["self_signup", "admin", "system"]),
+      source: z.enum(["self_signup", "admin", "bulk_import", "system"]),
       // Set by the admin create endpoint only: whether an invite was issued.
       invited: z.boolean().optional(),
     }),
@@ -231,10 +267,16 @@ export const AUDIT_CATALOG = {
   USER_REACTIVATED: userTarget,
   // The tombstone (docs/DATA_HANDLING.md). `removedPositionIds` stands in for
   // one POSITION_UNASSIGNED per position, so a delete writes a single row.
+  // `reason` names the rule that fired: an admin, or a retention rule (#90).
   USER_DELETED: {
     targetType: "USER",
     metadata: z.strictObject({
-      reason: z.enum(["admin"]),
+      reason: z.enum([
+        "admin",
+        "deactivated_30d",
+        "inactive_12mo",
+        "unverified_7d",
+      ]),
       removedPositionIds: z.array(z.string().min(1)).max(50),
     }),
   },
@@ -260,9 +302,14 @@ export const AUDIT_CATALOG = {
   // createdAt) index. Position-side history reads metadata.positionId.
   POSITION_ASSIGNED: positionOnUser,
   POSITION_UNASSIGNED: positionOnUser,
-  PRODUCT_CREATED: productTarget,
-  PRODUCT_UPDATED: productTarget,
-  PRODUCT_DELETED: productTarget,
+  PRODUCT_CREATED: { targetType: "PRODUCT", metadata: productSlugMetadata },
+  PRODUCT_UPDATED: {
+    targetType: "PRODUCT",
+    metadata: productSlugMetadata.extend({
+      fields: z.array(z.enum(PRODUCT_AUDIT_FIELDS)).min(1),
+    }),
+  },
+  PRODUCT_DELETED: { targetType: "PRODUCT", metadata: productSlugMetadata },
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,
   // `via` says which door the cancel came through. The transfer row already
@@ -341,23 +388,37 @@ export const AUDIT_CATALOG = {
       reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
     }),
   },
-  // One per `--apply` of scripts/import-users.ts. Counts and checksums only: no
-  // address, name or hash. A later import source widens `source`.
+  // One per `--apply` of scripts/import-users.ts, and one per admin CSV import.
+  // Counts and checksums only: no address, name, position key or hash. A later
+  // import source adds a member keyed on `source`.
   BULK_IMPORT: {
     targetType: null,
-    metadata: z.strictObject({
-      source: z.enum(["chambers"]),
-      exportSource: z.enum(["chambers-neon", "supabase"]),
-      sourceSha256: sha256Hex,
-      mappingSha256: sha256Hex,
-      replacementsSha256: sha256Hex.nullable(),
-      created: count,
-      merged: count,
-      unchanged: count,
-      skipped: count,
-      emailsReplaced: count,
-      positionsAssigned: count,
-    }),
+    metadata: z.discriminatedUnion("source", [
+      z.strictObject({
+        source: z.literal("chambers"),
+        exportSource: z.enum(["chambers-neon", "supabase"]),
+        sourceSha256: sha256Hex,
+        mappingSha256: sha256Hex,
+        replacementsSha256: sha256Hex.nullable(),
+        created: count,
+        merged: count,
+        unchanged: count,
+        skipped: count,
+        emailsReplaced: count,
+        positionsAssigned: count,
+      }),
+      z.strictObject({
+        source: z.literal("csv"),
+        rows: count,
+        created: count,
+        updated: count,
+        unchanged: count,
+        skipped: count,
+        positionsAssigned: count,
+        skipInvalid: z.boolean(),
+        sendInvites: z.boolean(),
+      }),
+    ]),
   },
   JWKS_ROTATED: noTarget,
   // An admin downloaded the audit log as CSV. No filter values: a user filter

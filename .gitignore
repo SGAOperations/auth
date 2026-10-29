@@ -20,6 +20,12 @@
 # production
 /build
 
+# playwright (e2e)
+/e2e/product-stub/.next/
+/playwright-report/
+/test-results/
+/playwright/.cache/
+
 # misc
 .DS_Store
 *.pem

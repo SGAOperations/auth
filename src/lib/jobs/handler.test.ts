@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createJobHandler,
   isAuthorized,
-  notImplementedJob,
+  JobInputError,
+  type JobRun,
 } from "@/lib/jobs/handler";
 
 const SECRET = "j".repeat(32);
@@ -10,7 +11,7 @@ const SECRET = "j".repeat(32);
 function setup(
   { secret }: { secret: string | undefined } = { secret: SECRET },
 ) {
-  const run = vi.fn(async () => ({ executed: 2 }));
+  const run = vi.fn<JobRun>(async () => ({ executed: 2 }));
   const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const handler = createJobHandler({ name: "demo", run, secret, log });
   return { run, log, handler };
@@ -119,6 +120,38 @@ describe("createJobHandler", () => {
     });
   });
 
+  it("hands the request to the job", async () => {
+    const { handler, run } = setup();
+    const req = request(`Bearer ${SECRET}`);
+    await handler(req);
+    expect(run).toHaveBeenCalledExactlyOnceWith(req);
+  });
+
+  it("answers 400 and does not signal a failure for a JobInputError", async () => {
+    const onFailure = vi.fn();
+    const run = vi.fn(async () => {
+      throw new JobInputError("bad flag");
+    });
+    const log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const handler = createJobHandler({
+      name: "demo",
+      run,
+      secret: SECRET,
+      log,
+      onFailure,
+    });
+    const response = await handler(request(`Bearer ${SECRET}`));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      job: "demo",
+      ok: false,
+      error: "bad_request",
+    });
+    expect(onFailure).not.toHaveBeenCalled();
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
   it("calls onFailure with the job name when the job throws, and not otherwise", async () => {
     const onFailure = vi.fn();
     const run = vi.fn(async () => ({ ok: 1 }));
@@ -177,14 +210,5 @@ describe("createJobHandler", () => {
     for (const response of responses) {
       expect(response.headers.get("cache-control")).toBe("no-store");
     }
-  });
-});
-
-describe("notImplementedJob", () => {
-  it("resolves a marker naming the ticket", async () => {
-    await expect(notImplementedJob("#89")()).resolves.toEqual({
-      status: "not_implemented",
-      ticket: "#89",
-    });
   });
 });

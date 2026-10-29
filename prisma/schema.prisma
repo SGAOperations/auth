@@ -42,7 +42,9 @@ model User {
   deletedAt                      DateTime?
   legacyEmail                    Boolean                @default(false)
   lastLoginAt                    DateTime?
-  passwordChangedAt              DateTime?
+  /// set when the 11-month inactivity notice was sent (AUTH-T78); a later lastLoginAt supersedes it
+  inactivityNoticeSentAt         DateTime?
+  passwordChangedAt             DateTime?
   twoFactorEnabled               Boolean                @default(false)
   createdAt                      DateTime               @default(now())
   updatedAt                      DateTime               @updatedAt

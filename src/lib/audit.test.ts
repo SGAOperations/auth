@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import {
   audit,
+  auditMany,
   auditRequestInfo,
   parseAuditEvent,
   withAuditContext,
@@ -533,6 +534,39 @@ describe("position lifecycle metadata", () => {
   });
 });
 
+describe("product lifecycle metadata", () => {
+  const event = (type: string, metadata: unknown) => ({
+    type,
+    actorType: "USER",
+    actorUserId: "u1",
+    targetType: "PRODUCT",
+    targetId: "p1",
+    metadata,
+  });
+
+  it.each([
+    ["PRODUCT_CREATED", { slug: "vaultz" }],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["baseUrl"] }],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["name", "isActive"] }],
+    ["PRODUCT_DELETED", { slug: "vaultz" }],
+  ])("accepts %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();
+  });
+
+  it.each([
+    ["PRODUCT_CREATED", {}],
+    ["PRODUCT_CREATED", { slug: "vaultz", extra: 1 }],
+    ["PRODUCT_UPDATED", {}],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: [] }],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["slug"] }],
+    ["PRODUCT_UPDATED", { slug: "vaultz" }],
+    ["PRODUCT_DELETED", {}],
+    ["PRODUCT_DELETED", { slug: "vaultz", extra: 1 }],
+  ])("rejects %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
+  });
+});
+
 describe("PA_TRANSFER_CANCELLED metadata", () => {
   const event = (metadata: unknown) => ({
     type: "PA_TRANSFER_CANCELLED",
@@ -583,8 +617,12 @@ describe("admin user-management metadata", () => {
     ["USER_DEACTIVATED", { revokedSessions: 3 }],
     ["USER_DELETED", deleted],
     ["USER_DELETED", { ...deleted, removedPositionIds: [] }],
+    ["USER_DELETED", { ...deleted, reason: "deactivated_30d" }],
+    ["USER_DELETED", { ...deleted, reason: "inactive_12mo" }],
+    ["USER_DELETED", { ...deleted, reason: "unverified_7d" }],
     ["USER_CREATED", { source: "admin", invited: true }],
     ["USER_CREATED", { source: "admin" }],
+    ["USER_CREATED", { source: "bulk_import" }],
   ])("accepts %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();
   });
@@ -600,7 +638,18 @@ describe("admin user-management metadata", () => {
     ["USER_DELETED", {}],
     ["USER_DELETED", { reason: "admin" }],
     ["USER_DELETED", { ...deleted, reason: "retention" }],
+    ["USER_DELETED", { removedPositionIds: [] }],
+    ["USER_DELETED", { ...deleted, removedPositionIds: [""] }],
+    [
+      "USER_DELETED",
+      {
+        ...deleted,
+        removedPositionIds: Array.from({ length: 51 }, (_, i) => `p${i}`),
+      },
+    ],
+    ["USER_DELETED", { ...deleted, extra: 1 }],
     ["USER_CREATED", { source: "admin", invited: "yes" }],
+    ["USER_CREATED", { source: "csv" }],
   ])("rejects %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
   });
@@ -645,9 +694,44 @@ describe("BULK_IMPORT metadata", () => {
     ["an upper-case checksum", { ...full, mappingSha256: "A".repeat(64) }],
     ["a short checksum", { ...full, mappingSha256: "abc" }],
     ["an unknown export source", { ...full, exportSource: "csv" }],
-    ["an unknown source", { ...full, source: "csv" }],
+    ["an unknown source", { ...full, source: "spreadsheet" }],
+    ["the chambers counts under the csv source", { ...full, source: "csv" }],
   ])("rejects %s", (_label, metadata) => {
     expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+
+  describe("from the admin CSV import", () => {
+    const csv = {
+      source: "csv",
+      rows: 200,
+      created: 150,
+      updated: 20,
+      unchanged: 25,
+      skipped: 5,
+      positionsAssigned: 40,
+      skipInvalid: true,
+      sendInvites: false,
+    };
+
+    it("accepts counts and the two options", () => {
+      expect(() => parseAuditEvent(event(csv))).not.toThrow();
+    });
+
+    it.each([
+      ["an extra key", { ...csv, emails: ["a@northeastern.edu"] }],
+      ["a missing option", { ...csv, sendInvites: undefined }],
+      ["a negative count", { ...csv, skipped: -1 }],
+      ["a fractional count", { ...csv, rows: 1.5 }],
+      ["a non-boolean option", { ...csv, skipInvalid: "yes" }],
+    ])("rejects %s", (_label, metadata) => {
+      expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+    });
+
+    it("rejects a target", () => {
+      expect(() =>
+        parseAuditEvent(event(csv, { targetType: "USER", targetId: "u1" })),
+      ).toThrow(ZodError);
+    });
   });
 
   it.each(["USER", "POSITION"])("rejects a %s target", (targetType) => {
@@ -836,6 +920,83 @@ describe("audit", () => {
     const data = lastData(create);
     expect(data.ip).toBeNull();
     expect(data.userAgent).toBeUndefined();
+  });
+
+  describe("auditMany", () => {
+    const manyDb = () => {
+      const createMany = vi.fn();
+      const db = { auditEvent: { createMany } } as unknown as Pick<
+        Prisma.TransactionClient,
+        "auditEvent"
+      >;
+      return { db, createMany };
+    };
+    const assigned = (positionId: string) =>
+      ({
+        type: "POSITION_ASSIGNED",
+        targetType: "USER",
+        targetId: "u1",
+        metadata: { positionId },
+      }) as const;
+
+    it("writes every event in one insert", async () => {
+      const { db, createMany } = manyDb();
+      await withAuditContext(
+        { actor: { actorType: "USER", actorUserId: "admin-1" } },
+        () =>
+          auditMany([assigned("p1"), assigned("p2"), assigned("p3")], {
+            db,
+            headers: new Headers({ "x-real-ip": "203.0.113.7" }),
+          }),
+      );
+      expect(createMany).toHaveBeenCalledTimes(1);
+      const { data } = createMany.mock.calls[0]?.[0] as { data: unknown[] };
+      expect(data).toHaveLength(3);
+    });
+
+    it("resolves actor and request once for all events", async () => {
+      const { db, createMany } = manyDb();
+      requestHeaders.mockResolvedValue(
+        new Headers({ "x-real-ip": "198.51.100.4", "user-agent": "next-ua" }),
+      );
+      await withAuditContext(
+        { actor: { actorType: "USER", actorUserId: "admin-1" } },
+        () => auditMany([assigned("p1"), assigned("p2")], { db }),
+      );
+      expect(requestHeaders).toHaveBeenCalledTimes(1);
+      const { data } = createMany.mock.calls[0]?.[0] as {
+        data: Record<string, unknown>[];
+      };
+      expect(data).toHaveLength(2);
+      expect(data[1]).toMatchObject({
+        type: "POSITION_ASSIGNED",
+        actorUserId: "admin-1",
+        ip: "198.51.100.4",
+        userAgent: "next-ua",
+        metadata: { positionId: "p2" },
+      });
+    });
+
+    it("writes nothing when one event is invalid", async () => {
+      const { db, createMany } = manyDb();
+      await expect(
+        withAuditContext(
+          { actor: { actorType: "USER", actorUserId: "admin-1" } },
+          () =>
+            auditMany([assigned("p1"), { ...assigned("p2"), metadata: {} }], {
+              db,
+              headers: new Headers(),
+            }),
+        ),
+      ).rejects.toBeInstanceOf(ZodError);
+      expect(createMany).not.toHaveBeenCalled();
+    });
+
+    it("writes nothing for no events", async () => {
+      const { db, createMany } = manyDb();
+      await expect(auditMany([], { db })).resolves.toEqual({ count: 0 });
+      expect(createMany).not.toHaveBeenCalled();
+    });
   });
 
   it("rejects wrong metadata before touching the database", async () => {
