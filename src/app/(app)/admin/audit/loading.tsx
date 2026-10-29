@@ -1,3 +1,5 @@
+import { Skeleton } from "@/components/ui/skeleton";
+
 export default function AuditLogLoading() {
   return (
     <div className="flex flex-col gap-6" aria-busy="true">
@@ -9,9 +11,11 @@ export default function AuditLogLoading() {
       </div>
       <div className="flex flex-col gap-2">
         {Array.from({ length: 8 }, (_, index) => (
-          <div key={index} className="h-10 animate-pulse rounded-md bg-muted" />
+          <Skeleton key={index} className="h-10" />
         ))}
-        <span className="sr-only">Loading audit events</span>
+        <span role="status" className="sr-only">
+          Loading…
+        </span>
       </div>
     </div>
   );

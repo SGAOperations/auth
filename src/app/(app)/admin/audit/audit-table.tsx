@@ -91,7 +91,7 @@ function FilterLink({ href, label }: { href: string; label: string }) {
       href={href}
       aria-label={label}
       title={label}
-      className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring focus-visible:outline-none"
     >
       <FilterIcon className="size-3.5" aria-hidden="true" />
     </Link>
@@ -188,7 +188,12 @@ function EventSheet({
             <div className="flex flex-col gap-1 px-4 text-sm">
               <h3 className="text-xs text-muted-foreground">Metadata</h3>
               {hasMetadata ? (
-                <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">
+                <pre
+                  role="region"
+                  aria-label="Event metadata"
+                  tabIndex={0}
+                  className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs"
+                >
                   {JSON.stringify(row.metadata, null, 2)}
                 </pre>
               ) : (
@@ -228,7 +233,7 @@ export function AuditTable({ rows }: { rows: AuditTableRow[] }) {
   const [selected, setSelected] = useState<AuditTableRow | null>(null);
   return (
     <>
-      <Table>
+      <Table label="Audit events">
         <TableHeader>
           <TableRow>
             <TableHead>Time</TableHead>

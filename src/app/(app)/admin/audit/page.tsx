@@ -14,6 +14,13 @@ import {
   type AuditLogFilter,
   type AuditLogRow,
 } from "@/lib/audit-log";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { requireAdmin } from "@/lib/auth/guards";
 import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
@@ -184,14 +191,22 @@ export default async function AuditLogPage({
           ) : null}
         </div>
         {empty && !cursor ? (
-          <button
-            type="button"
-            disabled
-            title="Nothing to export"
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <span id="export-hint" className="text-xs text-muted-foreground">
+              Nothing to export.
+            </span>
+            <button
+              type="button"
+              aria-disabled="true"
+              aria-describedby="export-hint"
+              className={cn(
+                buttonVariants({ variant: "outline" }),
+                "cursor-not-allowed opacity-50",
+              )}
+            >
+              Export CSV
+            </button>
+          </div>
         ) : (
           <a
             href={exportHref}
@@ -203,21 +218,30 @@ export default async function AuditLogPage({
         )}
       </div>
       {empty ? (
-        <div className="flex flex-col items-start gap-2 text-muted-foreground">
-          <p>
-            {filtered
-              ? "No events match these filters."
-              : "No audit events yet."}
-          </p>
+        <Empty className="border">
+          <EmptyHeader>
+            <EmptyTitle>
+              {filtered
+                ? "No events match these filters"
+                : "No audit events yet"}
+            </EmptyTitle>
+            {filtered ? (
+              <EmptyDescription>
+                Try a different search or clear the filters.
+              </EmptyDescription>
+            ) : null}
+          </EmptyHeader>
           {filtered ? (
-            <Link
-              href={PATH}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Clear filters
-            </Link>
+            <EmptyContent>
+              <Link
+                href={PATH}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                Clear filters
+              </Link>
+            </EmptyContent>
           ) : null}
-        </div>
+        </Empty>
       ) : (
         <AuditTable rows={rows} />
       )}
