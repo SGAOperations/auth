@@ -48,6 +48,8 @@ export const AUDIT_LABELS: Record<AuditEventType, string> = {
   MFA_BACKUP_CODES_REGENERATED: "Backup codes regenerated",
   REAUTH_SUCCEEDED: "Confirmed identity",
   REAUTH_FAILED: "Failed identity check",
+  PASSKEY_ADDED: "Passkey added",
+  PASSKEY_REMOVED: "Passkey removed",
   BULK_IMPORT: "Bulk import",
   JWKS_ROTATED: "Signing keys rotated",
   AUDIT_EXPORTED: "Audit log exported",

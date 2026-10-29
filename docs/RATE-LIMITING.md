@@ -10,6 +10,9 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 | ----------------------------- | ---------------------------------------------------------------------- | ------------- | ----- | ---------- |
 | `sign-in:ip:1m`               | `POST /api/auth/sign-in/email`                                         | IP            | 10    | 1 minute   |
 | `sign-in:ip:1h`               | `POST /api/auth/sign-in/email`                                         | IP            | 50    | 1 hour     |
+| `passkey-sign-in:ip:1m`       | `POST /api/auth/passkey/verify-authentication` (AUTH-T105)             | IP            | 10    | 1 minute   |
+| `passkey-sign-in:ip:1h`       | `POST /api/auth/passkey/verify-authentication` (AUTH-T105)             | IP            | 50    | 1 hour     |
+| `passkey-options:ip:1m`       | `/api/auth/passkey/generate-authenticate-options` (any method)         | IP            | 30    | 1 minute   |
 | `sign-up:ip:1h`               | `POST /api/auth/sign-up/email`                                         | IP            | 5     | 1 hour     |
 | `reset:ip:10m`                | `POST /api/auth/request-password-reset`                                | IP            | 3     | 10 minutes |
 | `reset:email:10m`             | `POST /api/auth/request-password-reset`                                | email         | 3     | 10 minutes |
@@ -79,12 +82,14 @@ The free tier allows 500,000 commands a month. The alert threshold is **80%, whi
 | ---------------------- | ---------------------------------------------------------------------------------------- | ---------------- | ------ | ----------------------- |
 | `token`                | 300 monthly active users, 20 active days, 1.5 h a day, one refresh about every 9 minutes | 60,000           | 1      | 240,000                 |
 | `sign-in`              | 8 sign-ins per user per month                                                            | 2,400            | 2      | 19,200                  |
+| `passkey-sign-in`      | a quarter of sign-ins use a passkey                                                      | 600              | 2      | 4,800                   |
+| `passkey-options`      | the login page asks for options on every view, for conditional UI (about 3,000 views)    | about 3,000      | 1      | about 12,000            |
 | sign-up, reset, resend | new users and the occasional reset                                                       | about 1,000      | 1 to 2 | about 6,000             |
 | `token-link`           | one confirm POST per emailed link, about 1,500 a month                                   | about 1,500      | 1      | about 6,000             |
 | `set-password`         | email step and link requests, plus the per-account link and invite checks                | about 500        | 2 to 3 | about 5,000             |
 | `change-password`      | rare: a few a month in total, negligible next to `token`                                 | negligible       | 1      | negligible              |
 | email caps             | about 2,000 sends a month, 6 commands per send (see [EMAIL.md](EMAIL.md))                | about 2,000      | n/a    | about 12,000            |
-| **Total**              |                                                                                          |                  |        | **about 282,000 (56%)** |
+| **Total**              |                                                                                          |                  |        | **about 299,000 (60%)** |
 
 The product SDK refreshes the JWT about every 9 minutes per active session (AUTH-T29, AUTH-T60). **The token endpoint dominates.** On these assumptions about 870 commands a month per active user, the 80% threshold is reached at roughly 460 monthly active users, and the free tier at roughly 570. If real usage projects past 80%, raise it on the ticket rather than quietly lowering a policy: the choices are a longer JWT lifetime, an Upstash paid plan, or a different token limit.
 

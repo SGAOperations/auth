@@ -17,6 +17,17 @@ export const POLICIES = {
     { id: "sign-in:ip:1m", limit: 10, windowSeconds: 60, by: "ip" },
     { id: "sign-in:ip:1h", limit: 50, windowSeconds: 3600, by: "ip" },
   ],
+  // Failed WebAuthn ceremonies share no counter with the password lockout
+  // (AUTH-T64): a passkey attempt never reaches /sign-in/email.
+  passkeySignIn: [
+    { id: "passkey-sign-in:ip:1m", limit: 10, windowSeconds: 60, by: "ip" },
+    { id: "passkey-sign-in:ip:1h", limit: 50, windowSeconds: 3600, by: "ip" },
+  ],
+  // The login page's conditional UI asks for options on every view, and each
+  // call writes a Verification row.
+  passkeyOptions: [
+    { id: "passkey-options:ip:1m", limit: 30, windowSeconds: 60, by: "ip" },
+  ],
   signUp: [{ id: "sign-up:ip:1h", limit: 5, windowSeconds: 3600, by: "ip" }],
   passwordReset: [
     { id: "reset:ip:10m", limit: 3, windowSeconds: 600, by: "ip" },
@@ -125,8 +136,12 @@ export function matchAuthRoute(
 ): PolicyName | null {
   const verb = method.toUpperCase();
   if (path === "/token") return "token";
+  if (path === "/passkey/generate-authenticate-options")
+    return "passkeyOptions";
   if (verb !== "POST") return null;
   switch (path) {
+    case "/passkey/verify-authentication":
+      return "passkeySignIn";
     case "/sign-in/email":
     // The second factor shares the sign-in IP budget, on top of the plugin's
     // own per-challenge and per-account caps.

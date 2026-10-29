@@ -40,6 +40,7 @@ describe.skipIf(!url)("re-authentication (sudo mode)", () => {
     }),
     plugins: buildAuthPlugins({
       signupAllowlist: null,
+      passkey: { rpID: "localhost", rpName: "Test", origin: BASE_URL },
       prisma,
       issuer: BASE_URL,
       secret: SECRET,

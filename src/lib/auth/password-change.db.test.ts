@@ -42,6 +42,7 @@ describe.skipIf(!url)("change password (AUTH-T23)", () => {
     }),
     plugins: buildAuthPlugins({
       signupAllowlist: null,
+      passkey: { rpID: "localhost", rpName: "Test", origin: BASE_URL },
       prisma,
       issuer: BASE_URL,
       secret: SECRET,

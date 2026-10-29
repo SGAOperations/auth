@@ -48,14 +48,25 @@ export interface HookSession {
 const bodyWithEmail = z.looseObject({ email: z.string() });
 export const errorBody = z.looseObject({ code: z.string() });
 const userBody = z.looseObject({ user: z.looseObject({ id: z.string() }) });
+const registeredPasskey = z.looseObject({
+  id: z.string().min(1),
+  userId: z.string().min(1),
+});
+const passkeyIdBody = z.looseObject({ id: z.string().min(1) });
 const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
 
 export const LOGIN_METHODS: Record<
   string,
-  "password" | "email_verification" | "totp" | "backup_code" | "email_otp"
+  | "password"
+  | "email_verification"
+  | "totp"
+  | "backup_code"
+  | "email_otp"
+  | "passkey"
 > = {
   "/sign-in/email": "password",
   "/sign-in/email-otp": "email_otp",
+  "/passkey/verify-authentication": "passkey",
   "/verify-email": "email_verification",
   "/two-factor/verify-totp": "totp",
   "/two-factor/verify-backup-code": "backup_code",
@@ -189,6 +200,34 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
     });
   }
 
+  // Both ids come from the endpoint's own response: the row it just wrote.
+  async function afterVerifyRegistration(ctx: HookContext) {
+    const passkey = registeredPasskey.safeParse(ctx.context.returned);
+    if (!passkey.success) return;
+    await emit(ctx, {
+      type: "PASSKEY_ADDED",
+      actorType: "USER",
+      actorUserId: passkey.data.userId,
+      targetType: "USER",
+      targetId: passkey.data.userId,
+      metadata: { passkeyId: passkey.data.id },
+    });
+  }
+
+  async function afterDeletePasskey(ctx: HookContext) {
+    const body = passkeyIdBody.safeParse(ctx.body);
+    const session = ctx.context.session;
+    if (!body.success || !session) return;
+    await emit(ctx, {
+      type: "PASSKEY_REMOVED",
+      actorType: "USER",
+      actorUserId: session.user.id,
+      targetType: "USER",
+      targetId: session.user.id,
+      metadata: { passkeyId: body.data.id },
+    });
+  }
+
   /**
    * Whether a new session is a login. Rotations are not: enrolling, disabling
    * and changing a password all replace the session of a signed-in user. Nor is
@@ -244,6 +283,12 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
           case "/revoke-other-sessions":
             if (isAPIError(ctx.context.returned)) return;
             return await afterRevokeSessions(ctx, "others");
+          case "/passkey/verify-registration":
+            if (isAPIError(ctx.context.returned)) return;
+            return await afterVerifyRegistration(ctx);
+          case "/passkey/delete-passkey":
+            if (isAPIError(ctx.context.returned)) return;
+            return await afterDeletePasskey(ctx);
         }
       } catch {
         ctx.context.logger.error("Failed to prepare audit event", {

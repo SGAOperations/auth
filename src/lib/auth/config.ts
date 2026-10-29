@@ -114,6 +114,7 @@ export const auth = betterAuth({
   rateLimit: { enabled: false },
   plugins: buildAuthPlugins({
     signupAllowlist: settings.signupAllowlist,
+    passkey: settings.passkey,
     prisma,
     issuer: settings.baseURL,
     secret: settings.secret,

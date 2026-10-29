@@ -50,6 +50,39 @@ describe("withAuthRateLimit", () => {
     expect(stub).toHaveBeenCalledTimes(10);
   });
 
+  it("rejects the 11th passkey sign-in from one IP before it reaches Better Auth", async () => {
+    const { handler, stub } = setup();
+    for (let i = 0; i < 10; i++) {
+      const response = await handler(
+        post("/passkey/verify-authentication", { response: {} }),
+      );
+      expect(response.status).toBe(200);
+    }
+    const response = await handler(
+      post("/passkey/verify-authentication", { response: {} }),
+    );
+    expect(response.status).toBe(429);
+    expect(stub).toHaveBeenCalledTimes(10);
+  });
+
+  it("limits passkey options at 30 a minute, for any method", async () => {
+    const { handler, stub } = setup();
+    const options = (method: string) =>
+      new Request(
+        "https://auth.test/api/auth/passkey/generate-authenticate-options",
+        {
+          method,
+          headers: { "x-real-ip": "198.51.100.1" },
+        },
+      );
+    for (let i = 0; i < 30; i++) {
+      const method = i % 2 === 0 ? "GET" : "POST";
+      expect((await handler(options(method))).status).toBe(200);
+    }
+    expect((await handler(options("GET"))).status).toBe(429);
+    expect(stub).toHaveBeenCalledTimes(30);
+  });
+
   it("limits sign-up at 5 an hour", async () => {
     const { handler } = setup();
     for (let i = 0; i < 5; i++) {

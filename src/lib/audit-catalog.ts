@@ -51,6 +51,8 @@ export const AUDIT_EVENT_TYPES = [
   "MFA_BACKUP_CODES_REGENERATED",
   "REAUTH_SUCCEEDED",
   "REAUTH_FAILED",
+  "PASSKEY_ADDED",
+  "PASSKEY_REMOVED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
   "AUDIT_EXPORTED",
@@ -193,6 +195,7 @@ export const AUDIT_CATALOG = {
         "totp",
         "backup_code",
         "email_otp",
+        "passkey",
         "other",
       ]),
     }),
@@ -427,6 +430,17 @@ export const AUDIT_CATALOG = {
     metadata: z.strictObject({
       reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
     }),
+  },
+  // A passkey id is an opaque UUID, not PII. A passkey the database trigger
+  // removes on deactivation writes no PASSKEY_REMOVED: the deactivating code's
+  // USER_DEACTIVATED / USER_DELETED event covers it.
+  PASSKEY_ADDED: {
+    targetType: "USER",
+    metadata: z.strictObject({ passkeyId: z.string().min(1) }),
+  },
+  PASSKEY_REMOVED: {
+    targetType: "USER",
+    metadata: z.strictObject({ passkeyId: z.string().min(1) }),
   },
   // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
   // and one per admin CSV import.

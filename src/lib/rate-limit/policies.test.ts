@@ -11,6 +11,9 @@ describe("matchAuthRoute", () => {
     ["POST", "/send-verification-email", "verificationResend"],
     ["POST", "/token", "token"],
     ["GET", "/token", "token"],
+    ["POST", "/passkey/verify-authentication", "passkeySignIn"],
+    ["GET", "/passkey/generate-authenticate-options", "passkeyOptions"],
+    ["POST", "/passkey/generate-authenticate-options", "passkeyOptions"],
   ])("%s %s is limited by %s", (method, path, policy) => {
     expect(matchAuthRoute(method, path)).toBe(policy);
   });
@@ -26,6 +29,10 @@ describe("matchAuthRoute", () => {
     ["POST", "/change-password"],
     ["POST", "/sign-in/email/extra"],
     ["POST", "/sign-out"],
+    ["GET", "/passkey/verify-authentication"],
+    // Behind a session and re-auth, so no IP budget.
+    ["GET", "/passkey/generate-register-options"],
+    ["POST", "/passkey/verify-registration"],
     ["POST", "/"],
   ])("%s %s is not limited", (method, path) => {
     expect(matchAuthRoute(method, path)).toBeNull();
@@ -40,6 +47,9 @@ describe("POLICIES", () => {
     expect(flat).toEqual([
       ["sign-in:ip:1m", 10, 60, "ip"],
       ["sign-in:ip:1h", 50, 3600, "ip"],
+      ["passkey-sign-in:ip:1m", 10, 60, "ip"],
+      ["passkey-sign-in:ip:1h", 50, 3600, "ip"],
+      ["passkey-options:ip:1m", 30, 60, "ip"],
       ["sign-up:ip:1h", 5, 3600, "ip"],
       ["reset:ip:10m", 3, 600, "ip"],
       ["reset:email:10m", 3, 600, "email"],

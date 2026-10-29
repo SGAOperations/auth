@@ -418,6 +418,30 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
     reason: NO_EMAIL_OTP_HTTP,
   },
   "/email-otp/change-email": { kind: "exempt", reason: NO_EMAIL_OTP_HTTP },
+  // Passkeys (AUTH-T105). LOGIN_SUCCESS comes from the session hook, which maps
+  // this path to method "passkey" in audit-hooks.ts.
+  "/passkey/verify-authentication": {
+    kind: "audited",
+    events: ["LOGIN_SUCCESS"],
+  },
+  "/passkey/verify-registration": {
+    kind: "audited",
+    events: ["PASSKEY_ADDED"],
+  },
+  "/passkey/delete-passkey": { kind: "audited", events: ["PASSKEY_REMOVED"] },
+  "/passkey/generate-register-options": {
+    kind: "exempt",
+    reason: "issues a WebAuthn challenge; no account state",
+  },
+  "/passkey/generate-authenticate-options": {
+    kind: "exempt",
+    reason: "issues a WebAuthn challenge; no account state",
+  },
+  "/passkey/update-passkey": {
+    kind: "exempt",
+    reason: "renames a passkey label; no security state",
+  },
+  "/passkey/list-user-passkeys": { kind: "read" },
   "/jwks": {
     kind: "exempt",
     reason:
