@@ -39,6 +39,8 @@ const EXEMPT: Record<string, string> = {
     "Anonymous login email step: it answers every address the same, and any set-password link goes only to the mailbox of the account it names",
   "src/app/preview-gate/unlock/route.ts":
     "Preview-environment password gate; it acts on no user and runs before any sign-in",
+  "src/app/api/provision/aplio/users/route.ts":
+    "Machine route called by Aplio's server during the dual-write window; requires the APLIO_DUAL_WRITE_SECRET bearer, has no cookie, and acts on the account the body names, never on a caller",
   "src/app/api/jobs/alerts/route.ts":
     "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
   "src/app/api/jobs/pa-transfer/route.ts":

@@ -205,6 +205,13 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     reason:
       "browser CSP violation reports; writes only an advisory log line, no account or session state",
   },
+  // Aplio's dual write: one USER_CREATED per new account, in the create's
+  // transaction. A repeat call or a merge writes nothing.
+  "src/app/api/provision/aplio/users/route.ts": {
+    kind: "audited",
+    events: ["USER_CREATED"],
+    emittedIn: ["src/lib/import/aplio-dual-write.ts"],
+  },
   "src/app/api/jobs/pa-transfer/route.ts": {
     kind: "job",
     module: "src/lib/jobs/pa-transfer.ts",
