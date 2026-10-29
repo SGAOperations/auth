@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTH_COPY,
+  emailCodeMessage,
+  emailCodeRequestSchema,
+  emailCodeVerifySchema,
   emailStepSchema,
   forgotPasswordSchema,
+  mapEmailCodeError,
   mapEmailStepResponse,
   mapRequestError,
   mapSignInError,
@@ -210,6 +214,64 @@ describe("mapSignUpError", () => {
       field: null,
       message: AUTH_COPY.unexpected,
     });
+  });
+});
+
+describe("emailCodeRequestSchema and emailCodeVerifySchema", () => {
+  it("trims the address", () => {
+    expect(
+      emailCodeRequestSchema.parse({ email: "  a@northeastern.edu " }).email,
+    ).toBe("a@northeastern.edu");
+  });
+
+  it.each(["123456", "000000"])("accepts the code %s", (otp) => {
+    expect(
+      emailCodeVerifySchema.safeParse({ email: "a@northeastern.edu", otp })
+        .success,
+    ).toBe(true);
+  });
+
+  it.each(["12345", "1234567", "12345a", "", " 12345", "١٢٣٤٥٦"])(
+    "rejects the code %j",
+    (otp) => {
+      expect(
+        emailCodeVerifySchema.safeParse({ email: "a@northeastern.edu", otp })
+          .success,
+      ).toBe(false);
+    },
+  );
+});
+
+describe("mapEmailCodeError", () => {
+  it.each([
+    [{ status: 429 }, "rate-limited"],
+    [{ status: 503, code: "EMAIL_OTP_UNAVAILABLE" }, "unavailable"],
+    [{ status: 403, code: "TOO_MANY_ATTEMPTS" }, "invalid"],
+    [{ status: 400, code: "INVALID_OTP" }, "invalid"],
+    [{ status: 400, code: "OTP_EXPIRED" }, "invalid"],
+    [{ status: 400, code: "INVALID_REQUEST" }, "invalid"],
+    [{ status: 500 }, "unexpected"],
+    [{ status: 0 }, "unexpected"],
+  ] as const)("maps %j to %s", (error, state) => {
+    expect(mapEmailCodeError(error)).toBe(state);
+  });
+
+  it("writes the copy for each state", () => {
+    expect(emailCodeMessage("invalid")).toBe(
+      "That code didn't work. Check it, or send a new code.",
+    );
+    expect(emailCodeMessage("rate-limited", 1)).toBe(
+      "Too many requests. Try again in 1 minute.",
+    );
+    expect(emailCodeMessage("rate-limited", 12)).toBe(
+      "Too many requests. Try again in 12 minutes.",
+    );
+    expect(emailCodeMessage("unavailable")).toBe(
+      "Email codes are unavailable right now. Sign in with your password, or reset it.",
+    );
+    expect(emailCodeMessage("unexpected")).toBe(
+      "Something went wrong. Try again.",
+    );
   });
 });
 

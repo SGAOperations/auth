@@ -15,6 +15,8 @@
     "test:authz": "vitest run --project unit --coverage --coverage.include=src/lib/authz.ts src/lib/authz",
     "test:watch": "vitest",
     "seed": "prisma db seed",
+    "e2e": "playwright test",
+    "e2e:build": "next build && next build e2e/product-stub",
     "bench:auth-timing": "node scripts/auth-timing-bench.mjs",
     "prisma:migrate-dev": "node scripts/prisma-guard.mjs migrate dev && prisma migrate dev",
     "prisma:migrate-reset": "node scripts/prisma-guard.mjs migrate reset && prisma migrate reset",
@@ -60,6 +62,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@nusgaops/sgauth": "0.2.0",
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.11.11",

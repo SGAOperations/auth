@@ -3,6 +3,7 @@ import { nextCookies } from "better-auth/next-js";
 import { twoFactor } from "better-auth/plugins";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { hashedBackupCodeStorage } from "@/lib/auth/backup-codes";
+import { emailOtpPlugin, type EmailOtpInput } from "@/lib/auth/email-otp";
 import { buildJwtPlugin } from "@/lib/auth/jwt";
 import { totpIssuer } from "@/lib/auth/mfa-policy";
 import { sgauthMfa } from "@/lib/auth/mfa-plugin";
@@ -22,6 +23,11 @@ interface AuthPluginsInput {
   sgauthEnv: SgauthEnv;
   /** Sends the lock emails when a failed re-auth takes the account lock. */
   mailer: Mailer;
+  /**
+   * The emailed sign-in code plugin, or null while SGAUTH_EMAIL_OTP_ENABLED is
+   * off. Off means the plugin is not registered at all, so its routes 404.
+   */
+  emailOtp?: EmailOtpInput | null;
 }
 
 /**
@@ -35,6 +41,7 @@ export function buildAuthPlugins({
   secret,
   sgauthEnv,
   mailer,
+  emailOtp,
 }: AuthPluginsInput) {
   return [
     ...(list ? [signupAllowlist(list)] : []),
@@ -57,6 +64,7 @@ export function buildAuthPlugins({
       linkOrigin: new URL(issuer).origin,
       secret,
     }),
+    ...(emailOtp ? [emailOtpPlugin(emailOtp)] : []),
     // nextCookies must stay the last plugin.
     nextCookies(),
   ];

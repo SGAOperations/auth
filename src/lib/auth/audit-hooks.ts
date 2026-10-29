@@ -13,6 +13,7 @@ import {
   type AuditCall,
   type AuditDb,
   type AuditEventType,
+  type OTP_LOGIN_FAILED_REASONS,
 } from "@/lib/audit";
 
 // The part of Better Auth's hook context these adapters read. Declared here so
@@ -51,9 +52,10 @@ const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
 
 export const LOGIN_METHODS: Record<
   string,
-  "password" | "email_verification" | "totp" | "backup_code"
+  "password" | "email_verification" | "totp" | "backup_code" | "email_otp"
 > = {
   "/sign-in/email": "password",
+  "/sign-in/email-otp": "email_otp",
   "/verify-email": "email_verification",
   "/two-factor/verify-totp": "totp",
   "/two-factor/verify-backup-code": "backup_code",
@@ -273,6 +275,25 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
         metadata: { reason: "ACCOUNT_LOCKED" },
         targetType: "USER",
         targetId: userId,
+      });
+    },
+
+    /**
+     * An emailed-code sign-in that failed: a wrong code, or a refusal by the
+     * eligibility rules. An unknown address has no target, as at the password
+     * step. Like `signInRefused`, the before hook that refuses calls it itself,
+     * because a throwing before hook skips Better Auth's after hooks.
+     */
+    async emailOtpFailed(
+      ctx: HookContext,
+      userId: string | null,
+      reason: (typeof OTP_LOGIN_FAILED_REASONS)[number],
+    ) {
+      await emit(ctx, {
+        type: "LOGIN_FAILED",
+        actorType: "SYSTEM",
+        metadata: { method: "email_otp", reason },
+        ...(userId ? { targetType: "USER" as const, targetId: userId } : {}),
       });
     },
 
