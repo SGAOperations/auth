@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useReauth } from "@/components/reauth-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -361,9 +362,6 @@ interface PreviewProps {
   onApply(): void;
 }
 
-const checkboxClass =
-  "mt-0.5 size-4 shrink-0 rounded border-input accent-primary";
-
 function Preview({
   preview,
   notice,
@@ -500,13 +498,12 @@ function Preview({
               them.
             </p>
             <div className="flex items-start gap-2">
-              <input
+              <Checkbox
                 id={skipId}
-                type="checkbox"
-                className={checkboxClass}
+                className="mt-0.5"
                 checked={skipInvalid}
                 disabled={applying}
-                onChange={(event) => onSkipInvalid(event.target.checked)}
+                onCheckedChange={onSkipInvalid}
               />
               <Label htmlFor={skipId}>
                 Skip the {summary.invalid} rows with problems
@@ -517,13 +514,12 @@ function Preview({
 
         <div className="flex flex-col gap-1">
           <div className="flex items-start gap-2">
-            <input
+            <Checkbox
               id={invitesId}
-              type="checkbox"
-              className={checkboxClass}
+              className="mt-0.5"
               checked={sendInvites}
               disabled={applying}
-              onChange={(event) => onSendInvites(event.target.checked)}
+              onCheckedChange={onSendInvites}
             />
             <Label htmlFor={invitesId}>Send set-password emails now</Label>
           </div>
