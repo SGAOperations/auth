@@ -211,7 +211,12 @@ export const AUDIT_CATALOG = {
     }),
   },
   LOGOUT: sessionTarget,
-  SESSION_REVOKED: sessionTarget,
+  // An admin revoking one of another user's sessions names that user, so the
+  // user's timeline can find the row. The user's own revoke leaves it out.
+  SESSION_REVOKED: {
+    targetType: "SESSION",
+    metadata: z.strictObject({ userId: z.uuid().optional() }),
+  },
   SESSIONS_REVOKED: {
     targetType: "USER",
     metadata: z.strictObject({ scope: z.enum(["all", "others"]) }),

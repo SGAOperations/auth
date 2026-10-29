@@ -184,6 +184,31 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED"],
   },
+  // Admin user pages (AUTH-T48). Each action calls the admin user handlers
+  // in-process, which write their own audit rows; revoking one session writes
+  // SESSION_REVOKED in the same transaction as the delete.
+  "src/app/(app)/admin/users/actions.ts": {
+    kind: "audited",
+    events: [
+      "USER_UPDATED",
+      "USER_DEACTIVATED",
+      "USER_REACTIVATED",
+      "ADMIN_GRANTED",
+      "ADMIN_REVOKED",
+      "SESSIONS_REVOKED",
+      "ACCOUNT_UNLOCKED",
+      "USER_INVITED",
+      "POSITION_ASSIGNED",
+      "POSITION_UNASSIGNED",
+      "SESSION_REVOKED",
+    ],
+    emittedIn: [
+      "src/lib/admin/users/handlers.ts",
+      "src/lib/admin/users/actions.ts",
+      "src/lib/admin/user-sessions.ts",
+      "src/app/api/sgauth/admin/users/[id]/positions/route.ts",
+    ],
+  },
   "src/app/(app)/account/actions.ts": {
     kind: "exempt",
     reason:
