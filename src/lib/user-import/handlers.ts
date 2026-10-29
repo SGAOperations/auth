@@ -183,21 +183,36 @@ export function createUserImportHandlers(deps: UserImportDeps) {
     // After the commit, so a send problem never undoes the import.
     let invited: Awaited<ReturnType<typeof sendImportInvites>> | null = null;
     if (sendInvites) {
-      try {
-        invited = await sendImportInvites(
+      const inviteIds = [
+        ...new Set(
           outcome.applied.rows.flatMap(({ result, userId }) =>
             result !== "skipped" && userId !== null ? [userId] : [],
           ),
-          {
-            sendInvite: (userId) => deps.sendInvite(userId, actor.id),
-            db: prisma,
-            sleep: deps.sleep,
-          },
-        );
+        ),
+      ];
+      try {
+        invited = await sendImportInvites(inviteIds, {
+          sendInvite: (userId) => deps.sendInvite(userId, actor.id),
+          db: prisma,
+          sleep: deps.sleep,
+        });
       } catch (err) {
         logger.error("user_import_invites_failed", {
           errorName: err instanceof Error ? err.name : "unknown",
         });
+        // The import is already committed, so report every invite as failed.
+        invited = {
+          statuses: new Map(inviteIds.map((id) => [id, "failed" as const])),
+          counts: {
+            sent: 0,
+            deferredBatch: 0,
+            deferredDailyCap: 0,
+            rateLimited: 0,
+            failed: inviteIds.length,
+            skippedHasPassword: 0,
+            skippedAlreadyInvited: 0,
+          },
+        };
       }
     }
 
