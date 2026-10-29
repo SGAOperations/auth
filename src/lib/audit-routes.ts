@@ -117,6 +117,26 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     events: ["USER_CREATED"],
     emittedIn: ["src/lib/admin/users/handlers.ts"],
   },
+  // Bulk CSV import (AUTH-T41). The apply route writes one BULK_IMPORT, one
+  // USER_CREATED per new account and one POSITION_ASSIGNED per inserted pair in
+  // its transaction; USER_INVITED comes from the post-commit invite sender.
+  "src/app/api/sgauth/admin/users/import/route.ts": {
+    kind: "audited",
+    events: [
+      "BULK_IMPORT",
+      "USER_CREATED",
+      "POSITION_ASSIGNED",
+      "USER_INVITED",
+    ],
+    emittedIn: [
+      "src/lib/user-import/handlers.ts",
+      "src/lib/user-import/invite-sender.ts",
+    ],
+  },
+  "src/app/api/sgauth/admin/users/import/preview/route.ts": {
+    kind: "exempt",
+    reason: "dry run: validates and diffs the CSV, writes nothing",
+  },
   "src/app/api/sgauth/admin/users/[id]/route.ts": {
     kind: "audited",
     events: ["USER_UPDATED", "USER_DELETED"],
