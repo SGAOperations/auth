@@ -143,50 +143,61 @@ export function createEmailChangeService({
     const expiresAt = new Date(at.getTime() + EMAIL_CHANGE_TTL_MS);
     const token = randomBytes(32).toString("base64url");
 
-    const requestId = await withAuditTransaction(prisma, (tx) =>
-      withAuditContext(
-        {
-          actor: { actorType: "USER", actorUserId: actor.id },
-          ip: requestContext.ip,
-          userAgent: requestContext.userAgent,
-        },
-        async () => {
-          // One open request per user: a new one replaces the old.
-          const open = await tx.emailChangeRequest.findFirst({
-            where: { userId: target.id, consumedAt: null, cancelledAt: null },
-            select: { id: true },
-          });
-          if (open) {
-            await tx.emailChangeRequest.update({
-              where: { id: open.id },
-              data: { cancelledAt: at },
+    const store = () =>
+      withAuditTransaction(prisma, (tx) =>
+        withAuditContext(
+          {
+            actor: { actorType: "USER", actorUserId: actor.id },
+            ip: requestContext.ip,
+            userAgent: requestContext.userAgent,
+          },
+          async () => {
+            // One open request per user: a new one replaces the old.
+            const open = await tx.emailChangeRequest.findFirst({
+              where: { userId: target.id, consumedAt: null, cancelledAt: null },
+              select: { id: true },
             });
-          }
-          const created = await tx.emailChangeRequest.create({
-            data: {
-              userId: target.id,
-              newEmail,
-              tokenHash: hashEmailChangeToken(token),
-              requestedById: actor.id,
-              expiresAt,
-            },
-            select: { id: true },
-          });
-          await audit({
-            type: "EMAIL_CHANGE_REQUESTED",
-            targetType: "USER",
-            targetId: target.id,
-            metadata: {
-              requestId: created.id,
-              fromEmail: target.email,
-              toEmail: newEmail,
-              ...(open ? { supersededRequestId: open.id } : {}),
-            },
-          });
-          return created.id;
-        },
-      ),
-    );
+            if (open) {
+              await tx.emailChangeRequest.update({
+                where: { id: open.id },
+                data: { cancelledAt: at },
+              });
+            }
+            const created = await tx.emailChangeRequest.create({
+              data: {
+                userId: target.id,
+                newEmail,
+                tokenHash: hashEmailChangeToken(token),
+                requestedById: actor.id,
+                expiresAt,
+              },
+              select: { id: true },
+            });
+            await audit({
+              type: "EMAIL_CHANGE_REQUESTED",
+              targetType: "USER",
+              targetId: target.id,
+              metadata: {
+                requestId: created.id,
+                fromEmail: target.email,
+                toEmail: newEmail,
+                ...(open ? { supersededRequestId: open.id } : {}),
+              },
+            });
+            return created.id;
+          },
+        ),
+      );
+    // Two concurrent requests for one user can both find the same open row; the
+    // loser then hits the one-open-request unique index. Its retry sees the
+    // winner's row as open and replaces it, so one retry settles it.
+    let requestId: string;
+    try {
+      requestId = await store();
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
+      requestId = await store();
+    }
 
     const name = target.preferredName ?? target.name;
     const cancelRequest = () =>
@@ -302,9 +313,36 @@ export function createEmailChangeService({
         });
         const user = await tx.user.findUnique({
           where: { id: request.userId },
-          select: { email: true, status: true, legacyEmail: true },
+          select: {
+            id: true,
+            email: true,
+            status: true,
+            legacyEmail: true,
+            isAdmin: true,
+            isPrimaryAdmin: true,
+          },
         });
         if (!user || user.status === "DELETED") throw new Abort("invalid");
+
+        // The requester's authority is re-checked now, not trusted from the
+        // request: they may have been deactivated or demoted since. The request
+        // is cancelled and the cancellation commits, so the link stays dead.
+        const requester = await tx.user.findUnique({
+          where: { id: request.requestedById },
+          select: {
+            id: true,
+            isAdmin: true,
+            isPrimaryAdmin: true,
+            status: true,
+          },
+        });
+        if (!requester || !can(requester, "changeEmail", user).allowed) {
+          await tx.emailChangeRequest.update({
+            where: { id: request.id },
+            data: { consumedAt: null, cancelledAt: at },
+          });
+          return null;
+        }
 
         const newEmail = normalizeEmail(request.newEmail);
         const legacyEmail = !isAllowedSignupEmail(newEmail);

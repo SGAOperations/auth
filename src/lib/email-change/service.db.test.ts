@@ -1,7 +1,17 @@
 import { randomBytes } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { PrismaClient } from "@/generated/prisma/client";
+import { ACTION_SPECS } from "@/lib/admin/users/actions";
+import { withAuditContext, withAuditTransaction } from "@/lib/audit";
 import type { AuthzSubject } from "@/lib/authz";
 import {
   EMAIL_CHANGE_TTL_MS,
@@ -87,6 +97,12 @@ describe.skipIf(!url)("email change service", () => {
 
   const events = (type: string, targetId: string) =>
     prisma.auditEvent.findMany({ where: { type, targetId } });
+
+  // A real admin row: confirm re-reads the requester, so it must exist.
+  let admin: AuthzSubject;
+  beforeAll(async () => {
+    admin = subject(await createUser({ isAdmin: true }));
+  });
 
   beforeEach(() => {
     mailer.clear();
@@ -387,7 +403,7 @@ describe.skipIf(!url)("email change service", () => {
       });
 
       const nuEmail = freshEmail();
-      const { result } = await request(primaryAdmin, user, nuEmail);
+      const { result } = await request(admin, user, nuEmail);
       expect(result.ok).toBe(true);
       const token = tokenFrom(nuEmail);
 
@@ -425,7 +441,7 @@ describe.skipIf(!url)("email change service", () => {
         actorType: "SYSTEM",
         actorUserId: null,
         metadata: {
-          requestedById: primaryAdmin.id,
+          requestedById: admin.id,
           fromEmail: user.email,
           toEmail: nuEmail,
           legacyEmail: { from: true, to: false },
@@ -442,7 +458,7 @@ describe.skipIf(!url)("email change service", () => {
 
     it("sets legacyEmail when an NU account moves to a personal address", async () => {
       const user = await createUser();
-      const { newEmail } = await request(primaryAdmin, user);
+      const { newEmail } = await request(admin, user);
       await service.confirmEmailChange(tokenFrom(newEmail));
       const after = await prisma.user.findUniqueOrThrow({
         where: { id: user.id },
@@ -452,7 +468,7 @@ describe.skipIf(!url)("email change service", () => {
 
     it("answers unavailable, and keeps the request open, when the address was taken meanwhile", async () => {
       const user = await createUser();
-      const { newEmail } = await request(primaryAdmin, user);
+      const { newEmail } = await request(admin, user);
       const token = tokenFrom(newEmail);
       await createUser({ email: newEmail });
 
@@ -472,9 +488,9 @@ describe.skipIf(!url)("email change service", () => {
 
     it("refuses an expired, an unknown and a superseded link", async () => {
       const user = await createUser();
-      const first = await request(primaryAdmin, user);
+      const first = await request(admin, user);
       const firstToken = tokenFrom(first.newEmail);
-      const second = await request(primaryAdmin, user);
+      const second = await request(admin, user);
       const secondToken = tokenFrom(second.newEmail);
 
       expect(await service.confirmEmailChange(firstToken)).toEqual({
@@ -495,7 +511,7 @@ describe.skipIf(!url)("email change service", () => {
 
     it("refuses a link whose user was deleted", async () => {
       const user = await createUser();
-      const { newEmail } = await request(primaryAdmin, user);
+      const { newEmail } = await request(admin, user);
       const token = tokenFrom(newEmail);
       await prisma.user.update({
         where: { id: user.id },
@@ -512,7 +528,7 @@ describe.skipIf(!url)("email change service", () => {
 
     it("lets exactly one of two concurrent presses win", async () => {
       const user = await createUser();
-      const { newEmail } = await request(primaryAdmin, user);
+      const { newEmail } = await request(admin, user);
       const token = tokenFrom(newEmail);
 
       const results = await Promise.all([
@@ -524,13 +540,182 @@ describe.skipIf(!url)("email change service", () => {
     });
   });
 
+  describe("requester authority at confirm", () => {
+    const refused = async (
+      change: (
+        requester: { id: string },
+        target: { id: string },
+      ) => Promise<unknown>,
+    ) => {
+      const requester = await createUser({ isAdmin: true });
+      const user = await createUser();
+      const { newEmail } = await request(subject(requester), user);
+      const token = tokenFrom(newEmail);
+      await change(requester, user);
+
+      expect(await service.confirmEmailChange(token)).toEqual({
+        state: "invalid",
+      });
+      const after = await prisma.user.findUniqueOrThrow({
+        where: { id: user.id },
+      });
+      expect(after.email).toBe(user.email);
+      expect(await events("EMAIL_CHANGED", user.id)).toEqual([]);
+      // The refusal is recorded on the request, so the link stays dead.
+      const row = await prisma.emailChangeRequest.findUniqueOrThrow({
+        where: { tokenHash: hashEmailChangeToken(token) },
+      });
+      expect(row).toMatchObject({ consumedAt: null });
+      expect(row.cancelledAt).not.toBeNull();
+    };
+
+    it("refuses the link when the requester was deactivated since", async () => {
+      await refused((requester) =>
+        prisma.user.update({
+          where: { id: requester.id },
+          data: { status: "DEACTIVATED" },
+        }),
+      );
+    });
+
+    it("refuses the link when the requester lost admin since", async () => {
+      await refused((requester) =>
+        prisma.user.update({
+          where: { id: requester.id },
+          data: { isAdmin: false },
+        }),
+      );
+    });
+
+    it("refuses the link when the target became an admin the requester may not change", async () => {
+      await refused((_requester, target) =>
+        prisma.user.update({
+          where: { id: target.id },
+          data: { isAdmin: true },
+        }),
+      );
+    });
+
+    it("refuses the link when the requester was deleted since", async () => {
+      await refused(async (requester) => {
+        await prisma.user.update({
+          where: { id: requester.id },
+          data: { status: "DELETED" },
+        });
+      });
+    });
+  });
+
+  describe("cancellation when admin standing changes", () => {
+    const openCount = (userId: string) =>
+      prisma.emailChangeRequest.count({
+        where: { userId, consumedAt: null, cancelledAt: null },
+      });
+
+    // Runs the real admin-action mutation the way the handler does.
+    const run = (
+      name: "grant-admin" | "revoke-admin" | "deactivate",
+      actor: { id: string },
+      target: { id: string },
+    ) =>
+      withAuditTransaction(prisma, async (tx) =>
+        withAuditContext(
+          { actor: { actorType: "USER", actorUserId: actor.id } },
+          async () => {
+            const row = await tx.user.findUniqueOrThrow({
+              where: { id: target.id },
+            });
+            return ACTION_SPECS[name].run(
+              {
+                tx,
+                actor: actor as never,
+                target: row as never,
+                body: undefined,
+                now: clock,
+              },
+              {} as never,
+            );
+          },
+        ),
+      );
+
+    it("cancels the target's open request on grant-admin", async () => {
+      const user = await createUser();
+      const { newEmail } = await request(admin, user);
+      const token = tokenFrom(newEmail);
+      expect(await openCount(user.id)).toBe(1);
+
+      await run("grant-admin", admin, user);
+      expect(await openCount(user.id)).toBe(0);
+      expect(await service.confirmEmailChange(token)).toEqual({
+        state: "invalid",
+      });
+    });
+
+    it("cancels the target's open request on revoke-admin", async () => {
+      const target = await createUser({ isAdmin: true });
+      await request(primaryAdmin, target);
+      expect(await openCount(target.id)).toBe(1);
+
+      await run("revoke-admin", admin, target);
+      expect(await openCount(target.id)).toBe(0);
+    });
+
+    it("cancels the target's open request when the target is deactivated", async () => {
+      const user = await createUser();
+      await request(admin, user);
+      await run("deactivate", admin, user);
+      expect(await openCount(user.id)).toBe(0);
+    });
+
+    it("cancels the requests a requester made when they are deactivated or lose admin", async () => {
+      const requester = await createUser({ isAdmin: true });
+      const first = await createUser();
+      const second = await createUser();
+      await request(subject(requester), first);
+      await request(subject(requester), second);
+      await run("deactivate", admin, requester);
+      expect(await openCount(first.id)).toBe(0);
+      expect(await openCount(second.id)).toBe(0);
+
+      const demoted = await createUser({ isAdmin: true });
+      const third = await createUser();
+      await request(subject(demoted), third);
+      await run("revoke-admin", admin, demoted);
+      expect(await openCount(third.id)).toBe(0);
+    });
+
+    it("leaves unrelated requests open", async () => {
+      const bystander = await createUser();
+      await request(admin, bystander);
+      const user = await createUser();
+      await run("grant-admin", admin, user);
+      expect(await openCount(bystander.id)).toBe(1);
+    });
+  });
+
+  describe("concurrent requests for one user", () => {
+    it("settles with one open request and no unhandled unique violation", async () => {
+      const user = await createUser();
+      const results = await Promise.all(
+        Array.from({ length: 4 }, () => request(admin, user)),
+      );
+      for (const { result } of results) expect(result.ok).toBe(true);
+      expect(
+        await prisma.emailChangeRequest.count({
+          where: { userId: user.id, consumedAt: null, cancelledAt: null },
+        }),
+      ).toBe(1);
+    });
+  });
+
   describe("tombstone", () => {
     it("scrubs both addresses from the user's email-change audit rows and drops the pending request", async () => {
       const user = await createUser();
-      const { newEmail } = await request(primaryAdmin, user);
+      const { newEmail } = await request(admin, user);
       await service.confirmEmailChange(tokenFrom(newEmail));
       const pendingEmail = freshEmail("gmail.com");
-      await request(primaryAdmin, user, pendingEmail);
+      await request(admin, user, pendingEmail);
 
       await tombstoneUser(prisma, {
         userId: user.id,
