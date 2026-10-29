@@ -303,6 +303,7 @@ enum AuditTargetType {
 }
 
 /// Append-only. UPDATE only via withAuditAnonymization (src/lib/audit.ts); DELETE/TRUNCATE never (AUTH-T13 trigger)
+/// Hand-written partial index `AuditEvent_positionId_member_idx` (position history migration) is not modelled here.
 model AuditEvent {
   id          String           @id @default(uuid(7))
   /// validated against AUDIT_EVENT_TYPES in src/lib/audit.ts; no DB CHECK by design
