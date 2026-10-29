@@ -53,6 +53,7 @@ Each template is a zod schema plus a pure `render(data)` that returns `{ subject
 | `verify-email`          | `name?`, `url`, `expiresInMinutes`                                                                                 | `url`       |
 | `reset-password`        | `name?`, `url`, `expiresInMinutes`                                                                                 | `url`       |
 | `set-password`          | `name?`, `url`, `expiresInMinutes`, `kind`: `first-sign-in` or `admin-invite`                                      | `url`       |
+| `sign-in-code`          | `otp` (6 digits), `expiresMinutes`; a code and no link, sent only while email sign-in codes are on                 | none        |
 | `account-locked`        | `name?`, `lockedUntil`                                                                                             | none        |
 | `account-unlock`        | `name?`, `url`, `expiresInMinutes`                                                                                 | `url`       |
 | `security-notice`       | `name?`, `event`: `password-changed`, `password-reset` or `admin-granted`, `occurredAt`                            | none        |

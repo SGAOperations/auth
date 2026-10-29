@@ -159,6 +159,21 @@ export const TRANSFER_CANCEL_REASONS = [
 
 export type TransferCancelReason = (typeof TRANSFER_CANCEL_REASONS)[number];
 
+/**
+ * Why an emailed-code sign-in failed: a wrong, expired or spent code, or the
+ * refusal rule that applied (email-otp-policy.ts). Rule names only, never an
+ * address or a code.
+ */
+export const OTP_LOGIN_FAILED_REASONS = [
+  "OTP_INVALID",
+  "OTP_NO_ACCOUNT",
+  "OTP_INACTIVE",
+  "OTP_UNVERIFIED",
+  "OTP_ADMIN",
+  "OTP_MFA",
+  "OTP_LOCKED",
+] as const;
+
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 const count = z.number().int().nonnegative();
 
@@ -174,6 +189,7 @@ export const AUDIT_CATALOG = {
         "email_verification",
         "totp",
         "backup_code",
+        "email_otp",
         "other",
       ]),
     }),
@@ -187,8 +203,11 @@ export const AUDIT_CATALOG = {
         "ACCOUNT_DEACTIVATED",
         "ACCOUNT_LOCKED",
         "INVALID_TWO_FACTOR_CODE",
+        ...OTP_LOGIN_FAILED_REASONS,
         "OTHER",
       ]),
+      // Set on an emailed-code sign-in only; the password path omits it.
+      method: z.literal("email_otp").optional(),
     }),
   },
   LOGOUT: sessionTarget,

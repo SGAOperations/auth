@@ -83,6 +83,11 @@ export const SAMPLES: readonly Sample[] = [
     },
   },
   {
+    id: "sign-in-code",
+    template: "sign-in-code",
+    data: { otp: "123456", expiresMinutes: 10 },
+  },
+  {
     id: "account-locked",
     template: "account-locked",
     data: { name: "Avery", lockedUntil: LATER },

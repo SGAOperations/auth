@@ -80,6 +80,35 @@ export const POLICIES = {
   setPasswordInvite: [
     { id: "invite:user:1d", limit: 3, windowSeconds: 86400, by: "user" },
   ],
+  // Emailed sign-in codes (docs/runbooks/email-otp.md). Checked in the Better
+  // Auth before hook (src/lib/auth/email-otp.ts), not by matchAuthRoute: the
+  // server actions call auth.api in process, past the HTTP wrapper. The
+  // per-email buckets count whether or not the account exists, so a 429 is
+  // identical either way.
+  emailOtpSend: [
+    {
+      id: "email-otp-send:email:15m",
+      limit: 3,
+      windowSeconds: 900,
+      by: "email",
+    },
+    {
+      id: "email-otp-send:email:1d",
+      limit: 6,
+      windowSeconds: 86400,
+      by: "email",
+    },
+    { id: "email-otp-send:ip:1h", limit: 10, windowSeconds: 3600, by: "ip" },
+  ],
+  emailOtpSignIn: [
+    {
+      id: "email-otp-sign-in:email:15m",
+      limit: 10,
+      windowSeconds: 900,
+      by: "email",
+    },
+    { id: "email-otp-sign-in:ip:1h", limit: 20, windowSeconds: 3600, by: "ip" },
+  ],
 } as const satisfies Record<string, readonly Rule[]>;
 
 export type PolicyName = keyof typeof POLICIES;
