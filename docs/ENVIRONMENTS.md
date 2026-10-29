@@ -204,7 +204,7 @@ Migrations apply while the previous deployment is still serving, so every migrat
 | ------------- | ------------------- | ---------------------------------------------------------------------------- |
 | `pa-transfer` | hourly, at minute 7 | Executes due COOLING Primary Admin transfers and expires stale PENDING ones. |
 | `alerts`      | every 15 minutes    | Stub until #89.                                                              |
-| `retention`   | daily at 08:23      | Stub until #90.                                                              |
+| `retention`   | daily at 08:23      | Tombstones, purges and anonymizes per [retention.md](runbooks/retention.md). |
 
 - **Hourly, not every 15 minutes.** Every run queries Postgres and wakes the Neon compute for about 5 minutes. Every 15 minutes is about 60 CU-hours a month per branch against the Free plan's 100 per project. Hourly is about 15. A transfer completes up to about an hour after its 24-hour cooling window ends, plus any GitHub schedule delay.
 - **Targets.** Scheduled runs call production only. `dev` is dispatch-only: Actions, then "Scheduled jobs", then Run workflow with `environment=dev`.

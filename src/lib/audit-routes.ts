@@ -187,9 +187,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason: "stub until #89/#90; no state change",
   },
+  // Every tombstone the job makes writes its one USER_DELETED row there. The
+  // other steps (purge, IP/UA nulling, notices) are not audited events.
   "src/app/api/jobs/retention/route.ts": {
-    kind: "exempt",
-    reason: "stub until #89/#90; no state change",
+    kind: "job",
+    module: "src/lib/users/tombstone.ts",
+    events: ["USER_DELETED"],
   },
 };
 

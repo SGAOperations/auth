@@ -5,10 +5,12 @@ import {
   writeAuditEvent,
   type AuditActor,
 } from "@/lib/audit";
+import { TOMBSTONE_NAME, tombstoneEmail } from "@/lib/retention/policy";
 
 export interface TombstoneInput {
   userId: string;
-  reason: "admin";
+  /** The rule that fired: `admin` for the admin delete, else a retention rule. */
+  reason: "admin" | "deactivated_30d" | "inactive_12mo" | "unverified_7d";
   actor: AuditActor;
   /** Extra conditions on the row, so a caller can make the tombstone conditional. */
   guard?: Prisma.UserWhereInput;
@@ -53,13 +55,14 @@ export async function tombstoneUser(
       data: {
         status: "DELETED",
         deletedAt: new Date(),
-        email: `deleted+${userId}@invalid`,
-        name: "Deleted user",
+        email: tombstoneEmail(userId),
+        name: TOMBSTONE_NAME,
         preferredName: null,
         image: null,
         emailVerified: false,
         twoFactorEnabled: false,
         isAdmin: false,
+        inactivityNoticeSentAt: null,
       },
     });
     if (scrubbed.count === 0) return { tombstoned: false };
