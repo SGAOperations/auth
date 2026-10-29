@@ -21,7 +21,6 @@ export function RouteError({
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
 
-  // Move focus to the heading so screen readers announce the failure.
   useEffect(() => {
     heading.current?.focus();
   }, []);
