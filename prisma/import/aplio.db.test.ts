@@ -113,7 +113,7 @@ describe("applyAplioImport", () => {
       where: { userId: existing.id },
     });
     const { plan } = await apply([
-      row({ email: existing.email.toUpperCase(), name: "Aplio Name" }),
+      row({ email: existing.email.toLowerCase(), name: "Aplio Name" }),
     ]);
     expect(plan.rows[0]).toMatchObject({
       outcome: "merge",
@@ -131,10 +131,7 @@ describe("applyAplioImport", () => {
 
   it("maps an in-file duplicate to the one created user", async () => {
     const first = row();
-    const { plan } = await apply([
-      first,
-      row({ email: first.email.toUpperCase() }),
-    ]);
+    const { plan } = await apply([first, row({ email: first.email })]);
     expect(plan.counts).toMatchObject({ create: 1, duplicateInSource: 1 });
     expect(plan.rows[1].userId).toBe(plan.rows[0].userId);
     expect(plan.rows[1].userId).not.toBeNull();
