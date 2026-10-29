@@ -46,6 +46,15 @@ Import from `src/test/factories.ts`. All use the app's `prisma` client.
 - `createCapturingMailer()` in `src/test/capturing-mailer.ts`: records `sendEmail({ to, template, data })` calls in `sent`, with `to(address)`, `last()` and `clear()`.
 - `createFakeRateLimiter({ limit, windowMs })` in `src/test/fake-rate-limiter.ts`: in-memory sliding window with the `@upstash/ratelimit` result shape. `setUnavailable(true)` makes `limit()` reject, to test the fail-open path.
 
+### Auth flow tests
+
+The `flow-*.db.test.ts` files in `src/lib/auth/` drive the auth stack over HTTP. `createAuthHttpApp()` in `src/test/auth-http.ts` builds the real `buildAuthOptions` behind the route limiter that `src/app/api/auth/[...all]/route.ts` uses, with a capturing mailer, an in-memory limiter backend and inline lockout work. Send requests with `app.request(method, path, { body, cookie, ip })`; `signUp`, `verify`, `signIn` and `getSession` wrap the common steps.
+
+- Call `app.drain()` before asserting on mail or audit rows that Better Auth defers, such as the password-reset email and its audit event.
+- `AuditEvent` is never reset. Create a fresh user per test and read its rows with `auditEvents(user.id)` (or `auditTypes`). For a request with no user, filter by a unique IP with `auditEventsByIp`.
+- Give each test its own IP with `ipFor(label)`, so one test's sign-ins never use up another's per-IP limit. Each app already gets its own default IP.
+- Under `useFakeClock` rows can share a timestamp, so assert on counts and metadata rather than on log order.
+
 ## CI and branch protection
 
 CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `main` and `dev`. Six checks are required:
