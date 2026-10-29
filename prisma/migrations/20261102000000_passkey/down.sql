@@ -1,8 +1,6 @@
 -- Reverses migration.sql in this directory. No BEGIN/COMMIT: the caller controls
 -- the transaction.
 
-DROP TRIGGER IF EXISTS require_active_user_for_passkey ON "Passkey";
-DROP FUNCTION IF EXISTS require_active_user_for_passkey();
 DROP TRIGGER IF EXISTS delete_passkeys_when_inactive ON "User";
 DROP FUNCTION IF EXISTS delete_passkeys_when_inactive();
 DROP TABLE IF EXISTS "Passkey";
