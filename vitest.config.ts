@@ -15,6 +15,13 @@ if (process.env.TEST_DIRECT_URL) {
   dbEnv.DIRECT_URL = process.env.TEST_DIRECT_URL;
 }
 
+const transferGate = {
+  branches: 90,
+  functions: 90,
+  lines: 90,
+  statements: 90,
+};
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -91,6 +98,11 @@ export default defineConfig({
           lines: 100,
           statements: 100,
         },
+        // The Primary Admin transfer service. One key per file, so each file
+        // has to reach the bar on its own rather than average with the rest.
+        "src/lib/jobs/pa-transfer.ts": transferGate,
+        "src/lib/jobs/pa-transfer-actions.ts": transferGate,
+        "src/lib/jobs/pa-transfer-machine.ts": transferGate,
       },
       reporter: ["text-summary", "text"],
     },
