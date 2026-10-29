@@ -87,7 +87,6 @@ interface AuditEventSpec {
 const noMetadata = z.strictObject({});
 
 const userTarget = { targetType: "USER", metadata: noMetadata } as const;
-const productTarget = { targetType: "PRODUCT", metadata: noMetadata } as const;
 const transferTarget = {
   targetType: "TRANSFER",
   metadata: noMetadata,
@@ -114,6 +113,24 @@ const positionChanges = z.strictObject({
   category: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
 });
+
+/** The product fields an update can change. `slug` is immutable and absent. */
+export const PRODUCT_AUDIT_FIELDS = [
+  "name",
+  "description",
+  "baseUrl",
+  "iconUrl",
+  "isActive",
+  "sortOrder",
+  "visibleToPositionKeys",
+  "loginRedirectPath",
+] as const;
+
+export type ProductAuditField = (typeof PRODUCT_AUDIT_FIELDS)[number];
+
+// Slugs and field names are not PII, and the slug keeps the history readable
+// after a delete. Never put values here: an update records field names only.
+const productSlugMetadata = z.strictObject({ slug: z.string().min(2).max(64) });
 
 const hasChange = (changes: Record<string, unknown>) =>
   Object.keys(changes).length > 0;
@@ -260,9 +277,14 @@ export const AUDIT_CATALOG = {
   // createdAt) index. Position-side history reads metadata.positionId.
   POSITION_ASSIGNED: positionOnUser,
   POSITION_UNASSIGNED: positionOnUser,
-  PRODUCT_CREATED: productTarget,
-  PRODUCT_UPDATED: productTarget,
-  PRODUCT_DELETED: productTarget,
+  PRODUCT_CREATED: { targetType: "PRODUCT", metadata: productSlugMetadata },
+  PRODUCT_UPDATED: {
+    targetType: "PRODUCT",
+    metadata: productSlugMetadata.extend({
+      fields: z.array(z.enum(PRODUCT_AUDIT_FIELDS)).min(1),
+    }),
+  },
+  PRODUCT_DELETED: { targetType: "PRODUCT", metadata: productSlugMetadata },
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,
   // `via` says which door the cancel came through. The transfer row already

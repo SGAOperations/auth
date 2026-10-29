@@ -533,6 +533,39 @@ describe("position lifecycle metadata", () => {
   });
 });
 
+describe("product lifecycle metadata", () => {
+  const event = (type: string, metadata: unknown) => ({
+    type,
+    actorType: "USER",
+    actorUserId: "u1",
+    targetType: "PRODUCT",
+    targetId: "p1",
+    metadata,
+  });
+
+  it.each([
+    ["PRODUCT_CREATED", { slug: "vaultz" }],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["baseUrl"] }],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["name", "isActive"] }],
+    ["PRODUCT_DELETED", { slug: "vaultz" }],
+  ])("accepts %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();
+  });
+
+  it.each([
+    ["PRODUCT_CREATED", {}],
+    ["PRODUCT_CREATED", { slug: "vaultz", extra: 1 }],
+    ["PRODUCT_UPDATED", {}],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: [] }],
+    ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["slug"] }],
+    ["PRODUCT_UPDATED", { slug: "vaultz" }],
+    ["PRODUCT_DELETED", {}],
+    ["PRODUCT_DELETED", { slug: "vaultz", extra: 1 }],
+  ])("rejects %s %j", (type, metadata) => {
+    expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
+  });
+});
+
 describe("PA_TRANSFER_CANCELLED metadata", () => {
   const event = (metadata: unknown) => ({
     type: "PA_TRANSFER_CANCELLED",
