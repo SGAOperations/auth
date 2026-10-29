@@ -32,7 +32,7 @@ const STEPS: readonly Step[] = ["warning", "recipient", "confirm", "summary"];
 
 const CONSEQUENCES = [
   "The recipient becomes the only Primary Admin. You stay an admin.",
-  "They must accept within 7 days, after re-entering their password and code.",
+  "They must accept within 7 days, and may be asked to re-enter their password and code.",
   "After they accept, there is a 24-hour window in which you can cancel, here or from the link we email you.",
   "When it takes effect, you and the recipient are both signed out everywhere.",
 ];
