@@ -164,6 +164,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED"],
   },
+  "src/app/(app)/account/actions.ts": {
+    kind: "exempt",
+    reason:
+      "self-service name and preferredName on the caller's own row; the catalog has no profile-edit event (same decision as /update-user)",
+  },
   "src/app/login/actions.ts": {
     kind: "exempt",
     reason:
