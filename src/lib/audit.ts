@@ -44,9 +44,11 @@ export function withAuditContext<T>(context: AuditContext, fn: () => T): T {
 export function withAuditTransaction<T>(
   client: PrismaClient,
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  options?: { timeout?: number; maxWait?: number },
 ): Promise<T> {
-  return client.$transaction((tx) =>
-    withAuditContext({ db: tx }, () => fn(tx)),
+  return client.$transaction(
+    (tx) => withAuditContext({ db: tx }, () => fn(tx)),
+    options,
   );
 }
 
@@ -97,16 +99,17 @@ async function requestHeaders(): Promise<Pick<Headers, "get"> | null> {
   }
 }
 
-/**
- * Writes one catalog event. The actor comes from the call or the surrounding
- * context, never a default: a user action must not be silently mislabelled as
- * SYSTEM. IP and user agent come from the call, `options.headers`, the
- * context, then the current Next.js request. Writes through the open
- * transaction when there is one, and throws on any failure.
- */
-export async function audit<T extends AuditEventType>(
+type RequestInfo = ReturnType<typeof auditRequestInfo> | null;
+
+async function currentRequestInfo(): Promise<RequestInfo> {
+  const headers = await requestHeaders();
+  return headers ? auditRequestInfo(headers) : null;
+}
+
+async function resolveEvent<T extends AuditEventType>(
   event: AuditCall<T>,
-  options: AuditOptions = {},
+  options: AuditOptions,
+  requestInfo: () => Promise<RequestInfo>,
 ) {
   const context = auditContext.getStore();
 
@@ -122,8 +125,7 @@ export async function audit<T extends AuditEventType>(
   let userAgent =
     event.userAgent ?? fromOptions?.userAgent ?? context?.userAgent ?? null;
   if (!options.headers && (ip == null || userAgent == null)) {
-    const headers = await requestHeaders();
-    const fromRequest = headers ? auditRequestInfo(headers) : null;
+    const fromRequest = await requestInfo();
     ip ??= fromRequest?.ip ?? null;
     userAgent ??= fromRequest?.userAgent ?? null;
   }
@@ -131,7 +133,45 @@ export async function audit<T extends AuditEventType>(
   let db = options.db ?? context?.db;
   if (!db) db = (await import("@/lib/prisma")).prisma;
 
-  return writeAuditEvent(db, { ...event, ...actor, ip, userAgent });
+  return { db, input: { ...event, ...actor, ip, userAgent } };
+}
+
+/**
+ * Writes one catalog event. The actor comes from the call or the surrounding
+ * context, never a default: a user action must not be silently mislabelled as
+ * SYSTEM. IP and user agent come from the call, `options.headers`, the
+ * context, then the current Next.js request. Writes through the open
+ * transaction when there is one, and throws on any failure.
+ */
+export async function audit<T extends AuditEventType>(
+  event: AuditCall<T>,
+  options: AuditOptions = {},
+) {
+  const { db, input } = await resolveEvent(event, options, currentRequestInfo);
+  return writeAuditEvent(db, input);
+}
+
+/**
+ * Writes several events with one insert. Each is resolved exactly as `audit()`
+ * would, but the request is read once. Every event is validated before
+ * anything is written, so one bad event writes none.
+ */
+export async function auditMany(
+  events: readonly AuditCall<AuditEventType>[],
+  options: AuditOptions = {},
+): Promise<{ count: number }> {
+  let request: Promise<RequestInfo> | undefined;
+  const requestInfo = () => (request ??= currentRequestInfo());
+
+  const resolved = [];
+  for (const event of events) {
+    resolved.push(await resolveEvent(event, options, requestInfo));
+  }
+  const first = resolved[0];
+  if (!first) return { count: 0 };
+  const data = resolved.map(({ input }) => parseAuditEvent(input));
+  // The same options and context apply to every event, so one client serves all.
+  return first.db.auditEvent.createMany({ data });
 }
 
 export const AUDIT_ANONYMIZE_SETTING = "sgauth.audit_anonymize";

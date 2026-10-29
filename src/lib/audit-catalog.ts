@@ -208,7 +208,7 @@ export const AUDIT_CATALOG = {
   USER_CREATED: {
     targetType: "USER",
     metadata: z.strictObject({
-      source: z.enum(["self_signup", "admin", "system"]),
+      source: z.enum(["self_signup", "admin", "bulk_import", "system"]),
       // Set by the admin create endpoint only: whether an invite was issued.
       invited: z.boolean().optional(),
     }),
@@ -341,23 +341,37 @@ export const AUDIT_CATALOG = {
       reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
     }),
   },
-  // One per `--apply` of scripts/import-users.ts. Counts and checksums only: no
-  // address, name or hash. A later import source widens `source`.
+  // One per `--apply` of scripts/import-users.ts, and one per admin CSV import.
+  // Counts and checksums only: no address, name, position key or hash. A later
+  // import source adds a member keyed on `source`.
   BULK_IMPORT: {
     targetType: null,
-    metadata: z.strictObject({
-      source: z.enum(["chambers"]),
-      exportSource: z.enum(["chambers-neon", "supabase"]),
-      sourceSha256: sha256Hex,
-      mappingSha256: sha256Hex,
-      replacementsSha256: sha256Hex.nullable(),
-      created: count,
-      merged: count,
-      unchanged: count,
-      skipped: count,
-      emailsReplaced: count,
-      positionsAssigned: count,
-    }),
+    metadata: z.discriminatedUnion("source", [
+      z.strictObject({
+        source: z.literal("chambers"),
+        exportSource: z.enum(["chambers-neon", "supabase"]),
+        sourceSha256: sha256Hex,
+        mappingSha256: sha256Hex,
+        replacementsSha256: sha256Hex.nullable(),
+        created: count,
+        merged: count,
+        unchanged: count,
+        skipped: count,
+        emailsReplaced: count,
+        positionsAssigned: count,
+      }),
+      z.strictObject({
+        source: z.literal("csv"),
+        rows: count,
+        created: count,
+        updated: count,
+        unchanged: count,
+        skipped: count,
+        positionsAssigned: count,
+        skipInvalid: z.boolean(),
+        sendInvites: z.boolean(),
+      }),
+    ]),
   },
   JWKS_ROTATED: noTarget,
   // An admin downloaded the audit log as CSV. No filter values: a user filter
