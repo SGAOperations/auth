@@ -181,8 +181,10 @@ export function createUserImportHandlers(deps: UserImportDeps) {
     }
 
     // After the commit, so a send problem never undoes the import.
-    const invited = sendInvites
-      ? await sendImportInvites(
+    let invited: Awaited<ReturnType<typeof sendImportInvites>> | null = null;
+    if (sendInvites) {
+      try {
+        invited = await sendImportInvites(
           outcome.applied.rows.flatMap(({ result, userId }) =>
             result !== "skipped" && userId !== null ? [userId] : [],
           ),
@@ -191,8 +193,13 @@ export function createUserImportHandlers(deps: UserImportDeps) {
             db: prisma,
             sleep: deps.sleep,
           },
-        )
-      : null;
+        );
+      } catch (err) {
+        logger.error("user_import_invites_failed", {
+          errorName: err instanceof Error ? err.name : "unknown",
+        });
+      }
+    }
 
     return apiJson(
       toApplyResponse(outcome, invited?.statuses, invited?.counts ?? null),
