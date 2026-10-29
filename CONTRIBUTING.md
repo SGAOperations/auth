@@ -48,7 +48,7 @@ Import from `src/test/factories.ts`. All use the app's `prisma` client.
 
 ## CI and branch protection
 
-CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `main` and `dev`. Six checks are required:
+CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `main` and `dev`. Seven checks are required:
 
 - `typecheck`: `tsc --noEmit` against the generated Prisma client.
 - `lint`: ESLint.
@@ -56,6 +56,17 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `ma
 - `audit`: `npm audit --omit=dev --audit-level=high`; fails on high or critical advisories in production dependencies. The full `npm audit --audit-level=high` runs as a non-blocking step in the same job and stays informational.
 - `migrations`: applies `prisma/migrations/` to a scratch Postgres and fails if `prisma/schema.prisma` differs from the result.
 - `test`: runs `npm test` (the `unit` and `db` projects, with coverage) against the Neon `test` branch, which is reset to its parent (`dev`) first.
+- `e2e`: Playwright SSO suite against SGAuth and two SDK product stubs on `*.sga.localhost`, using a scratch Postgres; traces are uploaded on failure.
+
+### Running e2e locally
+
+The suite starts SGAuth on `:3000` and the product stub twice, as `a.sga.localhost:3001` and `b.sga.localhost:3002`. It is Chromium only.
+
+1. Add the hostnames to your hosts file, so the stubs' server-side calls to SGAuth resolve: `127.0.0.1 auth.sga.localhost a.sga.localhost b.sga.localhost`. Chromium resolves `*.localhost` on its own.
+2. Set `SGAUTH_ENV=local`, `BETTER_AUTH_SECRET` (32 characters or more) and `DATABASE_URL` and `DIRECT_URL` to a personal Neon branch or a local Postgres with the migrations applied. The fixtures refuse to run for any other `SGAUTH_ENV`.
+3. `npx playwright install chromium`, then `npm run e2e:build`, then `npm run e2e`.
+
+The fixtures upsert three `@e2e.invalid` users and a position, and wipe those users' sessions and position grants on every run. SGAuth's sign-in email step allows 10 attempts per 10 minutes per IP, so restart the SGAuth server (or wait ten minutes) before running the suite twice in a row against a server you started yourself.
 
 ### Fixing a `migrations` failure
 
@@ -85,12 +96,12 @@ The `test` job runs in the `neon-test-branch` concurrency group so two PRs never
 
 ### Branch protection
 
-Changes to `main` and `dev` go through a pull request, and the six checks above must pass. No approving review is required: the checks are the gate, and every change also goes through the pipeline's own review. Job names in `ci.yml` are the required check names, so renaming a job strands its check.
+Changes to `main` and `dev` go through a pull request, and the seven checks above must pass. No approving review is required: the checks are the gate, and every change also goes through the pipeline's own review. Job names in `ci.yml` are the required check names, so renaming a job strands its check.
 
 The rules live in the repository's `main/dev` ruleset (Settings → Rules → Rulesets), not in classic branch protection. A repository admin maintains it there:
 
 - Require a pull request, with 0 required approvals and all review threads resolved.
-- Require status checks to pass: `typecheck`, `lint`, `format`, `audit`, `migrations`, `test`. "Require branches to be up to date" is off.
+- Require status checks to pass: `typecheck`, `lint`, `format`, `audit`, `migrations`, `test`, `e2e`. "Require branches to be up to date" is off.
 - Block force pushes.
 
 When a job is added, renamed or removed in `ci.yml`, update the ruleset's required checks in the same change. `.github/branch-protection.json` records the same check list for reference; it is not applied by any command.
