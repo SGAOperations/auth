@@ -33,7 +33,7 @@ export default async function AdminPage() {
             <Link
               key={section.href}
               href={section.href}
-              className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-ring"
             >
               <Card className="h-full hover:bg-muted/50">
                 <CardHeader>
