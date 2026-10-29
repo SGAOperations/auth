@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import {
   A,
   AUTH,
-  COOKIE,
   REDIRECT_COOKIE,
   guardEvilHosts,
+  sessionCookies,
   signIn,
   signInFast,
 } from "./support/auth";
@@ -77,9 +77,7 @@ test.describe("logout redirect", () => {
       `${AUTH}/logout?redirect=${encodeURIComponent("https://evil.example/")}`,
     );
     await expect(page).toHaveURL(`${AUTH}/login`);
-    expect((await context.cookies()).some((c) => c.name === COOKIE)).toBe(
-      false,
-    );
+    expect(await sessionCookies(context)).toEqual([]);
     expect(evilHits).toEqual([]);
   });
 

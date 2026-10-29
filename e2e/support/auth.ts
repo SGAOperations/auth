@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Page } from "@playwright/test";
 import { E2E_PASSWORD } from "./db";
 
 export const AUTH = "http://auth.sga.localhost:3000";
@@ -68,6 +68,22 @@ export async function signInFast(page: Page, email: string): Promise<void> {
     { email, password: E2E_PASSWORD },
   );
   expect(status).toBe(200);
+}
+
+/**
+ * The session cookies the browser still holds. Specs assert this is empty after
+ * a logout, so a failure prints the leftover cookie's domain, path and expiry.
+ */
+export async function sessionCookies(context: BrowserContext) {
+  return (await context.cookies())
+    .filter((cookie) => cookie.name === COOKIE)
+    .map(({ name, domain, path, expires, value }) => ({
+      name,
+      domain,
+      path,
+      expires,
+      emptyValue: value === "",
+    }));
 }
 
 /**

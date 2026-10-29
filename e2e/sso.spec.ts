@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { A, AUTH, B, COOKIE, signIn, signInFast } from "./support/auth";
+import {
+  A,
+  AUTH,
+  B,
+  COOKIE,
+  sessionCookies,
+  signIn,
+  signInFast,
+} from "./support/auth";
 import {
   MEMBER_EMAIL,
   PRODUCT_B_POSITION,
@@ -78,7 +86,7 @@ test("logout on product A signs product B out", async ({
   await page.getByRole("link", { name: "Sign out" }).click();
   await expect(page).toHaveURL(`${A}/`);
   await expect(page.getByText("Not signed in.")).toBeVisible();
-  expect((await context.cookies()).some((c) => c.name === COOKIE)).toBe(false);
+  expect(await sessionCookies(context)).toEqual([]);
 
   await page.goto(`${B}/protected`);
   expect(new URL(page.url()).origin + new URL(page.url()).pathname).toBe(
