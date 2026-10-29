@@ -40,6 +40,10 @@ export const AUTH_COPY = {
   resendRateLimited:
     "You've asked for several links in the last hour. Try again later.",
 
+  codeInvalid: "That code didn't work. Check it, or send a new code.",
+  codeUnavailable:
+    "Email codes are unavailable right now. Sign in with your password, or reset it.",
+
   lengthShort: `At least ${PASSWORD_MIN_LENGTH} characters`,
   lengthOk: "Length looks good",
   lengthLong: `${PASSWORD_MAX_LENGTH} characters at most`,
@@ -65,6 +69,19 @@ export const signUpSchema = z.object({
 });
 
 export const forgotPasswordSchema = z.object({ email: emailField });
+
+// The emailed sign-in code (docs/runbooks/email-otp.md).
+export const EMAIL_CODE_LENGTH = 6;
+
+export const emailCodeRequestSchema = z.object({ email: emailField });
+
+export const emailCodeVerifySchema = z.object({
+  email: emailField,
+  otp: z.string().regex(/^\d{6}$/),
+});
+
+export type EmailCodeRequestValues = z.infer<typeof emailCodeRequestSchema>;
+export type EmailCodeVerifyValues = z.infer<typeof emailCodeVerifySchema>;
 
 export type EmailStepValues = z.infer<typeof emailStepSchema>;
 export type SignInValues = z.infer<typeof signInSchema>;
@@ -192,6 +209,52 @@ export function mapSignUpError(error: AuthClientError): SignUpErrorResult {
     return { field: null, message: AUTH_COPY.signUpRateLimited };
   }
   return { field: null, message: AUTH_COPY.unexpected };
+}
+
+export type EmailCodeErrorState =
+  | "invalid"
+  | "rate-limited"
+  | "unavailable"
+  | "unexpected";
+
+/**
+ * Better Auth's error for the code request or the code sign-in. A wrong,
+ * expired, spent or ineligible code all read as `invalid`, so nothing tells an
+ * existing account from an unknown one.
+ */
+export function mapEmailCodeError(error: AuthClientError): EmailCodeErrorState {
+  if (error.status === 429) return "rate-limited";
+  if (error.status === 503 || error.code === "EMAIL_OTP_UNAVAILABLE") {
+    return "unavailable";
+  }
+  // The server already answers a spent, expired or ineligible code as
+  // INVALID_OTP; TOO_MANY_ATTEMPTS and OTP_EXPIRED are mapped here too only so
+  // an answer that slipped past it still reads the same.
+  if (
+    error.code === "INVALID_OTP" ||
+    error.code === "OTP_EXPIRED" ||
+    error.code === "TOO_MANY_ATTEMPTS" ||
+    error.code === "INVALID_REQUEST"
+  ) {
+    return "invalid";
+  }
+  return "unexpected";
+}
+
+export function emailCodeMessage(
+  state: EmailCodeErrorState,
+  retryAfterMinutes = 1,
+): string {
+  switch (state) {
+    case "invalid":
+      return AUTH_COPY.codeInvalid;
+    case "rate-limited":
+      return `Too many requests. Try again in ${retryAfterMinutes} ${retryAfterMinutes === 1 ? "minute" : "minutes"}.`;
+    case "unavailable":
+      return AUTH_COPY.codeUnavailable;
+    case "unexpected":
+      return "Something went wrong. Try again.";
+  }
 }
 
 export type RequestErrorState = "rate-limited" | "unexpected";

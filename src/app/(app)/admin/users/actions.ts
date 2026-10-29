@@ -11,6 +11,7 @@ import { resultFromResponse } from "@/lib/admin/response-result";
 import { revokeUserSession as revokeSession } from "@/lib/admin/user-sessions";
 import { liveAdminUserHandlers } from "@/lib/admin/users/server";
 import type { AdminUserAction } from "@/lib/admin/users/schemas";
+import { getSession } from "@/lib/auth/server";
 import { logger } from "@/lib/log";
 import { MAX_ACTIVE_POSITIONS_PER_USER } from "@/lib/position-key";
 import { prisma } from "@/lib/prisma";
@@ -201,6 +202,17 @@ export async function revokeUserSession(
   if (!parsedId.success) return notFound;
   const parsedSession = entityId.safeParse(sessionId);
   if (!parsedSession.success) return notFound;
+
+  // The caller's own current session is never revoked from here, whatever the
+  // UI shows; "Sign out" ends it. The server is the control (ENGINEERING §3).
+  const current = await getSession();
+  if (current?.session.id === parsedSession.data) {
+    return {
+      ok: false,
+      code: "CONFLICT",
+      message: "You can't revoke the session you are signed in with.",
+    };
+  }
 
   try {
     const result = await revokeSession(prisma, guard.actor, {

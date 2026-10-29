@@ -46,10 +46,16 @@ function buildCapStore(): CapStore {
   return createMemoryCapStore();
 }
 
+/**
+ * The counter store behind the send caps. Shared so the email sign-in code's
+ * own daily counter lives in the same Upstash namespace.
+ */
+export const capStore = buildCapStore();
+
 export const mailer = createMailer({
   transport: buildTransport(),
   caps: createEmailCaps({
-    store: buildCapStore(),
+    store: capStore,
     dailyCap: env.SGAUTH_EMAIL_DAILY_CAP,
     log: logger,
     onFailOpen: (detail) =>
