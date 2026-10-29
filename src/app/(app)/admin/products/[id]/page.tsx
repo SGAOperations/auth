@@ -12,7 +12,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { AUDIT_TIME_ZONE } from "@/lib/audit-log";
 import { getProductForAdmin, listPositionOptions } from "@/lib/product-admin";
 import { DeleteProductDialog } from "../delete-product-dialog";
-import { ProductForm } from "../product-form";
+import { ProductForm, type ProductFormProduct } from "../product-form";
 
 export const metadata: Metadata = { title: "Edit product" };
 
@@ -36,6 +36,21 @@ export default async function EditProductPage({
   ]);
   if (!product) notFound();
 
+  // Only the fields the form needs cross to the client; the row also carries
+  // createdById and timestamps.
+  const formProduct: ProductFormProduct = {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    description: product.description,
+    baseUrl: product.baseUrl,
+    iconUrl: product.iconUrl,
+    isActive: product.isActive,
+    sortOrder: product.sortOrder,
+    visibleToPositionKeys: product.visibleToPositionKeys,
+    loginRedirectPath: product.loginRedirectPath,
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -53,7 +68,7 @@ export default async function EditProductPage({
           {dateFormat.format(product.updatedAt)}.
         </p>
       </div>
-      <ProductForm mode="update" product={product} positions={positions} />
+      <ProductForm mode="update" product={formProduct} positions={positions} />
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Danger zone</CardTitle>
@@ -62,7 +77,14 @@ export default async function EditProductPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DeleteProductDialog product={product} />
+          <DeleteProductDialog
+            product={{
+              id: product.id,
+              name: product.name,
+              slug: product.slug,
+              isActive: product.isActive,
+            }}
+          />
         </CardContent>
       </Card>
     </div>
