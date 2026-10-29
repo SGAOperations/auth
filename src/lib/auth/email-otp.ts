@@ -89,6 +89,12 @@ const INVALID_OTP = {
   message: "Invalid OTP",
 } as const;
 
+// The plugin's own answers that exist only for an address with an issued code.
+const CONCEALED_CODES: ReadonlySet<string> = new Set([
+  "TOO_MANY_ATTEMPTS",
+  "OTP_EXPIRED",
+]);
+
 function invalidOtp() {
   return APIError.from("BAD_REQUEST", INVALID_OTP);
 }
@@ -196,6 +202,11 @@ export function createEmailOtp({
     const limit = await rateLimiter.check("emailOtpSend", { ip, email });
     if (!limit.allowed) throw rateLimited(limit.retryAfterSeconds);
 
+    // Counted before eligibility on purpose: refusing at the cap only for
+    // eligible addresses would show which addresses are eligible, so every
+    // request counts, and unknown addresses spend the cap too (the runbook
+    // names this). The per-IP send limit above bounds how fast they can.
+    //
     // Unlike every other limit, this one fails closed: a cap that fails open
     // is the volume overrun this feature exists to prevent, and password
     // sign-in still works through an Upstash outage.
@@ -319,7 +330,31 @@ export function createEmailOtp({
     await auditHooks.emailOtpFailed(ctx, user?.id ?? null, "OTP_INVALID");
   }
 
-  return { guardSend, guardSignIn, sendVerificationOTP, afterSignIn };
+  /**
+   * The plugin answers 403 TOO_MANY_ATTEMPTS and 400 OTP_EXPIRED only when a
+   * code was issued, which only an eligible address gets: an account with MFA
+   * or a lock is refused by `guardSignIn` as INVALID_OTP before any code
+   * exists. Left as they are, those two answers would tell an eligible address
+   * from one with MFA or a lock, so both become the wrong-code answer. Called
+   * after `afterSignIn`, so the audit still records OTP_INVALID. It throws, so
+   * it must not run inside that hook's try/catch.
+   */
+  function concealCodeState(ctx: { context: { returned?: unknown } }) {
+    const returned = ctx.context.returned;
+    if (!isAPIError(returned)) return;
+    const code = (returned.body as { code?: unknown } | undefined)?.code;
+    if (typeof code === "string" && CONCEALED_CODES.has(code)) {
+      throw invalidOtp();
+    }
+  }
+
+  return {
+    guardSend,
+    guardSignIn,
+    sendVerificationOTP,
+    afterSignIn,
+    concealCodeState,
+  };
 }
 
 /**
@@ -378,6 +413,7 @@ export function emailOtpPlugin(input: EmailOtpInput) {
                 path: ctx.path,
               });
             }
+            otp.concealCodeState(ctx);
           }),
         },
       ],

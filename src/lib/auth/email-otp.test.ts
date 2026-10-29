@@ -190,6 +190,22 @@ describe("guardSend", () => {
     expect(second.body).toEqual(first.body);
   });
 
+  it("counts a send for an unknown address against the cap, so the cap answer cannot show eligibility", async () => {
+    const { otp } = build({ settings: { dailyCap: 1 }, user: null });
+    await otp.guardSend(
+      { email: "nobody@northeastern.edu", type: "sign-in" },
+      headersFor("203.0.113.1"),
+    );
+    const error = await caught(
+      otp.guardSend(
+        { email: EMAIL, type: "sign-in" },
+        headersFor("203.0.113.2"),
+      ),
+    );
+    expect(error.statusCode).toBe(503);
+    expect(error.body).toMatchObject({ code: "EMAIL_OTP_UNAVAILABLE" });
+  });
+
   it("fails closed with 503 and an alert when the counter store is down", async () => {
     const capStore: CapStore = {
       incr: async () => {
@@ -396,6 +412,44 @@ describe("afterSignIn", () => {
       }),
       expect.anything(),
     );
+  });
+
+  it.each([
+    ["TOO_MANY_ATTEMPTS", "FORBIDDEN", "Too many attempts"],
+    ["OTP_EXPIRED", "BAD_REQUEST", "OTP expired"],
+  ] as const)(
+    "answers %s as the wrong-code error and still audits it",
+    async (code, status, message) => {
+      const { otp } = build({});
+      const ctx = signInCtx();
+      ctx.context.returned = APIError.from(status, { code, message });
+      await otp.afterSignIn(ctx, { email: EMAIL, otp: "000000" });
+      const error = await caught((async () => otp.concealCodeState(ctx))());
+      expect(error.statusCode).toBe(400);
+      expect(error.body).toMatchObject({
+        code: "INVALID_OTP",
+        message: "Invalid OTP",
+      });
+      expect(audit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: { method: "email_otp", reason: "OTP_INVALID" },
+        }),
+        expect.anything(),
+      );
+    },
+  );
+
+  it("leaves a wrong code and a success as they are", () => {
+    const { otp } = build({});
+    const wrong = signInCtx();
+    wrong.context.returned = APIError.from("BAD_REQUEST", {
+      code: "INVALID_OTP",
+      message: "Invalid OTP",
+    });
+    expect(() => otp.concealCodeState(wrong)).not.toThrow();
+    const ok = signInCtx();
+    ok.context.returned = { token: "t", user: { id: "user-1" } };
+    expect(() => otp.concealCodeState(ok)).not.toThrow();
   });
 
   it("writes nothing for a successful sign-in", async () => {

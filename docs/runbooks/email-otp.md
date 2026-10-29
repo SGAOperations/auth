@@ -72,6 +72,14 @@ code request, so it bounds email volume no matter how the traffic looks. Over
 the cap the page shows "Email codes are unavailable right now" and password
 sign-in is unaffected.
 
+The counter runs before eligibility is known, so requests for unknown or
+ineligible addresses spend the cap too. This is by design: refusing at the cap
+only for eligible addresses would show which addresses are eligible. The cost is
+that a few IPs, each held to the per-IP send limit (10 an hour), can use up the
+day's cap and turn code sign-in off for everyone until the next UTC day. Password
+sign-in is unaffected. Treat an unexpected `daily cap reached` alert as possible
+abuse and look at the `emailOtpSend` rate-limit logs before raising the cap.
+
 ## Record the decision
 
 Post a comment on issue #112 with the numbers, the result of each half of the
@@ -89,7 +97,9 @@ not by the merge. Reopen #112 until the comment is posted.
    non-admin user without MFA:
    - `/login`, password step: the "Email me a sign-in code instead" link shows.
    - Request a code, receive the email, enter it, and land on `/account`.
-   - A wrong code three times answers "Too many attempts".
+   - A wrong code three times, and a code past its 10 minutes, answer the same
+     "That code didn't work" as a wrong code: the page never says "too many
+     attempts" or "expired", since either would show the address is eligible.
    - An admin or an MFA account gets the same screens but no email, and a code
      read from the database cannot sign it in.
 3. Confirm the audit log shows `LOGIN_SUCCESS` with method `email_otp` for the

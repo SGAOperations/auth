@@ -41,7 +41,6 @@ export const AUTH_COPY = {
     "You've asked for several links in the last hour. Try again later.",
 
   codeInvalid: "That code didn't work. Check it, or send a new code.",
-  codeTooManyAttempts: "Too many attempts. Send a new code.",
   codeUnavailable:
     "Email codes are unavailable right now. Sign in with your password, or reset it.",
 
@@ -214,7 +213,6 @@ export function mapSignUpError(error: AuthClientError): SignUpErrorResult {
 
 export type EmailCodeErrorState =
   | "invalid"
-  | "too-many-attempts"
   | "rate-limited"
   | "unavailable"
   | "unexpected";
@@ -229,10 +227,13 @@ export function mapEmailCodeError(error: AuthClientError): EmailCodeErrorState {
   if (error.status === 503 || error.code === "EMAIL_OTP_UNAVAILABLE") {
     return "unavailable";
   }
-  if (error.code === "TOO_MANY_ATTEMPTS") return "too-many-attempts";
+  // The server already answers a spent, expired or ineligible code as
+  // INVALID_OTP; TOO_MANY_ATTEMPTS and OTP_EXPIRED are mapped here too only so
+  // an answer that slipped past it still reads the same.
   if (
     error.code === "INVALID_OTP" ||
     error.code === "OTP_EXPIRED" ||
+    error.code === "TOO_MANY_ATTEMPTS" ||
     error.code === "INVALID_REQUEST"
   ) {
     return "invalid";
@@ -247,8 +248,6 @@ export function emailCodeMessage(
   switch (state) {
     case "invalid":
       return AUTH_COPY.codeInvalid;
-    case "too-many-attempts":
-      return AUTH_COPY.codeTooManyAttempts;
     case "rate-limited":
       return `Too many requests. Try again in ${retryAfterMinutes} ${retryAfterMinutes === 1 ? "minute" : "minutes"}.`;
     case "unavailable":

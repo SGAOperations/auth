@@ -246,7 +246,7 @@ describe("mapEmailCodeError", () => {
   it.each([
     [{ status: 429 }, "rate-limited"],
     [{ status: 503, code: "EMAIL_OTP_UNAVAILABLE" }, "unavailable"],
-    [{ status: 403, code: "TOO_MANY_ATTEMPTS" }, "too-many-attempts"],
+    [{ status: 403, code: "TOO_MANY_ATTEMPTS" }, "invalid"],
     [{ status: 400, code: "INVALID_OTP" }, "invalid"],
     [{ status: 400, code: "OTP_EXPIRED" }, "invalid"],
     [{ status: 400, code: "INVALID_REQUEST" }, "invalid"],
@@ -259,9 +259,6 @@ describe("mapEmailCodeError", () => {
   it("writes the copy for each state", () => {
     expect(emailCodeMessage("invalid")).toBe(
       "That code didn't work. Check it, or send a new code.",
-    );
-    expect(emailCodeMessage("too-many-attempts")).toBe(
-      "Too many attempts. Send a new code.",
     );
     expect(emailCodeMessage("rate-limited", 1)).toBe(
       "Too many requests. Try again in 1 minute.",
