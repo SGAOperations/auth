@@ -158,6 +158,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     events: ["PASSWORD_SET"],
     emittedIn: ["src/lib/set-password/consumer.ts"],
   },
+  // Admin product registry server actions. Each writes its audit row in the same
+  // transaction as the product write.
+  "src/app/(app)/admin/products/actions.ts": {
+    kind: "audited",
+    events: ["PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED"],
+  },
   "src/app/login/actions.ts": {
     kind: "exempt",
     reason:

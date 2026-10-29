@@ -9,6 +9,11 @@ export interface AdminSection {
 export const ADMIN_NAV: readonly AdminSection[] = [
   { href: "/admin", label: "Dashboard", description: "Overview" },
   {
+    href: "/admin/products",
+    label: "Products",
+    description: "Connected tools, trusted origins and visibility",
+  },
+  {
     href: "/admin/audit",
     label: "Audit log",
     description: "Search and export security events",
