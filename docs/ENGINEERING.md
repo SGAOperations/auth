@@ -2,7 +2,7 @@
 
 Every pipeline agent reads this document before working. It defines the quality bar beyond what is obvious from the code. Plans must account for it per feature, implementations must follow it, and review findings may cite its sections the same way they cite the plan.
 
-**Boundary with design.** This repository has no design document yet: its interface is stock shadcn/ui with no first-party screens. Interface rules will live in a separate `DESIGN.md` once there is enough UI to describe. Accessibility belongs here when it is written, not there.
+**Boundary with design.** Interface rules (tokens, the backdrop, the account branch layout, motion) live in [`docs/DESIGN.md`](DESIGN.md). Accessibility belongs here, not there.
 
 **Where the architecture comes from.** SGAuth's settled design is in [`docs/sgauth-design/SGAuth-design-summary.md`](sgauth-design/SGAuth-design-summary.md), the threat review in [`SGAuth-red-team.md`](sgauth-design/SGAuth-red-team.md), the threat model in [`THREAT_MODEL.md`](THREAT_MODEL.md), and the ticket set in `docs/sgauth-design/tickets-auth.mjs`. Rules below tagged _(design)_ are carried from the summary. They describe the system being built, and the current code is a thin scaffold that predates most of them. Where the summary and this document disagree, the summary wins and this document is stale.
 

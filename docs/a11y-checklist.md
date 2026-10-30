@@ -45,19 +45,24 @@ The account page's positions, tools, and sessions sections (#65) are not built, 
 
 Ratios use WCAG relative luminance. For the neutral tokens, luminance is the OKLCH lightness cubed (`Y = L^3`). `--destructive` is `oklch(0.704 0.191 22.216)`, which is `#f87171` in sRGB.
 
+Surfaces were re-recorded in #232 for the near-black palette: `--background` 0.1, `--card` 0.15, `--popover` 0.17. `--ring`, `--muted`, `--muted-foreground` and `--destructive` are unchanged.
+
 | Pair                                            | Ratio     | Requirement  | Result |
 | ----------------------------------------------- | --------- | ------------ | ------ |
-| `--ring` (0.556) on `--background` (0.145)      | 4.2       | 3:1 (1.4.11) | pass   |
-| `--ring` on `--card` / `--popover` (0.205)      | 3.8       | 3:1          | pass   |
+| `--ring` (0.556) on `--background` (0.1)        | 4.35      | 3:1 (1.4.11) | pass   |
+| `--ring` on `--card` (0.15)                     | 4.16      | 3:1          | pass   |
+| `--ring` on `--popover` (0.17)                  | 4.04      | 3:1          | pass   |
 | `--ring` on `--muted` (0.269)                   | 3.2       | 3:1          | pass   |
-| `--muted-foreground` (0.708) on `--background`  | 7.6       | 4.5:1        | pass   |
-| `--muted-foreground` on `--card`                | 6.9       | 4.5:1        | pass   |
+| `--muted-foreground` (0.708) on `--background`  | 7.94      | 4.5:1        | pass   |
+| `--muted-foreground` on `--card`                | 7.59      | 4.5:1        | pass   |
 | `--muted-foreground` on `--muted`               | 5.8       | 4.5:1        | pass   |
-| `--muted-foreground` on `bg-muted/50` over card | about 6.4 | 4.5:1        | pass   |
-| `--destructive` on `--background`               | 7.2       | 4.5:1        | pass   |
-| `--destructive` on `--card`                     | 6.5       | 4.5:1        | pass   |
+| `--muted-foreground` on `bg-muted/50` over card | about 6.8 | 4.5:1        | pass   |
+| `--destructive` on `--background`               | 7.44      | 4.5:1        | pass   |
+| `--destructive` on `--card`                     | 7.11      | 4.5:1        | pass   |
 
-No `.dark` token adjustment was needed. The base outline was `outline-ring/50`, which blends the 4.2:1 ring toward the background and falls under 3:1. It is now solid `outline-ring`. These figures are computed, not measured in a browser; confirm them with the axe contrast check during the sweep.
+The glass auth card (`bg-card/80` over the backdrop) sits between `--background` and `--card`, so its ratios fall between the two rows above. The backdrop is decorative, hidden under forced colours and print, and never carries text.
+
+No `.dark` token adjustment was needed for #67. The base outline was `outline-ring/50`, which blends the 4.2:1 ring toward the background and falls under 3:1. It is now solid `outline-ring`. These figures are computed, not measured in a browser; confirm them with the axe contrast check during the sweep.
 
 ## Fixes made in this ticket
 
