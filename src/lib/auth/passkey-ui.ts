@@ -62,6 +62,20 @@ export function mapPasskeySignInError(error: ClientError): PasskeyFlowOutcome {
   return { kind: "message", message: PASSKEY_COPY.signInFailed };
 }
 
+/**
+ * The line to show for a failed passkey sign-in, or null for none. An autofill
+ * attempt starts on mount without a click, so its failure stays silent and the
+ * button remains the way to retry.
+ */
+export function passkeySignInMessage(
+  error: ClientError,
+  autoFill: boolean,
+): string | null {
+  if (autoFill) return null;
+  const outcome = mapPasskeySignInError(error);
+  return outcome.kind === "message" ? outcome.message : null;
+}
+
 // What is left of a REAUTH_REQUIRED once `withReauthRetry` has returned it: the
 // person cancelled the re-auth prompt, so there is nothing to report.
 function isReauthCancelled(error: ClientError): boolean {

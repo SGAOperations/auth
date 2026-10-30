@@ -4,7 +4,7 @@ import { KeyRound } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
-import { PASSKEY_COPY, mapPasskeySignInError } from "@/lib/auth/passkey-ui";
+import { PASSKEY_COPY, passkeySignInMessage } from "@/lib/auth/passkey-ui";
 import { usePasskeySupport } from "@/lib/auth/use-passkey-support";
 
 interface PasskeySignInProps {
@@ -26,8 +26,8 @@ export function PasskeySignIn({ onSignedIn }: PasskeySignInProps) {
     async (autoFill: boolean) => {
       const result = await authClient.signIn.passkey({ autoFill });
       if (result.error) {
-        const outcome = mapPasskeySignInError(result.error);
-        if (outcome.kind === "message") setError(outcome.message);
+        const message = passkeySignInMessage(result.error, autoFill);
+        if (message) setError(message);
         return;
       }
       await onSignedIn();

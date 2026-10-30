@@ -5,6 +5,7 @@ import {
   mapAddPasskeyError,
   mapManagePasskeyError,
   mapPasskeySignInError,
+  passkeySignInMessage,
   removeConfirmation,
   withReauthRetry,
 } from "@/lib/auth/passkey-ui";
@@ -46,6 +47,34 @@ describe("mapPasskeySignInError", () => {
       kind: "message",
       message: PASSKEY_COPY.signInFailed,
     });
+  });
+});
+
+describe("passkeySignInMessage", () => {
+  it("stays silent for every failure of the autofill attempt", () => {
+    for (const error of [
+      { code: "PASSKEY_NOT_FOUND", status: 401 },
+      { code: "AUTH_CANCELLED", status: 400 },
+      { status: 429 },
+      { status: 500 },
+    ]) {
+      expect(passkeySignInMessage(error, true)).toBeNull();
+    }
+  });
+
+  it("shows the line for a failure of the button", () => {
+    expect(
+      passkeySignInMessage({ code: "PASSKEY_NOT_FOUND", status: 401 }, false),
+    ).toBe(PASSKEY_COPY.signInFailed);
+    expect(passkeySignInMessage({ status: 429 }, false)).toBe(
+      PASSKEY_COPY.rateLimited,
+    );
+  });
+
+  it("stays silent when the person cancels the button's prompt", () => {
+    expect(
+      passkeySignInMessage({ code: "AUTH_CANCELLED", status: 400 }, false),
+    ).toBeNull();
   });
 });
 
