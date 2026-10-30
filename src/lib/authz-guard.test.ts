@@ -11,6 +11,8 @@ const EXEMPT: Record<string, string> = {
     "Better Auth's own handler: sign-in, sign-up and session flows act on the caller's own account, not on another user",
   "src/app/login/actions.ts":
     "Takes no input and acts only on the caller's own session: it reads it and sends the browser to its redirect target",
+  "src/app/(app)/account/actions.ts":
+    "Edits only the caller's own name and preferredName: the target is the session user, never an input, and canUpdateOwnProfile denies any other id",
   "src/app/login/code/actions.ts":
     "Anonymous emailed-code sign-in: control of the mailbox is the credential, the plugin refuses ineligible accounts at send and at sign-in, and every accepted request answers the same for every address",
   "src/app/api/csp-report/route.ts":
@@ -41,6 +43,8 @@ const EXEMPT: Record<string, string> = {
     "Anonymous login email step: it answers every address the same, and any set-password link goes only to the mailbox of the account it names",
   "src/app/preview-gate/unlock/route.ts":
     "Preview-environment password gate; it acts on no user and runs before any sign-in",
+  "src/app/api/provision/aplio/users/route.ts":
+    "Machine route called by Aplio's server during the dual-write window; requires the APLIO_DUAL_WRITE_SECRET bearer, has no cookie, and acts on the account the body names, never on a caller",
   "src/app/api/jobs/alerts/route.ts":
     "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
   "src/app/api/jobs/pa-transfer/route.ts":
