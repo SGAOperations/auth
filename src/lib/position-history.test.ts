@@ -87,12 +87,18 @@ describe("getPositionHistory and getUserPositionHistory", () => {
         findUnique: vi.fn().mockResolvedValue(found.user ?? null),
         findMany: vi.fn().mockResolvedValue([]),
       },
-      auditEvent: { findMany: vi.fn().mockResolvedValue([]) },
       $queryRaw: vi.fn().mockResolvedValue([]),
     }) as unknown as PositionHistoryDb & {
-      auditEvent: { findMany: ReturnType<typeof vi.fn> };
       $queryRaw: ReturnType<typeof vi.fn>;
     };
+
+  // The values a tagged-template call bound, with nested Prisma.sql fragments
+  // flattened in order.
+  const boundValues = (call: unknown[]): unknown[] =>
+    call.slice(1).flatMap((value) => {
+      const nested = (value as { values?: unknown[] } | null)?.values;
+      return Array.isArray(nested) ? boundValues([null, ...nested]) : [value];
+    });
 
   it("returns null for an unknown position without querying events", async () => {
     const db = fakeDb({});
@@ -103,7 +109,7 @@ describe("getPositionHistory and getUserPositionHistory", () => {
   it("returns null for an unknown user without querying events", async () => {
     const db = fakeDb({});
     expect(await getUserPositionHistory(db, UUID, { limit: 50 })).toBeNull();
-    expect(db.auditEvent.findMany).not.toHaveBeenCalled();
+    expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 
   it("returns an empty page with no cursor when there are no events", async () => {
@@ -124,13 +130,23 @@ describe("getPositionHistory and getUserPositionHistory", () => {
       limit: 10,
       cursor: { createdAt: AT, id: UUID },
     });
-    const args = db.auditEvent.findMany.mock.calls[0][0];
-    expect(args.take).toBe(11);
-    expect(args.where.OR).toEqual([
-      { createdAt: { lt: AT } },
-      { createdAt: AT, id: { lt: UUID } },
-    ]);
-    expect(args.select).not.toHaveProperty("ip");
-    expect(args.select).not.toHaveProperty("userAgent");
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+    const call = db.$queryRaw.mock.calls[0];
+    expect(boundValues(call)).toEqual([UUID_2, AT.toISOString(), UUID, 11]);
+    const sql = (call[0] as string[]).join("?");
+    expect(sql).not.toContain('"ip"');
+    expect(sql).not.toContain('"userAgent"');
+  });
+
+  it("answers a page with two database calls: the existence check and one query", async () => {
+    const db = fakeDb({ position: { id: UUID }, user: { id: UUID_2 } });
+    await getPositionHistory(db, UUID, { limit: 50 });
+    await getUserPositionHistory(db, UUID_2, { limit: 50 });
+    expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+    const lookups = [
+      db.position.findUnique,
+      db.user.findUnique,
+    ] as unknown as ReturnType<typeof vi.fn>[];
+    for (const lookup of lookups) expect(lookup).toHaveBeenCalledTimes(1);
   });
 });
