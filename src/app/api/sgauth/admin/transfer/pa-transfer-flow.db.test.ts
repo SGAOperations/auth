@@ -573,12 +573,12 @@ describe("changes while a transfer is in flight", () => {
     expect(await primaryAdminIds()).toEqual([pa.user.id]);
   }
 
-  // These four assert what ticket #49 asked the admin endpoints to do: call
-  // `cancelForIneligibleRecipient` in the same transaction as the change. The
-  // endpoints do not, so the transfer is still in flight when they answer.
-  // `it.fails` keeps the assertion exactly as written and keeps CI green; when
-  // the endpoints are fixed these start passing, Vitest reports that, and the
-  // `.fails` is removed.
+  // The first three of these assert what ticket #49 asked the admin
+  // endpoints to do: call `cancelForIneligibleRecipient` in the same
+  // transaction as the change. The endpoints do not, so the transfer is still
+  // in flight when they answer. `it.fails` keeps the assertion exactly as
+  // written and keeps CI green; when the endpoints are fixed these start
+  // passing, Vitest reports that, and the `.fails` is removed.
   for (const from of FROM) {
     it.fails(
       `${from}: deactivating the recipient cancels the transfer at once`,
@@ -634,31 +634,29 @@ describe("changes while a transfer is in flight", () => {
     );
 
     // The recipient without MFA is ineligible (`NO_MFA`), so the job at +24 h
-    // must cancel the transfer instead of making them Primary Admin. The job
-    // only looks at status and admin, so it does not.
-    it.fails(
-      `${from}: resetting the recipient's MFA makes the job cancel instead of execute`,
-      async () => {
-        await withRollback(async () => {
-          const { s, id } = await inFlight(from);
-          const done = await adminAction(
-            s.actors.pa,
-            s.actors.r.user,
-            "reset-mfa",
-          );
-          expect(done.status).toBe(200);
+    // cancels the transfer instead of making them Primary Admin.
+    it(`${from}: resetting the recipient's MFA makes the job cancel instead of execute`, async () => {
+      await withRollback(async () => {
+        const { s, id } = await inFlight(from);
+        const done = await adminAction(
+          s.actors.pa,
+          s.actors.r.user,
+          "reset-mfa",
+        );
+        expect(done.status).toBe(200);
 
-          await advance(s, DAY_MS);
-          expect(await runTheJob()).toMatchObject({
-            cancelled: 1,
-            executed: 0,
-          });
-          expect(await row(id)).toMatchObject({ status: "CANCELLED" });
-          expect(await primaryAdminIds()).toEqual([s.actors.pa.user.id]);
+        await advance(s, DAY_MS);
+        expect(await runTheJob()).toMatchObject({
+          cancelled: 1,
+          executed: 0,
         });
-      },
-      120_000,
-    );
+        expect(await row(id)).toMatchObject({
+          status: "CANCELLED",
+          reason: "recipient_ineligible",
+        });
+        expect(await primaryAdminIds()).toEqual([s.actors.pa.user.id]);
+      });
+    }, 120_000);
 
     it(`${from}: a recipient who has lost MFA cannot accept`, async () => {
       await withRollback(async () => {
