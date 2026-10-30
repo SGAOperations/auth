@@ -50,8 +50,10 @@ export function AuthShell({
           <CardContent className="flex flex-col gap-4">{children}</CardContent>
         ) : null}
         {footer ? (
-          <CardFooter className="justify-center text-sm text-muted-foreground">
-            {footer}
+          // CardFooter is a flex row, which drops the space between a text node
+          // and a link; the paragraph keeps the footer as one line of text.
+          <CardFooter className="justify-center border-glow-faint bg-transparent text-sm text-muted-foreground">
+            <p className="text-center">{footer}</p>
           </CardFooter>
         ) : null}
       </Card>

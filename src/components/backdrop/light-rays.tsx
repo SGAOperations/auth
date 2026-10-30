@@ -29,7 +29,7 @@ function Ray({ side }: { side: "left" | "right" }) {
         <div
           className={cn(
             "absolute top-0 -left-px h-40 w-[3px] animate-ray-pulse blur-[1px]",
-            side === "right" && "[animation-delay:-4.5s]",
+            side === "right" && "[--ray-delay:-4.5s]",
             stillOff,
           )}
           style={{

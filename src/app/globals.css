@@ -60,8 +60,11 @@
 
 @theme {
   --animate-ray-breathe: ray-breathe 7s ease-in-out infinite alternate;
-  --animate-ray-pulse: ray-pulse 9s linear infinite;
-  --animate-branch-grow: branch-grow 700ms ease-out both;
+  /* Delays live inside the shorthand: a separate animation-delay utility can
+     be reset to 0 by this shorthand depending on stylesheet order. */
+  --animate-ray-pulse: ray-pulse 9s linear var(--ray-delay, 0s) infinite;
+  --animate-branch-grow: branch-grow 700ms ease-out calc(var(--i, 0) * 90ms)
+    both;
 
   @keyframes ray-breathe {
     from {

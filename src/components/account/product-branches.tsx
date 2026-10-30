@@ -12,7 +12,7 @@ const MAX_STAGGER = 8;
 
 // Shared by every branch: a 1px line and a bright junction dot.
 const branchBase = cn(
-  "before:absolute before:top-1/2 before:h-px before:animate-branch-grow before:bg-linear-to-r before:from-glow-muted before:to-transparent before:[animation-delay:calc(var(--i)*90ms)] before:motion-reduce:animate-none",
+  "before:absolute before:top-1/2 before:h-px before:animate-branch-grow before:bg-linear-to-r before:from-glow-muted before:to-transparent before:motion-reduce:animate-none",
   "group-focus-within:before:from-glow group-hover:before:from-glow",
   "after:absolute after:top-1/2 after:size-1.5 after:-translate-y-1/2 after:rounded-full after:bg-glow after:shadow-[0_0_12px_var(--glow)]",
 );
@@ -62,7 +62,7 @@ export function ProductBranches({ tools }: { tools: ToolProduct[] }) {
             >
               <a
                 href={toolHref(tool.baseUrl)}
-                className="flex h-full animate-in items-start gap-3 rounded-xl bg-card/80 p-3 ring-1 ring-glow-faint backdrop-blur-sm transition-colors fill-mode-backwards outline-none [animation-delay:calc(var(--i)*90ms)] fade-in hover:bg-muted hover:ring-glow-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:animate-none"
+                className="flex h-full animate-in items-start gap-3 rounded-xl bg-card/80 p-3 ring-1 ring-glow-faint backdrop-blur-sm transition-colors fill-mode-backwards outline-none [--tw-animation-delay:calc(var(--i)*90ms)] fade-in hover:bg-muted hover:ring-glow-muted focus-visible:ring-2 focus-visible:ring-ring motion-reduce:animate-none"
               >
                 <span
                   aria-hidden="true"

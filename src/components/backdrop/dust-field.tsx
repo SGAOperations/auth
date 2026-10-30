@@ -37,9 +37,7 @@ export function DustField() {
     let last = 0;
     let elapsed = 0;
 
-    // Invalid colour strings leave the previous fillStyle in place.
-    ctx.fillStyle = "#ffffff";
-    ctx.fillStyle =
+    const particleColor =
       getComputedStyle(document.documentElement)
         .getPropertyValue("--particle")
         .trim() || "#ffffff";
@@ -47,6 +45,10 @@ export function DustField() {
     function draw() {
       if (!ctx) return;
       ctx.clearRect(0, 0, width, height);
+      // Resizing the canvas resets context state, so set it on every draw.
+      // Invalid colour strings leave the previous fillStyle in place.
+      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = particleColor;
       for (const p of particles) {
         ctx.globalAlpha = twinkleAlpha(p, elapsed);
         ctx.beginPath();
