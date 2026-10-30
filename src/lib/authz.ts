@@ -167,6 +167,15 @@ export function canUpdateOwnProfile(
   return actor.id === targetUserId ? allow : deny("NOT_SELF");
 }
 
+/**
+ * Whether `actor` may view the position org chart. Any ACTIVE user may: the
+ * chart shows structure only (name, category, leadership flag) and carries no
+ * holders, keys or counts.
+ */
+export function canViewOrgChart(actor: AuthzSubject): AuthzDecision {
+  return actor.status === "ACTIVE" ? allow : deny("ACTOR_INACTIVE");
+}
+
 /** The two people a Primary Admin transfer names. */
 export type TransferParties = { fromUserId: string; toUserId: string };
 

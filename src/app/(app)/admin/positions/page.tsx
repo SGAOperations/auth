@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listPositions } from "@/lib/positions";
+import { cn } from "@/lib/utils";
 import { CreatePositionDialog } from "./_components/create-position-dialog";
 import { PositionsList } from "./_components/positions-list";
 import { PositionsTabs } from "./_components/positions-tabs";
@@ -43,10 +46,18 @@ export default async function PositionsPage() {
             a position at any time; its key never changes.
           </p>
         </div>
-        <CreatePositionDialog
-          categories={categories}
-          managerOptions={managerOptions}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/org-chart"
+            className={cn(buttonVariants({ variant: "outline" }))}
+          >
+            View org chart
+          </Link>
+          <CreatePositionDialog
+            categories={categories}
+            managerOptions={managerOptions}
+          />
+        </div>
       </div>
 
       <PositionsTabs

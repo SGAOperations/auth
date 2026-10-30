@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildOrgTree,
   descendantsOf,
   managerChain,
   wouldCreateCycle,
@@ -72,6 +73,68 @@ describe("managerChain", () => {
       { id: "y", managerPositionId: "x" },
     ];
     expect(managerChain(looped, "x").map((node) => node.id)).toEqual(["y"]);
+  });
+});
+
+const ids = (list: readonly { node: ManagerNode }[]) =>
+  list.map((entry) => entry.node.id);
+
+describe("buildOrgTree", () => {
+  it("nests a chain and leaves a lone position unlinked", () => {
+    const { roots, unlinked } = buildOrgTree(nodes);
+    expect(ids(roots)).toEqual(["a"]);
+    expect(ids(roots[0].reports)).toEqual(["b"]);
+    expect(ids(roots[0].reports[0].reports)).toEqual(["c"]);
+    expect(ids(roots[0].reports[0].reports[0].reports)).toEqual(["d"]);
+    expect(unlinked.map((node) => node.id)).toEqual(["e"]);
+  });
+
+  it("returns several roots in input order", () => {
+    const { roots, unlinked } = buildOrgTree([
+      { id: "r2", managerPositionId: null },
+      { id: "r1", managerPositionId: null },
+      { id: "k1", managerPositionId: "r1" },
+      { id: "k2", managerPositionId: "r2" },
+    ]);
+    expect(ids(roots)).toEqual(["r2", "r1"]);
+    expect(unlinked).toEqual([]);
+  });
+
+  it("keeps siblings in input order", () => {
+    const { roots } = buildOrgTree([
+      { id: "boss", managerPositionId: null },
+      { id: "z", managerPositionId: "boss" },
+      { id: "a", managerPositionId: "boss" },
+      { id: "m", managerPositionId: "boss" },
+    ]);
+    expect(ids(roots[0].reports)).toEqual(["z", "a", "m"]);
+  });
+
+  it("treats a report whose manager is missing as a root", () => {
+    const { roots, unlinked } = buildOrgTree([
+      { id: "p", managerPositionId: "deleted" },
+      { id: "q", managerPositionId: "p" },
+    ]);
+    expect(ids(roots)).toEqual(["p"]);
+    expect(ids(roots[0].reports)).toEqual(["q"]);
+    expect(unlinked).toEqual([]);
+  });
+
+  it("returns nothing for an empty input", () => {
+    expect(buildOrgTree([])).toEqual({ roots: [], unlinked: [] });
+  });
+
+  it("terminates on a manufactured loop without losing or duplicating nodes", () => {
+    const { roots, unlinked } = buildOrgTree([
+      { id: "x", managerPositionId: "y" },
+      { id: "y", managerPositionId: "x" },
+      { id: "s", managerPositionId: "s" },
+      { id: "h", managerPositionId: null },
+      { id: "k", managerPositionId: "h" },
+    ]);
+    expect(ids(roots)).toEqual(["h"]);
+    expect(ids(roots[0].reports)).toEqual(["k"]);
+    expect(unlinked.map((node) => node.id)).toEqual(["x", "y", "s"]);
   });
 });
 
