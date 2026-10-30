@@ -616,6 +616,34 @@ describe("the eight actions", () => {
     });
   });
 
+  it("deactivate: cancels an in-flight transfer to the user and announces it", async () => {
+    await withPrimaryAdmin(async (primary) => {
+      const recipient = await createAdmin({ twoFactorEnabled: true });
+      const transfer = await prisma.primaryAdminTransfer.create({
+        data: { fromUserId: primary.id, toUserId: recipient.id },
+      });
+
+      const response = await act(recipient.id, "deactivate");
+      expect(response.status).toBe(200);
+
+      expect(
+        (
+          await prisma.primaryAdminTransfer.findUniqueOrThrow({
+            where: { id: transfer.id },
+          })
+        ).status,
+      ).toBe("CANCELLED");
+      expect(sendTransferNotice).toHaveBeenCalledTimes(1);
+      expect(sendTransferNotice).toHaveBeenCalledWith({
+        kind: "cancelled",
+        transferId: transfer.id,
+        fromUserId: primary.id,
+        toUserId: recipient.id,
+        reason: "recipient_ineligible",
+      });
+    });
+  });
+
   it("reactivate: restores ACTIVE and clears deactivatedAt, even on a stale session", async () => {
     await signInAs(admin, { fresh: false });
     const user = await createUser({
