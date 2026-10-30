@@ -51,6 +51,8 @@ export const AUDIT_LABELS: Record<AuditEventType, string> = {
   BULK_IMPORT: "Bulk import",
   JWKS_ROTATED: "Signing keys rotated",
   AUDIT_EXPORTED: "Audit log exported",
+  EMAIL_CHANGE_REQUESTED: "Email change requested",
+  EMAIL_CHANGED: "Email changed",
 };
 
 const KNOWN = new Set<string>(AUDIT_EVENT_TYPES);
