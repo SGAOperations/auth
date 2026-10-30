@@ -96,7 +96,7 @@ not by the merge. Reopen #112 until the comment is posted.
 2. Smoke-test on `auth-dev.northeasternsga.com` with a synthetic, verified,
    non-admin user without MFA:
    - `/login`, password step: the "Email me a sign-in code instead" link shows.
-   - Request a code, receive the email, enter it, and land on `/account`.
+   - Request a code, receive the email, enter it, and land on the SGAuth home page (`/`).
    - A wrong code three times, and a code past its 10 minutes, answer the same
      "That code didn't work" as a wrong code: the page never says "too many
      attempts" or "expired", since either would show the address is eligible.

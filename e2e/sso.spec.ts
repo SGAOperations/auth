@@ -27,7 +27,7 @@ function redirectParam(url: string): string | null {
 test("login at SGAuth is seen by both products", async ({ page, context }) => {
   await page.goto(`${AUTH}/login`);
   await signIn(page, MEMBER_EMAIL);
-  await expect(page).toHaveURL(`${AUTH}/account`);
+  await expect(page).toHaveURL(`${AUTH}/`);
 
   const cookies = (await context.cookies()).filter(
     (cookie) => cookie.name === COOKIE,

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ProductBranches } from "@/components/account/product-branches";
 import { ProfileForm } from "@/components/account/profile-form";
 import { SessionsCard } from "@/components/account/sessions-card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +15,6 @@ import {
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
 import { cn } from "@/lib/utils";
-import { displayName } from "@/lib/user-display";
 
 export const metadata: Metadata = { title: "Your account" };
 
@@ -24,20 +22,18 @@ export default async function AccountPage() {
   const user = await requireUser("/account");
   const overview = await loadAccountOverview(user.id);
   if (!overview) redirect("/login");
-  const { profile, positions, tools } = overview;
+  const { profile, positions } = overview;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight break-words">
-          Hi, {displayName(profile)}
+          Your account
         </h1>
         <p className="text-sm text-muted-foreground break-all">
           Signed in as {profile.email}
         </p>
       </header>
-
-      <ProductBranches tools={tools} />
 
       <Card>
         <CardHeader>

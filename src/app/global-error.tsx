@@ -27,8 +27,8 @@ export default function GlobalError({
             Something went wrong
           </h1>
           <p className="text-muted-foreground">
-            We couldn&apos;t load this page. Try again, or go back to your
-            account.
+            We couldn&apos;t load this page. Try again, or go back to the home
+            page.
           </p>
           {error.digest && (
             <p className="text-xs text-muted-foreground">
@@ -39,11 +39,10 @@ export default function GlobalError({
             <button type="button" onClick={reset} className={buttonVariants()}>
               Try again
             </button>
-            <a
-              href="/account"
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Go to your account
+            {/* A full page load on purpose: the router and root layout failed. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a href="/" className={buttonVariants({ variant: "outline" })}>
+              Go to home
             </a>
           </div>
         </main>

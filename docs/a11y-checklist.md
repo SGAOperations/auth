@@ -15,29 +15,31 @@ The code fixes below were made by the implementing agent. The axe sweep, the key
 
 Columns: axe (dark), keyboard, dialogs, 360 px, 1440 px, states (loading, empty, error).
 
-| Route               | Source                               | axe (dark) | Keyboard  | Dialogs            | 360 px    | 1440 px   | States                                                        |
-| ------------------- | ------------------------------------ | ---------- | --------- | ------------------ | --------- | --------- | ------------------------------------------------------------- |
-| `/`                 | `src/app/page.tsx`                   | n/a        | n/a       | n/a                | n/a       | n/a       | Redirects to `/account`                                       |
-| `/login`            | `src/app/login/page.tsx`             | to be run  | to be run | n/a                | to be run | to be run | Inline form errors with `role="alert"`; pending "…ing" text   |
-| `/sign-up`          | `src/app/sign-up/page.tsx`           | to be run  | to be run | n/a                | to be run | to be run | Same as `/login`                                              |
-| `/forgot-password`  | `src/app/forgot-password/page.tsx`   | to be run  | to be run | n/a                | to be run | to be run | Same as `/login`                                              |
-| `/reset-password`   | `src/app/reset-password/page.tsx`    | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step                                      |
-| `/set-password`     | `src/app/set-password/page.tsx`      | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step; expired-link state                  |
-| `/verify-email`     | `src/app/verify-email/page.tsx`      | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step; expired-link state                  |
-| `/unlock`           | `src/app/unlock/page.tsx`            | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step                                      |
-| `/transfer/cancel`  | `src/app/transfer/cancel/page.tsx`   | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step                                      |
-| `/locked`           | `src/app/locked/page.tsx`            | to be run  | to be run | n/a                | to be run | to be run | Static                                                        |
-| `/privacy`          | `src/app/privacy/page.tsx`           | to be run  | to be run | n/a                | to be run | to be run | Static                                                        |
-| `/preview-gate`     | `src/app/preview-gate/page.tsx`      | to be run  | to be run | n/a                | to be run | to be run | Preview environments only                                     |
-| `/account`          | `src/app/(app)/account/page.tsx`     | to be run  | to be run | n/a                | to be run | to be run | Loading and error via `(app)` boundaries; profile only        |
-| `/admin`            | `src/app/(app)/admin/page.tsx`       | to be run  | to be run | n/a                | to be run | to be run | Loading and error via `(app)` boundaries; empty-sections copy |
-| `/admin/audit`      | `src/app/(app)/admin/audit/page.tsx` | to be run  | to be run | Event detail sheet | to be run | to be run | Own `loading.tsx` and `error.tsx`; empty and filtered-empty   |
-| `not-found`         | `src/app/not-found.tsx`              | to be run  | to be run | n/a                | to be run | to be run | Static                                                        |
-| `global-error`      | `src/app/global-error.tsx`           | to be run  | to be run | n/a                | to be run | to be run | Replaces the root layout                                      |
-| `/admin/users`      | not built                            | not built  | not built | not built          | not built | not built | Audited in its own ticket (#60)                               |
-| `/admin/users/[id]` | not built                            | not built  | not built | not built          | not built | not built | Audited in its own ticket (#60)                               |
-| `/admin/positions`  | not built                            | not built  | not built | not built          | not built | not built | Audited in its own ticket (#61)                               |
-| `/account/security` | not built                            | not built  | not built | not built          | not built | not built | Audited in its own ticket (#66)                               |
+| Route               | Source                                 | axe (dark) | Keyboard  | Dialogs            | 360 px    | 1440 px   | States                                                                           |
+| ------------------- | -------------------------------------- | ---------- | --------- | ------------------ | --------- | --------- | -------------------------------------------------------------------------------- |
+| `/`                 | `src/app/(app)/page.tsx`               | to be run  | to be run | n/a                | to be run | to be run | Home: product explorer, SGA links                                                |
+| `/login`            | `src/app/login/page.tsx`               | to be run  | to be run | n/a                | to be run | to be run | Inline form errors with `role="alert"`; pending "…ing" text                      |
+| `/sign-up`          | `src/app/sign-up/page.tsx`             | to be run  | to be run | n/a                | to be run | to be run | Same as `/login`                                                                 |
+| `/forgot-password`  | `src/app/forgot-password/page.tsx`     | to be run  | to be run | n/a                | to be run | to be run | Same as `/login`                                                                 |
+| `/reset-password`   | `src/app/reset-password/page.tsx`      | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step                                                         |
+| `/set-password`     | `src/app/set-password/page.tsx`        | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step; expired-link state                                     |
+| `/verify-email`     | `src/app/verify-email/page.tsx`        | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step; expired-link state                                     |
+| `/unlock`           | `src/app/unlock/page.tsx`              | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step                                                         |
+| `/transfer/cancel`  | `src/app/transfer/cancel/page.tsx`     | to be run  | to be run | n/a                | to be run | to be run | Token page, confirm step                                                         |
+| `/locked`           | `src/app/locked/page.tsx`              | to be run  | to be run | n/a                | to be run | to be run | Static                                                                           |
+| `/privacy`          | `src/app/privacy/page.tsx`             | to be run  | to be run | n/a                | to be run | to be run | Static                                                                           |
+| `/preview-gate`     | `src/app/preview-gate/page.tsx`        | to be run  | to be run | n/a                | to be run | to be run | Preview environments only                                                        |
+| `/account`          | `src/app/(app)/account/page.tsx`       | to be run  | to be run | n/a                | to be run | to be run | Loading and error via `(app)` boundaries; profile, positions, sessions, security |
+| `/resources`        | `src/app/(app)/resources/page.tsx`     | to be run  | to be run | n/a                | to be run | to be run | Leadership-gated; `LeadershipOnly` empty state                                   |
+| `/guides/[slug]`    | `src/app/(app)/guides/[slug]/page.tsx` | to be run  | to be run | n/a                | to be run | to be run | Leadership-gated; `LeadershipOnly` empty state; 404 for unknown                  |
+| `/admin`            | `src/app/(app)/admin/page.tsx`         | to be run  | to be run | n/a                | to be run | to be run | Loading and error via `(app)` boundaries; empty-sections copy                    |
+| `/admin/audit`      | `src/app/(app)/admin/audit/page.tsx`   | to be run  | to be run | Event detail sheet | to be run | to be run | Own `loading.tsx` and `error.tsx`; empty and filtered-empty                      |
+| `not-found`         | `src/app/not-found.tsx`                | to be run  | to be run | n/a                | to be run | to be run | Static                                                                           |
+| `global-error`      | `src/app/global-error.tsx`             | to be run  | to be run | n/a                | to be run | to be run | Replaces the root layout                                                         |
+| `/admin/users`      | not built                              | not built  | not built | not built          | not built | not built | Audited in its own ticket (#60)                                                  |
+| `/admin/users/[id]` | not built                              | not built  | not built | not built          | not built | not built | Audited in its own ticket (#60)                                                  |
+| `/admin/positions`  | not built                              | not built  | not built | not built          | not built | not built | Audited in its own ticket (#61)                                                  |
+| `/account/security` | not built                              | not built  | not built | not built          | not built | not built | Audited in its own ticket (#66)                                                  |
 
 The account page's positions, tools, and sessions sections (#65) are not built, so their empty states are not part of this pass.
 
@@ -68,13 +70,13 @@ No `.dark` token adjustment was needed for #67. The base outline was `outline-ri
 
 - Base focus outline is solid (`globals.css`).
 - Focus rings on the admin section cards and the audit filter links use the solid `ring-ring`, not the 50% halo.
-- Shared `RouteError` for segment errors: heading is focused on mount, no raw error text, optional reference digest, **Try again** and **Go to your account**. Used by `(app)/error.tsx` and `admin/audit/error.tsx`.
+- Shared `RouteError` for segment errors: heading is focused on mount, no raw error text, optional reference digest, **Try again** and **Go to home**. Used by `(app)/error.tsx` and `admin/audit/error.tsx`.
 - Loading boundaries use the `Skeleton` primitive in the page's real layout with a `role="status"` "Loading…" line and `aria-busy`.
 - Audit log: `Empty` for no-events and no-matches (different copy), a keyboard-focusable named region around the table (`Table` takes a `label`), a focusable named region around the metadata block, and the disabled **Export CSV** control now has a visible reason linked by `aria-describedby` and stays focusable (`aria-disabled`).
 
 ## Already in place on `dev`
 
-Skip link and `<main id="main">` in the `(app)` layout, dark-only root layout, `lang="en"`, title template `%s · SGA Account`, one `h1` per page (the auth pages through `AuthShell`), labelled form fields, and pending buttons that swap to "…ing" text.
+Skip link and `<main id="main">` in the `(app)` layout, dark-only root layout, `lang="en"`, title template `%s · SGAuth`, one `h1` per page (the auth pages through `AuthShell`), labelled form fields, and pending buttons that swap to "…ing" text.
 
 ## Findings still open
 
