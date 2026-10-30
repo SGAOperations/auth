@@ -26,7 +26,7 @@ Name tests that need no database `*.test.ts`, and database tests `*.db.test.ts`.
 
 ### Coverage
 
-`npm test` enforces 80% line coverage on `src/lib`.
+`npm test` enforces 80% line coverage on `src/lib`, and per-file gates on the two pieces of security logic: `src/lib/authz.ts` at 100% and each Primary Admin transfer module (`src/lib/jobs/pa-transfer.ts`, `pa-transfer-actions.ts`, `pa-transfer-machine.ts`) at 90% for lines, branches, functions and statements. The gates are keyed by file, not by glob, so a file cannot borrow coverage from its neighbours. If one falls short, add a test; do not add a coverage exclude.
 
 ### Factories
 
@@ -45,6 +45,16 @@ Import from `src/test/factories.ts`. All use the app's `prisma` client.
 - `useFakeClock(start?)` in `src/test/fake-clock.ts`: fakes `Date` only, with `now`, `advance`, `set` and `restore`. The database's own `now()` is not faked, which is why `createSession` sets both expiry columns.
 - `createCapturingMailer()` in `src/test/capturing-mailer.ts`: records `sendEmail({ to, template, data })` calls in `sent`, with `to(address)`, `last()` and `clear()`.
 - `createFakeRateLimiter({ limit, windowMs })` in `src/test/fake-rate-limiter.ts`: in-memory sliding window with the `@upstash/ratelimit` result shape. `setUnavailable(true)` makes `limit()` reject, to test the fail-open path.
+
+### HTTP integration tests
+
+`src/app/api/sgauth/admin/authz-matrix.db.test.ts`, `positions/position-lifecycle.db.test.ts` and `transfer/pa-transfer-flow.db.test.ts` call the live route modules, so the real guard, `can()`, handlers, audit writer and transfer service all run. Copy their header when you add one.
+
+- **Rolling back.** The route handlers open their own transactions on `@/lib/prisma`, and a Primary Admin can never be committed. A case that needs a Primary Admin, or must leave the branch as it found it, runs inside `withRollback(fn)` from `src/test/rollback-prisma.ts`. It opens one transaction on the real client, points every call at it, turns a handler's own `$transaction` into a savepoint, and rolls everything back at the end. Mock `@/lib/prisma` with `createRollbackPrisma` (see the header of that file). Outside `withRollback` the proxy forwards to the real client, so a file can mix committed and rolled-back cases.
+- **Transaction-local settings.** In production a `SET LOCAL` ends with its transaction. Inside `withRollback` the outer transaction outlives the handler's, so the proxy resets `sgauth.pa_transfer` and `sgauth.audit_anonymize` after every nested transaction. A handler that forgets to set one itself therefore still fails here. Call `assertDeferredConstraints()` before the end of a case that moves the Primary Admin, so `primary_admin_must_exist` fires, because the rollback would otherwise skip it.
+- **The mocks.** Besides `@/lib/prisma`, mock `@/lib/auth/server` with `authServerMock`, `@/lib/email/server` with the shared `captured` mailer, `@/lib/rate-limit/server` with `rateLimitServerMock` and `next/headers` with `nextHeadersMock`, all from `src/test/admin-http.ts`. Only the session source, the mailer, the limiter and the request headers are faked. A transfer case also fakes `Date` with `useFakeClock`, and mocks `@/lib/env` to add `CRON_SECRET` for the job route.
+- **The helpers** in `src/test/admin-http.ts`: `signIn(user)` and `markReauthFresh(actor)` for a session and its re-authentication window (stamp it again after moving the clock), `buildWorld(kind)` for an actor and the four people it acts on, `callRoute(handler, init)` to call an exported route handler with Next 16's `params` Promise and the app's own `Origin`, `snapshotUser` and `auditTracker` to prove a refused request changed nothing, and `expectNoSecrets` for response bodies.
+- **Known defects.** A case marked `it.fails` asserts behaviour a ticket asked for and the code does not yet have. It keeps CI green and starts failing once the code is fixed; delete the `.fails` then.
 
 ### Auth flow tests
 
