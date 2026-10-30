@@ -17,6 +17,8 @@ export const AUDIT_EVENT_TYPES = [
   "PASSWORD_CHANGE_FAILED",
   "PASSWORD_REHASHED",
   "EMAIL_VERIFIED",
+  "EMAIL_CHANGE_REQUESTED",
+  "EMAIL_CHANGED",
   "USER_CREATED",
   "USER_INVITED",
   "USER_UPDATED",
@@ -176,6 +178,7 @@ export const OTP_LOGIN_FAILED_REASONS = [
 
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 const count = z.number().int().nonnegative();
+const emailAddress = z.string().min(3).max(320);
 
 const breakGlassOperator = z.string().trim().min(1).max(100);
 const breakGlassReason = z.string().trim().min(10).max(500);
@@ -211,7 +214,12 @@ export const AUDIT_CATALOG = {
     }),
   },
   LOGOUT: sessionTarget,
-  SESSION_REVOKED: sessionTarget,
+  // An admin revoking one of another user's sessions names that user, so the
+  // user's timeline can find the row. The user's own revoke leaves it out.
+  SESSION_REVOKED: {
+    targetType: "SESSION",
+    metadata: z.strictObject({ userId: z.uuid().optional() }),
+  },
   SESSIONS_REVOKED: {
     targetType: "USER",
     metadata: z.strictObject({ scope: z.enum(["all", "others"]) }),
@@ -241,10 +249,42 @@ export const AUDIT_CATALOG = {
   },
   PASSWORD_REHASHED: userTarget,
   EMAIL_VERIFIED: userTarget,
+  // An admin asked to change a user's email (AUTH-T24). Both addresses are PII,
+  // so they are listed in AUDIT_PII_METADATA_FIELDS and the tombstone scrubs them.
+  EMAIL_CHANGE_REQUESTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      requestId: z.string().min(1),
+      fromEmail: emailAddress,
+      toEmail: emailAddress,
+      // Set when this request replaced a still-open one.
+      supersededRequestId: z.string().min(1).optional(),
+    }),
+  },
+  // The new mailbox confirmed. Written with a SYSTEM actor: the token holder has
+  // no session, and `requestedById` names the admin.
+  EMAIL_CHANGED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      requestId: z.string().min(1),
+      requestedById: z.string().min(1),
+      fromEmail: emailAddress,
+      toEmail: emailAddress,
+      legacyEmail: z.strictObject({ from: z.boolean(), to: z.boolean() }),
+      sessionsRevoked: count,
+    }),
+  },
   USER_CREATED: {
     targetType: "USER",
     metadata: z.strictObject({
-      source: z.enum(["self_signup", "admin", "bulk_import", "system"]),
+      source: z.enum([
+        "self_signup",
+        "admin",
+        "bulk_import",
+        "system",
+        // Aplio's server, through POST /api/provision/aplio/users.
+        "aplio_dual_write",
+      ]),
       // Set by the admin create endpoint only: whether an invite was issued.
       invited: z.boolean().optional(),
     }),
@@ -388,7 +428,8 @@ export const AUDIT_CATALOG = {
       reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
     }),
   },
-  // One per `--apply` of scripts/import-users.ts, and one per admin CSV import.
+  // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
+  // and one per admin CSV import.
   // Counts and checksums only: no address, name, position key or hash. A later
   // import source adds a member keyed on `source`.
   BULK_IMPORT: {
@@ -408,6 +449,16 @@ export const AUDIT_CATALOG = {
         positionsAssigned: count,
       }),
       z.strictObject({
+        source: z.literal("aplio"),
+        sourceSha256: sha256Hex,
+        created: count,
+        merged: count,
+        duplicateInSource: count,
+        skipped: count,
+        legacyEmails: count,
+        aplioAdmins: count,
+      }),
+      z.strictObject({
         source: z.literal("csv"),
         rows: count,
         created: count,
@@ -425,6 +476,16 @@ export const AUDIT_CATALOG = {
   // is an email address, and the catalog keeps PII out of audit rows.
   AUDIT_EXPORTED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };
+
+/**
+ * The metadata keys that hold personal data, by event type. The tombstone
+ * removes them from every row that targets the deleted user. An event that
+ * carries PII in `metadata` must be listed here, and nowhere else.
+ */
+export const AUDIT_PII_METADATA_FIELDS = {
+  EMAIL_CHANGE_REQUESTED: ["fromEmail", "toEmail"],
+  EMAIL_CHANGED: ["fromEmail", "toEmail"],
+} as const satisfies Partial<Record<AuditEventType, readonly string[]>>;
 
 export type AuditMetadata<T extends AuditEventType> = z.input<
   (typeof AUDIT_CATALOG)[T]["metadata"]

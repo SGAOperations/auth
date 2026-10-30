@@ -122,6 +122,20 @@ export const SAMPLES: readonly Sample[] = [
     data: { name: "Avery", event: "mfa-reset", occurredAt: NOW },
   },
   {
+    id: "email-change-verify",
+    template: "email-change-verify",
+    data: {
+      name: "Avery",
+      url: sampleTokenUrl("email-change"),
+      expiresInMinutes: 1440,
+    },
+  },
+  {
+    id: "email-change-notice",
+    template: "email-change-notice",
+    data: { name: "Avery", newEmail: "jordan.lee@gmail.com" },
+  },
+  {
     id: "pa-transfer-initiated-recipient",
     template: "pa-transfer-initiated",
     data: {

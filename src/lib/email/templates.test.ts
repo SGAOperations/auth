@@ -11,10 +11,12 @@ import {
 const HOSTILE = "<script>alert(1)</script> & co";
 
 describe("template registry", () => {
-  it("holds exactly the 13 templates", () => {
+  it("holds exactly the 15 templates", () => {
     expect([...TEMPLATE_NAMES].sort()).toEqual([
       "account-locked",
       "account-unlock",
+      "email-change-notice",
+      "email-change-verify",
       "inactivity-notice",
       "pa-transfer-accepted",
       "pa-transfer-cancelled",
@@ -82,6 +84,29 @@ describe("rendering", () => {
     expect(TEMPLATES["pa-transfer-accepted"].links).toEqual(["cancelUrl"]);
     expect(TEMPLATES["inactivity-notice"].links).toEqual(["signInUrl"]);
     expect(TEMPLATES["account-locked"].links).toEqual([]);
+  });
+});
+
+describe("email change templates", () => {
+  it("masks the new address in the notice and carries no link", () => {
+    const prepared = prepareTemplate("email-change-notice", {
+      name: "Avery",
+      newEmail: "jordan.lee@gmail.com",
+    });
+    if (!prepared.ok) throw new Error("notice did not parse");
+    expect(prepared.links).toEqual([]);
+    expect(prepared.content.text).toContain("j•••@gmail.com");
+    expect(prepared.content.text).not.toContain("jordan.lee");
+    expect(prepared.content.html).not.toContain("jordan.lee");
+    expect(prepared.content.html).not.toContain("href=");
+  });
+
+  it("states the expiry in the verify mail", () => {
+    const { text } = renderTemplate("email-change-verify", {
+      url: "https://auth.northeasternsga.com/verify-email-change?token=t",
+      expiresInMinutes: 1440,
+    });
+    expect(text).toContain("24 hours");
   });
 });
 

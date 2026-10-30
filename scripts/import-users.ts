@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -24,6 +24,7 @@ import {
   type ImportPlan,
   type LoadedReplacements,
 } from "../prisma/import/chambers.js";
+import { writeOutput } from "../prisma/import/output.js";
 import {
   UsageError,
   describeTarget,
@@ -44,27 +45,6 @@ const NO_REPLACEMENTS: LoadedReplacements = {
   sha256: "",
   count: 0,
 };
-
-/** Never overwrites: an existing file means the data was already written. */
-async function writeOutput(path: string, value: unknown, committed: boolean) {
-  try {
-    await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, {
-      flag: "wx",
-    });
-  } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "EEXIST"
-    ) {
-      throw new ImportInputError(
-        `Output file ${path} already exists.${committed ? " The import was committed; re-run with a fresh --out." : " Use a fresh --out."}`,
-      );
-    }
-    throw error;
-  }
-}
 
 function formatCounts(plan: ImportPlan): string {
   const { create, merge, unchanged, skip } = plan.counts;

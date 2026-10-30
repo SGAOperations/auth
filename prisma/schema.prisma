@@ -53,6 +53,7 @@ model User {
   knownDevices                   KnownDevice[]
   accountLock                    AccountLock?
   unlockTokens                   UnlockToken[]
+  emailChangeRequests            EmailChangeRequest[]
   twoFactors                     TwoFactor[]
   positionsCreated               Position[]             @relation("PositionCreatedBy")
   positionsUpdated               Position[]             @relation("PositionUpdatedBy")
@@ -153,6 +154,29 @@ model UnlockToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+/// An admin-initiated email change waiting for the new mailbox (AUTH-T24).
+/// `User.email` changes only when the emailed link is confirmed. At most one
+/// request per user is open (neither consumed nor cancelled), enforced by the
+/// partial unique index `EmailChangeRequest_userId_open_key` in the migration,
+/// which Prisma cannot express.
+model EmailChangeRequest {
+  id            String    @id @default(uuid(7))
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  newEmail      String    @db.Citext
+  /// lower-case hex SHA-256 of the emailed token; the raw token is never stored
+  tokenHash     String    @unique
+  /// a plain id, not a relation, so the audit trail does not depend on the admin row
+  requestedById String
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 /// A used Better Auth email-verification JWT, claimed before verification runs.
@@ -303,6 +327,7 @@ enum AuditTargetType {
 }
 
 /// Append-only. UPDATE only via withAuditAnonymization (src/lib/audit.ts); DELETE/TRUNCATE never (AUTH-T13 trigger)
+/// Hand-written partial index `AuditEvent_positionId_member_idx` (position history migration) is not modelled here.
 model AuditEvent {
   id          String           @id @default(uuid(7))
   /// validated against AUDIT_EVENT_TYPES in src/lib/audit.ts; no DB CHECK by design

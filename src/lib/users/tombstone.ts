@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import {
+  AUDIT_PII_METADATA_FIELDS,
   withAuditAnonymization,
   writeAuditEvent,
   type AuditActor,
@@ -72,6 +73,8 @@ export async function tombstoneUser(
     await tx.twoFactor.deleteMany({ where: { userId } });
     await tx.knownDevice.deleteMany({ where: { userId } });
     await tx.unlockToken.deleteMany({ where: { userId } });
+    // A pending request holds an address that is not the user's own yet.
+    await tx.emailChangeRequest.deleteMany({ where: { userId } });
     await tx.accountLock.deleteMany({ where: { userId } });
     await tx.userPosition.deleteMany({ where: { userId } });
     // Set-password and reset tokens carry the user id as their value, and
@@ -80,14 +83,23 @@ export async function tombstoneUser(
       where: { OR: [{ value: userId }, { identifier: current.email }] },
     });
 
-    // The strict audit catalog already keeps PII out of `metadata`, so only
-    // the network fields need scrubbing. The rows themselves stay.
+    // The strict audit catalog keeps PII out of `metadata` except the keys it
+    // lists in AUDIT_PII_METADATA_FIELDS, which are removed here. The network
+    // fields are nulled, and the rows themselves stay.
     await tx.auditEvent.updateMany({
       where: {
         OR: [{ actorUserId: userId }, { targetType: "USER", targetId: userId }],
       },
       data: { ip: null, userAgent: null },
     });
+    for (const [type, fields] of Object.entries(AUDIT_PII_METADATA_FIELDS)) {
+      await tx.$executeRaw`
+        UPDATE "AuditEvent"
+        SET "metadata" = "metadata" - ${[...fields]}::text[]
+        WHERE "type" = ${type}
+          AND "targetType" = 'USER'::"AuditTargetType"
+          AND "targetId" = ${userId}`;
+    }
 
     // `writeAuditEvent`, not `audit()`: the row is about a scrubbed user, so its
     // own ip and user agent are null on purpose and must not fall back to the

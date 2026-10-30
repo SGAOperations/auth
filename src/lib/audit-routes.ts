@@ -65,6 +65,19 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["ACCOUNT_UNLOCKED"],
   },
+  // The admin-initiated email change (AUTH-T24). The admin POST writes
+  // EMAIL_CHANGE_REQUESTED with the pending request; the emailed link's POST
+  // writes EMAIL_CHANGED in the transaction that swaps the address.
+  "src/app/api/sgauth/admin/users/[id]/email/route.ts": {
+    kind: "audited",
+    events: ["EMAIL_CHANGE_REQUESTED"],
+    emittedIn: ["src/lib/email-change/service.ts"],
+  },
+  "src/app/verify-email-change/confirm/route.ts": {
+    kind: "audited",
+    events: ["EMAIL_CHANGED"],
+    emittedIn: ["src/lib/email-change/service.ts"],
+  },
   // The Primary Admin transfer routes. Every transition writes its
   // own audit row inside pa-transfer-actions.ts, in the transition's transaction.
   "src/app/api/sgauth/admin/transfer/route.ts": {
@@ -184,6 +197,36 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED"],
   },
+  // Admin user pages (AUTH-T48). Each action calls the admin user handlers
+  // in-process, which write their own audit rows; revoking one session writes
+  // SESSION_REVOKED in the same transaction as the delete.
+  "src/app/(app)/admin/users/actions.ts": {
+    kind: "audited",
+    events: [
+      "USER_UPDATED",
+      "USER_DEACTIVATED",
+      "USER_REACTIVATED",
+      "ADMIN_GRANTED",
+      "ADMIN_REVOKED",
+      "SESSIONS_REVOKED",
+      "ACCOUNT_UNLOCKED",
+      "USER_INVITED",
+      "POSITION_ASSIGNED",
+      "POSITION_UNASSIGNED",
+      "SESSION_REVOKED",
+    ],
+    emittedIn: [
+      "src/lib/admin/users/handlers.ts",
+      "src/lib/admin/users/actions.ts",
+      "src/lib/admin/user-sessions.ts",
+      "src/app/api/sgauth/admin/users/[id]/positions/route.ts",
+    ],
+  },
+  "src/app/(app)/account/actions.ts": {
+    kind: "exempt",
+    reason:
+      "self-service name and preferredName on the caller's own row; the catalog has no profile-edit event (same decision as /update-user)",
+  },
   // LOGIN_SUCCESS and LOGIN_FAILED come from the Better Auth hooks that the
   // action reaches through auth.api.signInEmailOTP.
   "src/app/login/code/actions.ts": {
@@ -204,6 +247,13 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason:
       "browser CSP violation reports; writes only an advisory log line, no account or session state",
+  },
+  // Aplio's dual write: one USER_CREATED per new account, in the create's
+  // transaction. A repeat call or a merge writes nothing.
+  "src/app/api/provision/aplio/users/route.ts": {
+    kind: "audited",
+    events: ["USER_CREATED"],
+    emittedIn: ["src/lib/import/aplio-dual-write.ts"],
   },
   "src/app/api/jobs/pa-transfer/route.ts": {
     kind: "job",

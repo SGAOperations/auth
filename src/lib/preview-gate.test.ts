@@ -29,6 +29,7 @@ const EXEMPT = [
   "/api/jobs/pa-transfer",
   "/api/jobs/alerts",
   "/api/jobs/retention",
+  "/api/provision/aplio/users",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ];
@@ -48,6 +49,9 @@ describe("isExemptPath", () => {
     "/api/jobs",
     "/api/jobs/other",
     "/api/jobs/pa-transfer/x",
+    "/api/provision",
+    "/api/provision/aplio",
+    "/api/provision/aplio/users/x",
   ])("gates %s", (path) => {
     expect(isExemptPath(path)).toBe(false);
   });

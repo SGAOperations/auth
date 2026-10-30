@@ -4,6 +4,7 @@ import {
   USER_ACTIONS,
   can,
   canActOnTransfer,
+  canUpdateOwnProfile,
   type AuthzDenialReason,
   type AuthzSubject,
   type UserAction,
@@ -279,6 +280,33 @@ describe("canActOnTransfer()", () => {
         ? { allowed: true }
         : { allowed: false, reason: expected },
     );
+  });
+});
+
+describe("canUpdateOwnProfile", () => {
+  it("lets an active user edit their own profile", () => {
+    expect(canUpdateOwnProfile(user, user.id)).toEqual({ allowed: true });
+  });
+
+  it("denies editing another user's profile", () => {
+    expect(canUpdateOwnProfile(user, otherUser.id)).toEqual({
+      allowed: false,
+      reason: "NOT_SELF",
+    });
+  });
+
+  it("does not let an admin use it on someone else", () => {
+    expect(canUpdateOwnProfile(admin, otherUser.id)).toEqual({
+      allowed: false,
+      reason: "NOT_SELF",
+    });
+  });
+
+  it("denies an inactive actor, even on their own profile", () => {
+    expect(canUpdateOwnProfile(deactivatedAdmin, deactivatedAdmin.id)).toEqual({
+      allowed: false,
+      reason: "ACTOR_INACTIVE",
+    });
   });
 });
 

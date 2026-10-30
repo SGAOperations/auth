@@ -4,6 +4,7 @@ import type { MutationSpec } from "@/lib/admin/users/handlers";
 import type { UserTarget } from "@/lib/admin/users/queries";
 import type { AdminUserAction } from "@/lib/admin/users/schemas";
 import { audit } from "@/lib/audit";
+import { cancelOpenEmailChangeRequests } from "@/lib/email-change/cancel";
 
 // The eight POST actions. Every state change on the user row is a conditional
 // `updateMany` whose `where` restates its precondition, so a lost race reads as
@@ -41,6 +42,7 @@ const deactivate: Run = async ({ tx, target, now }) => {
   const { count: revokedSessions } = await tx.session.deleteMany({
     where: { userId: target.id },
   });
+  await cancelOpenEmailChangeRequests(tx, target.id, now);
   await audit({
     type: "USER_DEACTIVATED",
     targetType: "USER",
@@ -70,6 +72,7 @@ const grantAdmin: Run = async ({ tx, target, now }, deps) => {
     data: { isAdmin: true },
   });
   if (changed.count === 0) return { fail: "ALREADY_ADMIN" };
+  await cancelOpenEmailChangeRequests(tx, target.id, now);
   await audit({
     type: "ADMIN_GRANTED",
     targetType: "USER",
@@ -90,12 +93,13 @@ const grantAdmin: Run = async ({ tx, target, now }, deps) => {
   };
 };
 
-const revokeAdmin: Run = async ({ tx, target }) => {
+const revokeAdmin: Run = async ({ tx, target, now }) => {
   const changed = await tx.user.updateMany({
     where: { ...live(target.id), isAdmin: true },
     data: { isAdmin: false },
   });
   if (changed.count === 0) return { fail: "NOT_AN_ADMIN" };
+  await cancelOpenEmailChangeRequests(tx, target.id, now);
   await audit({
     type: "ADMIN_REVOKED",
     targetType: "USER",
