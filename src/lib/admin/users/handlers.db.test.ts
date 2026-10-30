@@ -88,6 +88,10 @@ const freshGuard = createFreshAuthGuard({
   prisma,
 });
 
+// The in-flight transfer cancel itself is covered end to end by
+// pa-transfer-flow.db.test.ts; here only that nothing is announced without one.
+const sendTransferNotice = vi.fn(async () => undefined);
+
 const handlers = createAdminUserHandlers({
   prisma,
   requireFreshAuth: async (headers) => {
@@ -102,6 +106,7 @@ const handlers = createAdminUserHandlers({
       return mailerState.result;
     },
   },
+  sendTransferNotice,
   now: () => new Date(),
 });
 
@@ -229,6 +234,7 @@ beforeEach(async () => {
   mocks.getSession.mockReset();
   mailerState.result = { status: "sent" };
   captured.clear();
+  sendTransferNotice.mockClear();
   admin = await createAdmin({ twoFactorEnabled: true });
   await signInAs(admin);
 });
@@ -599,6 +605,7 @@ describe("the eight actions", () => {
     });
     expect(body.user.deactivatedAt).toEqual(expect.any(String));
     expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
+    expect(sendTransferNotice).not.toHaveBeenCalled();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       type: "USER_DEACTIVATED",
@@ -649,6 +656,7 @@ describe("the eight actions", () => {
     expect((await json(revoked.response)).user.isAdmin).toBe(false);
     expect(revoked.rows.map((r) => r.type)).toEqual(["ADMIN_REVOKED"]);
     expect(captured.sent).toHaveLength(0);
+    expect(sendTransferNotice).not.toHaveBeenCalled();
   });
 
   it("revoke-sessions: deletes every session and says how many", async () => {
@@ -883,6 +891,7 @@ describe("conflicts and bad input", () => {
     expect(await json(await act(user.id, "revoke-admin"))).toMatchObject({
       code: "NOT_AN_ADMIN",
     });
+    expect(sendTransferNotice).not.toHaveBeenCalled();
     expect(await json(await act(user.id, "unlock"))).toMatchObject({
       code: "NOT_LOCKED",
     });

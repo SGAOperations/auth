@@ -90,7 +90,7 @@ describe("tombstoneUser", () => {
       reason: "admin",
       actor: actorOf(actor),
     });
-    expect(result).toEqual({ tombstoned: true });
+    expect(result).toEqual({ tombstoned: true, transferNotice: null });
 
     const row = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(row).toMatchObject({
@@ -213,6 +213,67 @@ describe("tombstoneUser", () => {
             where: { targetId: primary.id, type: "USER_DELETED" },
           }),
         ).toBe(events);
+        throw new Rollback();
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof Rollback)) throw error;
+      });
+  });
+
+  it("cancels the in-flight transfer to the user and returns the notice", async () => {
+    // A Primary Admin cannot be committed, so the sender lives in a transaction
+    // that rolls back, and tombstoneUser joins it.
+    class Rollback extends Error {}
+    await prisma
+      .$transaction(async (tx) => {
+        const sender = await createPrimaryAdmin({ twoFactorEnabled: true }, tx);
+        const recipient = await createUser(
+          { isAdmin: true, twoFactorEnabled: true },
+          tx,
+        );
+        const transfer = await tx.primaryAdminTransfer.create({
+          data: {
+            fromUserId: sender.id,
+            toUserId: recipient.id,
+            status: "COOLING",
+            acceptedAt: new Date(),
+            executesAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        });
+        const joined = {
+          $transaction: (fn: (db: typeof tx) => Promise<unknown>) => fn(tx),
+        } as unknown as PrismaClient;
+
+        const result = await tombstoneUser(joined, {
+          userId: recipient.id,
+          reason: "admin",
+          actor: actorOf(actor),
+        });
+        expect(result).toEqual({
+          tombstoned: true,
+          transferNotice: {
+            kind: "cancelled",
+            transferId: transfer.id,
+            fromUserId: sender.id,
+            toUserId: recipient.id,
+            reason: "recipient_ineligible",
+          },
+        });
+        expect(
+          await tx.primaryAdminTransfer.findUniqueOrThrow({
+            where: { id: transfer.id },
+          }),
+        ).toMatchObject({
+          status: "CANCELLED",
+          reason: "recipient_ineligible",
+          cancelledById: null,
+          cancelTokenHash: null,
+        });
+        expect(
+          await tx.auditEvent.count({
+            where: { targetId: transfer.id, type: "PA_TRANSFER_CANCELLED" },
+          }),
+        ).toBe(1);
         throw new Rollback();
       })
       .catch((error: unknown) => {

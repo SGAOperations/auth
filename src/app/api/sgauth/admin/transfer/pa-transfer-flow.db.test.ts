@@ -573,65 +573,50 @@ describe("changes while a transfer is in flight", () => {
     expect(await primaryAdminIds()).toEqual([pa.user.id]);
   }
 
-  // The first three of these assert what ticket #49 asked the admin
-  // endpoints to do: call `cancelForIneligibleRecipient` in the same
-  // transaction as the change. The endpoints do not, so the transfer is still
-  // in flight when they answer. `it.fails` keeps the assertion exactly as
-  // written and keeps CI green; when the endpoints are fixed these start
-  // passing, Vitest reports that, and the `.fails` is removed.
+  // The admin endpoints cancel the in-flight transfer in the same transaction
+  // as the change (`cancelForIneligibleRecipient`), so it is Cancelled when
+  // they answer and the job has nothing left to do.
   for (const from of FROM) {
-    it.fails(
-      `${from}: deactivating the recipient cancels the transfer at once`,
-      async () => {
-        await withRollback(async () => {
-          const { s, id } = await inFlight(from);
-          const done = await adminAction(
-            s.actors.t,
-            s.actors.r.user,
-            "deactivate",
-          );
-          expect(done.status).toBe(200);
-          await expectCancelledNow(s, id, { recipientEmailed: false });
-        });
-      },
-      120_000,
-    );
+    it(`${from}: deactivating the recipient cancels the transfer at once`, async () => {
+      await withRollback(async () => {
+        const { s, id } = await inFlight(from);
+        const done = await adminAction(
+          s.actors.t,
+          s.actors.r.user,
+          "deactivate",
+        );
+        expect(done.status).toBe(200);
+        await expectCancelledNow(s, id, { recipientEmailed: false });
+      });
+    }, 120_000);
 
-    it.fails(
-      `${from}: revoking the recipient's admin cancels the transfer at once`,
-      async () => {
-        await withRollback(async () => {
-          const { s, id } = await inFlight(from);
-          const done = await adminAction(
-            s.actors.t,
-            s.actors.r.user,
-            "revoke-admin",
-          );
-          expect(done.status).toBe(200);
-          // Still active, so still told.
-          await expectCancelledNow(s, id, { recipientEmailed: true });
-        });
-      },
-      120_000,
-    );
+    it(`${from}: revoking the recipient's admin cancels the transfer at once`, async () => {
+      await withRollback(async () => {
+        const { s, id } = await inFlight(from);
+        const done = await adminAction(
+          s.actors.t,
+          s.actors.r.user,
+          "revoke-admin",
+        );
+        expect(done.status).toBe(200);
+        // Still active, so still told.
+        await expectCancelledNow(s, id, { recipientEmailed: true });
+      });
+    }, 120_000);
 
-    it.fails(
-      `${from}: deleting the recipient cancels the transfer at once`,
-      async () => {
-        await withRollback(async () => {
-          const { s, id } = await inFlight(from);
-          const done = await callRoute(deleteUser, {
-            method: "DELETE",
-            url: userUrl(s.actors.r.user.id),
-            as: s.actors.t,
-            params: { id: s.actors.r.user.id },
-          });
-          expect(done.status).toBe(200);
-          await expectCancelledNow(s, id, { recipientEmailed: false });
+    it(`${from}: deleting the recipient cancels the transfer at once`, async () => {
+      await withRollback(async () => {
+        const { s, id } = await inFlight(from);
+        const done = await callRoute(deleteUser, {
+          method: "DELETE",
+          url: userUrl(s.actors.r.user.id),
+          as: s.actors.t,
+          params: { id: s.actors.r.user.id },
         });
-      },
-      120_000,
-    );
+        expect(done.status).toBe(200);
+        await expectCancelledNow(s, id, { recipientEmailed: false });
+      });
+    }, 120_000);
 
     // The recipient without MFA is ineligible (`NO_MFA`), so the job at +24 h
     // cancels the transfer instead of making them Primary Admin.

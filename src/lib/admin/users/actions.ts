@@ -5,6 +5,10 @@ import type { UserTarget } from "@/lib/admin/users/queries";
 import type { AdminUserAction } from "@/lib/admin/users/schemas";
 import { audit } from "@/lib/audit";
 import { cancelOpenEmailChangeRequests } from "@/lib/email-change/cancel";
+import {
+  cancelForIneligibleRecipient,
+  lockInFlightTransferTo,
+} from "@/lib/jobs/pa-transfer";
 
 // The eight POST actions. Every state change on the user row is a conditional
 // `updateMany` whose `where` restates its precondition, so a lost race reads as
@@ -27,6 +31,8 @@ const displayName = (target: UserTarget) => target.preferredName ?? target.name;
 type Run = MutationSpec["run"];
 
 const deactivate: Run = async ({ tx, target, now }) => {
+  // Before the user row, the order the job uses: see lockInFlightTransferTo.
+  await lockInFlightTransferTo(tx, target.id);
   const changed = await tx.user.updateMany({
     where: { id: target.id, status: "ACTIVE" },
     data: { status: "DEACTIVATED", deactivatedAt: now },
@@ -49,7 +55,12 @@ const deactivate: Run = async ({ tx, target, now }) => {
     targetId: target.id,
     metadata: { revokedSessions },
   });
-  return { userId: target.id, extra: { revokedSessions } };
+  const transferNotice = await cancelForIneligibleRecipient(tx, target.id, now);
+  return {
+    userId: target.id,
+    extra: { revokedSessions },
+    ...(transferNotice ? { transferNotice } : {}),
+  };
 };
 
 const reactivate: Run = async ({ tx, target }) => {
@@ -94,6 +105,7 @@ const grantAdmin: Run = async ({ tx, target, now }, deps) => {
 };
 
 const revokeAdmin: Run = async ({ tx, target, now }) => {
+  await lockInFlightTransferTo(tx, target.id);
   const changed = await tx.user.updateMany({
     where: { ...live(target.id), isAdmin: true },
     data: { isAdmin: false },
@@ -105,7 +117,8 @@ const revokeAdmin: Run = async ({ tx, target, now }) => {
     targetType: "USER",
     targetId: target.id,
   });
-  return { userId: target.id };
+  const transferNotice = await cancelForIneligibleRecipient(tx, target.id, now);
+  return { userId: target.id, ...(transferNotice ? { transferNotice } : {}) };
 };
 
 const revokeSessions: Run = async ({ tx, target }) => {
