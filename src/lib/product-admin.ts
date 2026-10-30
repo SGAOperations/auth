@@ -141,16 +141,19 @@ export function getProductForAdmin(
 
 /**
  * Compile-time proof that the pure `PRODUCT_VISIBILITIES` tuple and the
- * generated Prisma enum list the same values, in both directions. It resolves
- * to `never` when they drift, which breaks the type check.
+ * generated Prisma enum list the same values, in both directions. The type
+ * resolves to `never` when they drift, so assigning `true` to it in the const
+ * below fails the type check.
  */
-export type ProductVisibilitiesMatchPrisma = [ProductVisibility] extends [
+type ProductVisibilitiesMatchPrisma = [ProductVisibility] extends [
   PrismaProductVisibility,
 ]
   ? [PrismaProductVisibility] extends [ProductVisibility]
     ? true
     : never
   : never;
+
+export const productVisibilitiesMatchPrisma: ProductVisibilitiesMatchPrisma = true;
 
 export interface PositionOption {
   key: string;

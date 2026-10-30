@@ -19,8 +19,10 @@ ALTER TABLE "Position" ADD CONSTRAINT "Position_managerPositionId_fkey" FOREIGN 
 -- If a future `prisma migrate dev` proposes dropping the check or the trigger
 -- below, delete that line from the generated SQL: Prisma does not model them.
 
--- A position never reports to itself. Defence in depth; the service layer
--- validates first.
+-- A position never reports to itself. A backstop only: the BEFORE trigger below
+-- runs first and rejects a self-reference as MANAGER_CYCLE, and the service
+-- layer validates before either. This CHECK catches the case where the trigger
+-- is disabled or dropped.
 ALTER TABLE "Position" ADD CONSTRAINT "Position_manager_not_self_check" CHECK ("managerPositionId" IS NULL OR "managerPositionId" <> "id");
 
 -- A manager must be an active position, and the chain of managers must not loop

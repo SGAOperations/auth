@@ -30,14 +30,16 @@ const managerOf = async (id: string) =>
     .managerPositionId;
 
 describe("position_manager_valid trigger and Position_manager_not_self_check", () => {
-  it("refuses a self-manager with the not-self CHECK", async () => {
+  it("refuses a self-manager", async () => {
+    // The BEFORE trigger runs ahead of the CHECK and sees a one-row loop, so it
+    // raises MANAGER_CYCLE; the CHECK is a backstop for when the trigger is off.
     const position = await createPosition();
     await expect(
       prisma.position.update({
         where: { id: position.id },
         data: { managerPositionId: position.id },
       }),
-    ).rejects.toThrow(/Position_manager_not_self_check/);
+    ).rejects.toThrow(/MANAGER_CYCLE/);
   });
 
   it("refuses a loop, however deep", async () => {
