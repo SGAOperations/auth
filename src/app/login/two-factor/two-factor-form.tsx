@@ -29,6 +29,7 @@ import {
   secondFactorMessage,
   type SecondFactorMode,
   type SecondFactorState,
+  type TerminalSecondFactorState,
 } from "@/lib/auth/forms";
 import { cn } from "@/lib/utils";
 import { completeSignIn } from "../actions";
@@ -41,10 +42,7 @@ const backToSignIn = (
   </Link>
 );
 
-type TerminalState = Extract<
-  SecondFactorState,
-  "expired" | "too-many" | "locked"
->;
+type TerminalState = TerminalSecondFactorState;
 
 const ENDED_COPY: Record<
   TerminalState,
@@ -182,7 +180,7 @@ function CodeStep({
       return;
     }
     if (isTerminalSecondFactorState(result.state)) {
-      onEnded(result.state as TerminalState);
+      onEnded(result.state);
       return;
     }
     onProblem(result.state);

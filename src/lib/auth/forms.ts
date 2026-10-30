@@ -214,6 +214,11 @@ export type SecondFactorState =
   | "locked"
   | "unexpected";
 
+export type TerminalSecondFactorState = Extract<
+  SecondFactorState,
+  "expired" | "too-many" | "locked"
+>;
+
 /** Generated codes look like `aB3dE-fG9hJ`; case and hyphen reach the server. */
 const BACKUP_CODE_PATTERN = /^[A-Za-z0-9]{5}-[A-Za-z0-9]{5}$/;
 
@@ -232,8 +237,6 @@ export const backupCodeFormSchema = z.object({
       message: AUTH_COPY.backupFormat,
     }),
 });
-
-export type BackupCodeValues = z.infer<typeof backupCodeFormSchema>;
 
 export function mapSecondFactorError(
   error: AuthClientError,
@@ -269,7 +272,9 @@ export function secondFactorMessage(
 }
 
 /** States that end the challenge: the form is replaced, not shown again. */
-export function isTerminalSecondFactorState(state: SecondFactorState): boolean {
+export function isTerminalSecondFactorState(
+  state: SecondFactorState,
+): state is TerminalSecondFactorState {
   return state === "expired" || state === "too-many" || state === "locked";
 }
 
