@@ -83,6 +83,11 @@ export const SAMPLES: readonly Sample[] = [
     },
   },
   {
+    id: "sign-in-code",
+    template: "sign-in-code",
+    data: { otp: "123456", expiresMinutes: 10 },
+  },
+  {
     id: "account-locked",
     template: "account-locked",
     data: { name: "Avery", lockedUntil: LATER },
@@ -115,6 +120,20 @@ export const SAMPLES: readonly Sample[] = [
     id: "security-notice-mfa-reset",
     template: "security-notice",
     data: { name: "Avery", event: "mfa-reset", occurredAt: NOW },
+  },
+  {
+    id: "email-change-verify",
+    template: "email-change-verify",
+    data: {
+      name: "Avery",
+      url: sampleTokenUrl("email-change"),
+      expiresInMinutes: 1440,
+    },
+  },
+  {
+    id: "email-change-notice",
+    template: "email-change-notice",
+    data: { name: "Avery", newEmail: "jordan.lee@gmail.com" },
   },
   {
     id: "pa-transfer-initiated-recipient",

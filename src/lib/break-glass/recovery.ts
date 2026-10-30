@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { writeAuditEvent } from "@/lib/audit";
+import { cancelOpenEmailChangeRequests } from "@/lib/email-change/cancel";
 import type { RecoveryMode } from "@/lib/break-glass/cli";
 
 // Break-glass Primary Admin recovery (docs/runbooks/break-glass.md). Every
@@ -318,6 +319,7 @@ export async function applyRecovery(
         cancelledTransferId = action.transferId;
         break;
       case "clear_primary_admin":
+        await cancelOpenEmailChangeRequests(tx, action.userId, new Date());
         await tx.user.update({
           where: { id: action.userId },
           data: {
@@ -327,6 +329,7 @@ export async function applyRecovery(
         });
         break;
       case "promote":
+        await cancelOpenEmailChangeRequests(tx, action.userId, new Date());
         await tx.user.update({
           where: { id: action.userId },
           data: { isAdmin: true, isPrimaryAdmin: true },

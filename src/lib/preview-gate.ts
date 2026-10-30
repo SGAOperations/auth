@@ -23,6 +23,8 @@ const EXEMPT_PATHS = new Set([
   "/api/jobs/pa-transfer",
   "/api/jobs/alerts",
   "/api/jobs/retention",
+  // Bearer-protected by APLIO_DUAL_WRITE_SECRET, called by Aplio's server.
+  "/api/provision/aplio/users",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ]);

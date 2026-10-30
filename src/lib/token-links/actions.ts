@@ -35,6 +35,13 @@ export const TOKEN_ACTIONS = {
     owner: "AUTH-T64 #76",
     status: "live",
   },
+  // Mailed to the new address of an admin-initiated email change. Public: the
+  // new mailbox's owner has no session.
+  "email-change": {
+    path: "/verify-email-change",
+    owner: "AUTH-T24 #36",
+    status: "live",
+  },
   // Public, so it sits outside /admin: the sender may have no session.
   "pa-transfer-cancel": {
     path: "/transfer/cancel",
@@ -73,6 +80,8 @@ export const TEMPLATE_LINK_TARGETS: Record<
   "account-locked": {},
   "account-unlock": { url: { kind: "token", action: "account-unlock" } },
   "security-notice": {},
+  "email-change-verify": { url: { kind: "token", action: "email-change" } },
+  "email-change-notice": {},
   "pa-transfer-initiated": {
     url: { kind: "plain", link: "pa-transfer-accept" },
   },
@@ -83,6 +92,7 @@ export const TEMPLATE_LINK_TARGETS: Record<
   "pa-transfer-completed": {},
   "inactivity-notice": { signInUrl: { kind: "plain", link: "sign-in" } },
   "security-alert": {},
+  "sign-in-code": {},
 };
 
 /** Every token-action path, pending ones included. The proxy matches on it. */

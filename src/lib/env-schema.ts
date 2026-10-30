@@ -47,12 +47,20 @@ export const serverShape = z.object({
     .min(1)
     .max(100_000)
     .default(500),
+  // Sign-in by emailed code (docs/runbooks/email-otp.md). Off unless the value
+  // is exactly "true"; any other value fails startup.
+  SGAUTH_EMAIL_OTP_ENABLED: z.enum(["true", "false"]).default("false"),
+  SGAUTH_EMAIL_OTP_DAILY_CAP: z.coerce.number().int().positive().default(100),
   UPSTASH_REDIS_REST_URL: z.url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
   POSTHOG_KEY: z.string().optional(),
   POSTHOG_HOST: z.url().optional(),
   POSTHOG_DISABLED: z.enum(["true", "false"]).optional(),
   CRON_SECRET: z.string().min(32).optional(),
+  // The Aplio dual-write window (docs/runbooks/aplio-import.md). Both set, or
+  // the endpoint answers 404. The offset is required so the instant is exact.
+  APLIO_DUAL_WRITE_SECRET: z.string().min(32).optional(),
+  APLIO_READ_CUTOVER_AT: z.iso.datetime({ offset: true }).optional(),
   SEED_PRIMARY_ADMIN_EMAIL: z
     .string()
     .trim()
@@ -74,6 +82,8 @@ export const authEnvSchema = serverShape.pick({
   SGAUTH_SIGNUP_ALLOWLIST: true,
   SGAUTH_PREVIEW_GATE_PASSWORD: true,
   SGAUTH_PREVIEW_GATE: true,
+  SGAUTH_EMAIL_OTP_ENABLED: true,
+  SGAUTH_EMAIL_OTP_DAILY_CAP: true,
 });
 
 export interface VersionedSecret {
@@ -120,6 +130,7 @@ const SERVICE_GROUPS = [
   ["RESEND_API_KEY", "RESEND_FROM_EMAIL"],
   ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
   ["POSTHOG_KEY", "POSTHOG_HOST"],
+  ["APLIO_DUAL_WRITE_SECRET", "APLIO_READ_CUTOVER_AT"],
   // Not a service: the local seed's Primary Admin credentials.
   ["SEED_PRIMARY_ADMIN_EMAIL", "SEED_PRIMARY_ADMIN_PASSWORD"],
 ] as const;
