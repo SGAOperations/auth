@@ -6,6 +6,11 @@ import {
   writeAuditEvent,
   type AuditActor,
 } from "@/lib/audit";
+import {
+  cancelForIneligibleRecipient,
+  lockInFlightTransferTo,
+  type TransferNotice,
+} from "@/lib/jobs/pa-transfer";
 import { TOMBSTONE_NAME, tombstoneEmail } from "@/lib/retention/policy";
 
 export interface TombstoneInput {
@@ -24,12 +29,14 @@ export interface TombstoneInput {
  * Primary Admin, is already deleted, or does not match `guard`.
  *
  * It runs in its own anonymization transaction, so a caller does not wrap it.
- * Writes exactly one audit row, `USER_DELETED`.
+ * Writes exactly one audit row, `USER_DELETED`, plus `PA_TRANSFER_CANCELLED`
+ * when it cancels a transfer to this user; the notice for that one is returned
+ * for the caller to send after the commit.
  */
 export async function tombstoneUser(
   client: PrismaClient,
   { userId, reason, actor, guard }: TombstoneInput,
-): Promise<{ tombstoned: boolean }> {
+): Promise<{ tombstoned: boolean; transferNotice?: TransferNotice | null }> {
   return withAuditAnonymization(client, async (tx) => {
     // The old address is used below to find its tokens, and is never logged.
     const current = await tx.user.findUnique({
@@ -46,6 +53,8 @@ export async function tombstoneUser(
     });
     if (!current) return { tombstoned: false };
 
+    // Before the user row, the order the job uses: see lockInFlightTransferTo.
+    await lockInFlightTransferTo(tx, userId);
     const scrubbed = await tx.user.updateMany({
       where: {
         id: userId,
@@ -67,6 +76,13 @@ export async function tombstoneUser(
       },
     });
     if (scrubbed.count === 0) return { tombstoned: false };
+
+    // The scrub made the user a non-admin, so a transfer to them cannot go on.
+    const transferNotice = await cancelForIneligibleRecipient(
+      tx,
+      userId,
+      new Date(),
+    );
 
     await tx.session.deleteMany({ where: { userId } });
     await tx.account.deleteMany({ where: { userId } });
@@ -118,6 +134,6 @@ export async function tombstoneUser(
       ip: null,
       userAgent: null,
     });
-    return { tombstoned: true };
+    return { tombstoned: true, transferNotice };
   });
 }

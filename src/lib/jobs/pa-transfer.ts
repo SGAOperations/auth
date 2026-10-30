@@ -176,10 +176,29 @@ async function cancelIneligible(
 }
 
 /**
- * For the revoke-admin and deactivate paths: inside their transaction, after
- * they change `userId`, cancel the in-flight transfer that names that user as
- * recipient if they can no longer receive it. Returns the notice to send after
- * commit, or `null` when there is nothing to cancel.
+ * Takes the row lock on the in-flight transfer that names `userId` as
+ * recipient, if there is one. Call it before writing that user's row. The job
+ * locks the transfer and then writes the user rows in `execute`, so a caller
+ * that writes the user row first and then asks for the transfer lock can
+ * deadlock against a running job. Blocking, not SKIP LOCKED: the caller waits
+ * for the job and then re-reads.
+ */
+export async function lockInFlightTransferTo(
+  tx: Tx,
+  userId: string,
+): Promise<void> {
+  await tx.$queryRaw`
+    SELECT "id" FROM "PrimaryAdminTransfer"
+    WHERE "toUserId" = ${userId} AND "status" IN ('PENDING_ACCEPTANCE', 'COOLING')
+    FOR UPDATE`;
+}
+
+/**
+ * For the revoke-admin, deactivate and delete paths: inside their transaction,
+ * after they change `userId`, cancel the in-flight transfer that names that
+ * user as recipient if they can no longer receive it. The caller has already
+ * taken the lock with `lockInFlightTransferTo`. Returns the notice to send
+ * after commit, or `null` when there is nothing to cancel.
  */
 export async function cancelForIneligibleRecipient(
   tx: Tx,
