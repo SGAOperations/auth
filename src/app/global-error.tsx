@@ -1,7 +1,11 @@
 "use client";
 
-// Replaces the root layout when it fails, so it renders its own dark shell with
-// plain Tailwind: no providers, no env.
+import { LightRays } from "@/components/backdrop/light-rays";
+import { buttonVariants } from "@/components/ui/button";
+
+// Replaces the root layout when it fails, so it renders its own dark shell
+// with no providers and no env. LightRays is pure markup and buttonVariants is
+// a pure cva, so both are safe here; the dust canvas is left out.
 export default function GlobalError({
   error,
   reset,
@@ -12,6 +16,12 @@ export default function GlobalError({
   return (
     <html lang="en" className="dark">
       <body className="bg-background text-foreground">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 -z-10 overflow-hidden forced-colors:hidden print:hidden"
+        >
+          <LightRays />
+        </div>
         <main className="mx-auto flex min-h-screen w-full max-w-md flex-col items-start justify-center gap-4 px-4 py-12">
           <h1 className="text-2xl font-semibold tracking-tight">
             Something went wrong
@@ -26,16 +36,12 @@ export default function GlobalError({
             </p>
           )}
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={reset}
-              className="inline-flex h-9 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
-            >
+            <button type="button" onClick={reset} className={buttonVariants()}>
               Try again
             </button>
             <a
               href="/account"
-              className="inline-flex h-9 items-center rounded-lg border border-border px-3 text-sm font-medium"
+              className={buttonVariants({ variant: "outline" })}
             >
               Go to your account
             </a>

@@ -15,7 +15,7 @@ export function AppHeader({
 }) {
   const name = displayName(user);
   return (
-    <header className="sticky top-0 z-40 border-b bg-background">
+    <header className="sticky top-0 z-40 border-b border-glow-faint bg-background/60 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 sm:gap-4 sm:px-6">
         <Link href="/account" className="inline-flex min-h-11 items-center">
           <SgaWordmark />

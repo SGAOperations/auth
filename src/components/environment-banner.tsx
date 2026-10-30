@@ -10,7 +10,7 @@ export function EnvironmentBanner({ sgauthEnv }: { sgauthEnv: SgauthEnv }) {
     <div
       role="note"
       aria-label="Environment notice"
-      className="sticky top-0 z-50 shrink-0 bg-amber-300 px-4 py-2 text-center text-sm text-amber-950"
+      className="shrink-0 bg-warning px-4 py-2 text-center text-sm text-warning-foreground"
     >
       <span className="font-semibold tracking-wide">
         {isLocal ? "LOCAL ENVIRONMENT" : "DEVELOPMENT ENVIRONMENT"}

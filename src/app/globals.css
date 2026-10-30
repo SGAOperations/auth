@@ -3,11 +3,19 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Set by DustField on <html data-motion>: the user paused background motion. */
+@custom-variant motion-still (&:where([data-motion="still"] *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --color-glow: var(--glow);
+  --color-glow-muted: var(--glow-muted);
+  --color-glow-faint: var(--glow-faint);
+  --color-particle: var(--particle);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -50,6 +58,40 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+@theme {
+  --animate-ray-breathe: ray-breathe 7s ease-in-out infinite alternate;
+  /* Delays live inside the shorthand: a separate animation-delay utility can
+     be reset to 0 by this shorthand depending on stylesheet order. */
+  --animate-ray-pulse: ray-pulse 9s linear var(--ray-delay, 0s) infinite;
+  --animate-branch-grow: branch-grow 700ms ease-out calc(var(--i, 0) * 90ms)
+    both;
+
+  @keyframes ray-breathe {
+    from {
+      opacity: 0.55;
+    }
+    to {
+      opacity: 0.85;
+    }
+  }
+  @keyframes ray-pulse {
+    from {
+      transform: translateY(-20vh);
+    }
+    to {
+      transform: translateY(120vh);
+    }
+  }
+  @keyframes branch-grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+}
+
 /* Light tokens are unused: the app is dark-only; see src/app/layout.tsx */
 :root {
   --background: oklch(1 0 0);
@@ -76,6 +118,16 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
+  /*
+   * Backdrop ray geometry (docs/DESIGN.md). The rays sit 2 * --ray-half apart,
+   * outside the widest content ((app) main is max-w-5xl, 32rem half).
+   * --tools-half must match the account page's max-w-3xl (24rem half): the
+   * branch length is the gap between the column edge and the ray.
+   */
+  --ray-half: 34rem;
+  --tools-half: 24rem;
+  --branch-length: calc(var(--ray-half) - var(--tools-half));
+  --ray-x: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -86,12 +138,18 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+@media (width >= 70rem) {
+  :root {
+    --ray-x: calc(50% - var(--ray-half));
+  }
+}
+
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.1 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.15 0 0);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.17 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
@@ -121,6 +179,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --glow: oklch(1 0 0);
+  --glow-muted: oklch(1 0 0 / 35%);
+  --glow-faint: oklch(1 0 0 / 8%);
+  --particle: oklch(1 0 0);
+  --warning: oklch(0.879 0.169 91.605);
+  --warning-foreground: oklch(0.279 0.077 45.635);
 }
 
 @layer base {

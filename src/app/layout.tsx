@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { connection } from "next/server";
+import { Backdrop } from "@/components/backdrop/backdrop";
 import { EnvironmentBanner } from "@/components/environment-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
@@ -47,6 +48,7 @@ export default async function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col">
+        <Backdrop />
         <EnvironmentBanner sgauthEnv={env.SGAUTH_ENV} />
         {children}
         <SiteFooter />

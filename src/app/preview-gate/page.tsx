@@ -2,14 +2,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toAuthSettings } from "@/lib/auth/settings";
@@ -59,47 +53,35 @@ export default async function PreviewGatePage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>SGAuth test environment</CardTitle>
-          <CardDescription>
-            This is a pre-production copy of SGAuth. Enter the access password
-            to continue.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            method="post"
-            action={UNLOCK_PATH}
-            className="flex flex-col gap-4"
-          >
-            <input type="hidden" name="next" value={target} />
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Access password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                autoFocus
-                aria-describedby={error ? "password-error" : undefined}
-              />
-              {error ? (
-                <p
-                  id="password-error"
-                  role="alert"
-                  className="text-sm text-destructive"
-                >
-                  {ERROR_COPY[error]}
-                </p>
-              ) : null}
-            </div>
-            <Button type="submit">Continue</Button>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+    <AuthShell
+      title="SGAuth test environment"
+      description="This is a pre-production copy of SGAuth. Enter the access password to continue."
+    >
+      <form method="post" action={UNLOCK_PATH} className="flex flex-col gap-4">
+        <input type="hidden" name="next" value={target} />
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password">Access password</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            autoFocus
+            aria-describedby={error ? "password-error" : undefined}
+          />
+          {error ? (
+            <p
+              id="password-error"
+              role="alert"
+              className="text-sm text-destructive"
+            >
+              {ERROR_COPY[error]}
+            </p>
+          ) : null}
+        </div>
+        <Button type="submit">Continue</Button>
+      </form>
+    </AuthShell>
   );
 }

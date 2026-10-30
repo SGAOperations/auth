@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ProductBranches } from "@/components/account/product-branches";
 import { ProfileForm } from "@/components/account/profile-form";
 import { SessionsCard } from "@/components/account/sessions-card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { toolHref, toolLetter } from "@/lib/account/tools";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
 import { cn } from "@/lib/utils";
@@ -37,48 +37,7 @@ export default async function AccountPage() {
         </p>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Your SGA tools</CardTitle>
-          <CardDescription>
-            One sign-in works across every SGA tool.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {tools.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No tools are available to you yet. Tools appear here when an admin
-              gives you a position or opens a tool to everyone.
-            </p>
-          ) : (
-            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {tools.map((tool) => (
-                <li key={tool.id}>
-                  <a
-                    href={toolHref(tool.baseUrl)}
-                    className="flex h-full items-start gap-3 rounded-lg p-3 ring-1 ring-foreground/10 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="flex size-9 shrink-0 items-center justify-center rounded-md bg-brand font-semibold text-brand-foreground"
-                    >
-                      {toolLetter(tool.name)}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-medium break-words">
-                        {tool.name}
-                      </span>
-                      <span className="line-clamp-2 block text-sm text-muted-foreground">
-                        {tool.description}
-                      </span>
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <ProductBranches tools={tools} />
 
       <Card>
         <CardHeader>
