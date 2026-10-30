@@ -27,17 +27,27 @@ async function mySlugs(userId: string) {
 describe("account overview", () => {
   let financeKey: string;
   let financePositionId: string;
+  let leaderPositionId: string;
 
   beforeAll(async () => {
     const position = await createPosition();
     financeKey = position.key;
     financePositionId = position.id;
+    leaderPositionId = (await createPosition({ isLeadership: true })).id;
     await prisma.product.createMany({
       data: [
-        product("everyone"),
-        product("finance", { visibleToPositionKeys: [financeKey] }),
-        product("senate", { visibleToPositionKeys: [`${prefix}-senator`] }),
-        product("inactive", { isActive: false }),
+        product("everyone", { visibility: "EVERYONE" }),
+        product("finance", {
+          visibility: "POSITIONS",
+          visibleToPositionKeys: [financeKey],
+        }),
+        product("senate", {
+          visibility: "POSITIONS",
+          visibleToPositionKeys: [`${prefix}-senator`],
+        }),
+        product("leaders", { visibility: "LEADERSHIP" }),
+        product("notset", { visibility: "UNSET" }),
+        product("inactive", { visibility: "EVERYONE", isActive: false }),
       ],
     });
   });
@@ -47,9 +57,11 @@ describe("account overview", () => {
       where: { slug: { startsWith: prefix } },
     });
     await prisma.userPosition.deleteMany({
-      where: { positionId: financePositionId },
+      where: { positionId: { in: [financePositionId, leaderPositionId] } },
     });
-    await prisma.position.deleteMany({ where: { id: financePositionId } });
+    await prisma.position.deleteMany({
+      where: { id: { in: [financePositionId, leaderPositionId] } },
+    });
   });
 
   it("shows a user with no positions only the products open to everyone", async () => {
@@ -77,6 +89,45 @@ describe("account overview", () => {
     } finally {
       await prisma.position.update({
         where: { id: financePositionId },
+        data: { deletedAt: null },
+      });
+    }
+  });
+
+  it("reports leadership and unlocks the Leadership product only for a leader", async () => {
+    const leader = await createUser();
+    await prisma.userPosition.create({
+      data: { userId: leader.id, positionId: leaderPositionId },
+    });
+    expect((await loadAccountOverview(leader.id))?.isLeadership).toBe(true);
+    expect(await mySlugs(leader.id)).toEqual(["everyone", "leaders"]);
+
+    const finance = await createUser();
+    await prisma.userPosition.create({
+      data: { userId: finance.id, positionId: financePositionId },
+    });
+    expect((await loadAccountOverview(finance.id))?.isLeadership).toBe(false);
+    expect(await mySlugs(finance.id)).toEqual(["everyone", "finance"]);
+
+    const nobody = await createUser();
+    expect((await loadAccountOverview(nobody.id))?.isLeadership).toBe(false);
+  });
+
+  it("confers no leadership from a soft-deleted leadership position", async () => {
+    const user = await createUser();
+    await prisma.userPosition.create({
+      data: { userId: user.id, positionId: leaderPositionId },
+    });
+    await prisma.position.update({
+      where: { id: leaderPositionId },
+      data: { deletedAt: new Date() },
+    });
+    try {
+      expect((await loadAccountOverview(user.id))?.isLeadership).toBe(false);
+      expect(await mySlugs(user.id)).toEqual(["everyone"]);
+    } finally {
+      await prisma.position.update({
+        where: { id: leaderPositionId },
         data: { deletedAt: null },
       });
     }

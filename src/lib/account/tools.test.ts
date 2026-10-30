@@ -18,25 +18,39 @@ function product(
     description: "",
     baseUrl: `https://${slug}.northeasternsga.com`,
     isActive: true,
+    visibility: "EVERYONE",
     visibleToPositionKeys: [],
     ...overrides,
   };
 }
 
 const everyone = product("everyone");
-const finance = product("finance", { visibleToPositionKeys: ["vp-finance"] });
-const senate = product("senate", { visibleToPositionKeys: ["senator"] });
+const finance = product("finance", {
+  visibility: "POSITIONS",
+  visibleToPositionKeys: ["vp-finance"],
+});
+const senate = product("senate", {
+  visibility: "POSITIONS",
+  visibleToPositionKeys: ["senator"],
+});
+const leadershipOnly = product("leaders", { visibility: "LEADERSHIP" });
+const notSet = product("not-set", { visibility: "UNSET" });
 const slugs = (products: readonly ToolProduct[]) => products.map((p) => p.slug);
 
+const viewer = (keys: string[] = [], isLeadership = false) => ({
+  positionKeys: new Set(keys),
+  isLeadership,
+});
+
 describe("visibleTools", () => {
-  const all = [everyone, finance, senate];
+  const all = [everyone, finance, senate, leadershipOnly, notSet];
 
   it("shows a user with no positions only the products open to everyone", () => {
-    expect(slugs(visibleTools(all, new Set()))).toEqual(["everyone"]);
+    expect(slugs(visibleTools(all, viewer()))).toEqual(["everyone"]);
   });
 
   it("adds the products a held position unlocks, in input order", () => {
-    expect(slugs(visibleTools(all, new Set(["vp-finance"])))).toEqual([
+    expect(slugs(visibleTools(all, viewer(["vp-finance"])))).toEqual([
       "everyone",
       "finance",
     ]);
@@ -44,16 +58,34 @@ describe("visibleTools", () => {
 
   it("matches on any one key", () => {
     const either = product("either", {
+      visibility: "POSITIONS",
       visibleToPositionKeys: ["senator", "vp-finance"],
     });
-    expect(slugs(visibleTools([either], new Set(["vp-finance"])))).toEqual([
+    expect(slugs(visibleTools([either], viewer(["vp-finance"])))).toEqual([
       "either",
     ]);
   });
 
+  it("keeps a POSITIONS product hidden when no key matches", () => {
+    expect(slugs(visibleTools([senate], viewer(["vp-finance"])))).toEqual([]);
+  });
+
+  it("shows a leadership viewer the LEADERSHIP product but never an UNSET one", () => {
+    expect(slugs(visibleTools(all, viewer([], true)))).toEqual([
+      "everyone",
+      "leaders",
+    ]);
+  });
+
+  it("hides a LEADERSHIP product from a non-leadership viewer", () => {
+    expect(slugs(visibleTools([leadershipOnly], viewer(["senator"])))).toEqual(
+      [],
+    );
+  });
+
   it("drops an inactive product", () => {
     expect(
-      visibleTools([product("off", { isActive: false })], new Set()),
+      visibleTools([product("off", { isActive: false })], viewer()),
     ).toEqual([]);
   });
 
@@ -61,7 +93,7 @@ describe("visibleTools", () => {
     expect(
       visibleTools(
         [product("evil", { baseUrl: "https://evil.example" })],
-        new Set(),
+        viewer(),
       ),
     ).toEqual([]);
   });

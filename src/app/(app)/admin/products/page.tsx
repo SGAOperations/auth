@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listProductsForAdmin } from "@/lib/product-admin";
+import { visibilitySummary } from "@/lib/product-visibility";
 import { getTrustedOrigins, isAllowedRedirect } from "@/lib/products";
 
 export const metadata: Metadata = { title: "Products" };
@@ -120,7 +121,6 @@ export default async function ProductsPage() {
           </TableHeader>
           <TableBody>
             {products.map((product) => {
-              const count = product.visibleToPositionKeys.length;
               const trusted = origins.includes(product.baseUrl);
               return (
                 <TableRow key={product.id}>
@@ -139,9 +139,13 @@ export default async function ProductsPage() {
                     {product.baseUrl}
                   </TableCell>
                   <TableCell>
-                    {count === 0
-                      ? "Everyone"
-                      : `${count} ${count === 1 ? "position" : "positions"}`}
+                    {product.visibility === "UNSET" ? (
+                      <span className="text-muted-foreground">
+                        {visibilitySummary(product)}
+                      </span>
+                    ) : (
+                      visibilitySummary(product)
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={product.isActive ? "default" : "secondary"}>

@@ -100,6 +100,71 @@ describe("product admin service", () => {
     expect(changed).toEqual([]);
   });
 
+  it.each([
+    ["EVERYONE", []],
+    ["LEADERSHIP", []],
+    ["POSITIONS", ["senator"]],
+    ["UNSET", []],
+  ] as const)("round-trips the %s gate", async (visibility, keys) => {
+    const created = await createProduct(
+      input(`gate-${visibility.toLowerCase()}`, {
+        visibility,
+        visibleToPositionKeys: keys,
+      }),
+      actorId,
+    );
+    expect(created.visibility).toBe(visibility);
+    expect(created.visibleToPositionKeys).toEqual(keys);
+  });
+
+  it("defaults a new product to Not set yet", async () => {
+    const created = await createProduct(input("gate-default"), actorId);
+    expect(created.visibility).toBe("UNSET");
+  });
+
+  it("changes the gate and its keys together and audits both fields", async () => {
+    const created = await createProduct(
+      input("gate-change", {
+        visibility: "POSITIONS",
+        visibleToPositionKeys: ["senator"],
+      }),
+      actorId,
+    );
+    const { product, changed } = await updateProduct(created.id, {
+      visibility: "EVERYONE",
+      visibleToPositionKeys: [],
+    });
+    expect(product.visibility).toBe("EVERYONE");
+    expect(product.visibleToPositionKeys).toEqual([]);
+    expect(changed).toEqual(["visibility", "visibleToPositionKeys"]);
+  });
+
+  it.each([
+    ["POSITIONS with no keys", { visibility: "POSITIONS" }],
+    [
+      "EVERYONE with keys",
+      { visibility: "EVERYONE", visibleToPositionKeys: ["senator"] },
+    ],
+  ])("refuses a create of %s with a field error", async (_label, overrides) => {
+    const error = await createProduct(
+      input(`gate-bad-${Math.random().toString(36).slice(2, 6)}`, overrides),
+      actorId,
+    ).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(ProductError);
+    expect((error as ProductError).fieldErrors).toHaveProperty(
+      "visibleToPositionKeys",
+    );
+  });
+
+  it("refuses an update that sends only visibility", async () => {
+    const created = await createProduct(input("gate-alone"), actorId);
+    const error = await updateProduct(created.id, {
+      visibility: "EVERYONE",
+    }).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(ProductError);
+    expect((error as ProductError).fieldErrors).toHaveProperty("visibility");
+  });
+
   it("rejects an update that carries a slug", async () => {
     const created = await createProduct(input("slug"), actorId);
     expect(

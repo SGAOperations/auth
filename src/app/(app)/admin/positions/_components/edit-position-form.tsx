@@ -17,8 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { positionNameSchema } from "@/lib/position-key";
-import { positionFailureToast } from "@/lib/position-view";
+import {
+  isManagerErrorCode,
+  positionErrorMessage,
+  positionFailureToast,
+} from "@/lib/position-view";
 import { DeletePositionDialog } from "./delete-position-dialog";
+import { OrgFields, type ManagerOption } from "./manager-picker";
 import { updatePosition } from "./positions-api";
 
 export interface EditablePosition {
@@ -27,6 +32,8 @@ export interface EditablePosition {
   name: string;
   category: string | null;
   description: string | null;
+  isLeadership: boolean;
+  managerPositionId: string | null;
 }
 
 export const KEY_LOCKED_COPY =
@@ -35,39 +42,57 @@ export const KEY_LOCKED_COPY =
 export function EditPositionForm({
   position,
   categories,
+  managerOptions,
 }: {
   position: EditablePosition;
   categories: readonly string[];
+  managerOptions: readonly ManagerOption[];
 }) {
   const router = useRouter();
   const id = useId();
   const [name, setName] = useState(position.name);
   const [category, setCategory] = useState(position.category ?? "");
   const [description, setDescription] = useState(position.description ?? "");
+  const [isLeadership, setIsLeadership] = useState(position.isLeadership);
+  const [managerPositionId, setManagerPositionId] = useState(
+    position.managerPositionId,
+  );
+  const [managerError, setManagerError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const dirty =
     name.trim() !== position.name ||
     category.trim() !== (position.category ?? "") ||
-    description.trim() !== (position.description ?? "");
+    description.trim() !== (position.description ?? "") ||
+    isLeadership !== position.isLeadership ||
+    managerPositionId !== position.managerPositionId;
   const valid = positionNameSchema.safeParse(name).success;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (!dirty || !valid || pending) return;
     setPending(true);
+    setManagerError(null);
     const trimmedName = name.trim();
     const result = await updatePosition(position.id, {
       name: trimmedName,
       category: category.trim(),
       description: description.trim(),
+      isLeadership,
+      managerPositionId,
     });
     setPending(false);
 
     if (result.ok) {
       toast.success(`Saved changes to ${trimmedName}.`);
       router.refresh();
+      return;
+    }
+    if (isManagerErrorCode(result.code)) {
+      setManagerError(positionErrorMessage(result.code));
+      // A deleted manager means the options are stale.
+      if (result.code === "MANAGER_NOT_FOUND") router.refresh();
       return;
     }
     const failure = positionFailureToast(result);
@@ -126,6 +151,20 @@ export function EditPositionForm({
             onChange={(event) => setDescription(event.target.value)}
           />
         </div>
+
+        <OrgFields
+          idPrefix={id}
+          isLeadership={isLeadership}
+          onLeadershipChange={setIsLeadership}
+          managerPositionId={managerPositionId}
+          onManagerChange={(next) => {
+            setManagerPositionId(next);
+            setManagerError(null);
+          }}
+          options={managerOptions}
+          selfId={position.id}
+          managerError={managerError}
+        />
 
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={!dirty || !valid || pending}>

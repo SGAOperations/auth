@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDownIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -7,6 +8,13 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Form,
   FormControl,
@@ -30,6 +38,11 @@ import {
   type ProductFormValues,
 } from "@/lib/product-form";
 import {
+  PRODUCT_VISIBILITIES,
+  PRODUCT_VISIBILITY_COPY,
+  type ProductVisibility,
+} from "@/lib/product-visibility";
+import {
   createProduct,
   updateProduct,
   type ProductActionFailure,
@@ -44,6 +57,7 @@ export interface ProductFormProduct {
   iconUrl: string | null;
   isActive: boolean;
   sortOrder: number;
+  visibility: ProductVisibility;
   visibleToPositionKeys: string[];
   loginRedirectPath: string | null;
 }
@@ -52,6 +66,7 @@ export interface ProductFormPosition {
   key: string;
   name: string;
   category: string | null;
+  isLeadership: boolean;
 }
 
 const UNCATEGORIZED = "Uncategorized";
@@ -108,6 +123,11 @@ export function ProductForm({
     name: "visibleToPositionKeys",
   });
   const unknownKeys = visibleKeys.filter((key) => !known.has(key));
+  const visibility = useWatch({ control: form.control, name: "visibility" });
+  const isActive = useWatch({ control: form.control, name: "isActive" });
+  const hasLeadershipPosition = positions.some(
+    (position) => position.isLeadership,
+  );
   const baseUrl = useWatch({ control: form.control, name: "baseUrl" });
   const urlChangesActiveProduct =
     mode === "update" && product?.isActive && baseUrl !== product.baseUrl;
@@ -126,7 +146,10 @@ export function ProductForm({
     const next = checked
       ? [...visibleKeys, key]
       : visibleKeys.filter((entry) => entry !== key);
-    form.setValue("visibleToPositionKeys", next, { shouldDirty: true });
+    form.setValue("visibleToPositionKeys", next, {
+      shouldDirty: true,
+      shouldValidate: form.formState.isSubmitted,
+    });
   }
 
   async function onSubmit(values: ProductFormValues) {
@@ -342,72 +365,141 @@ export function ProductForm({
 
         <FormField
           control={form.control}
-          name="visibleToPositionKeys"
-          render={() => (
+          name="visibility"
+          render={({ field }) => (
             <FormItem>
               <FormLabel>Visible to</FormLabel>
-              <Input
-                type="search"
-                value={filter}
-                onChange={(event) => setFilter(event.target.value)}
-                placeholder="Filter positions"
-                aria-label="Filter positions"
-              />
-              <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
-                {groups.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No positions match.
-                  </p>
-                ) : (
-                  groups.map(([category, entries]) => (
-                    <fieldset key={category} className="mb-3 last:mb-0">
-                      <legend className="mb-1 text-xs font-medium text-muted-foreground">
-                        {category}
-                      </legend>
-                      <div className="flex flex-col gap-1">
-                        {entries.map((position) => (
-                          <label
-                            key={position.key}
-                            className="flex items-center gap-2 text-sm"
-                          >
-                            <Checkbox
-                              checked={visibleKeys.includes(position.key)}
-                              onCheckedChange={(checked) =>
-                                toggleKey(position.key, checked)
-                              }
-                            />
-                            {position.name}
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
-                  ))
-                )}
-              </div>
-              {unknownKeys.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {unknownKeys.map((key) => (
-                    <Badge key={key} variant="outline" className="font-mono">
-                      {key} · Unknown position
-                      <button
+              <DropdownMenu>
+                <FormControl>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
                         type="button"
-                        aria-label={`Remove ${key}`}
-                        className="ml-1 underline-offset-2 hover:underline"
-                        onClick={() => toggleKey(key, false)}
+                        variant="outline"
+                        className="w-full justify-between font-normal"
+                      />
+                    }
+                  >
+                    {PRODUCT_VISIBILITY_COPY[field.value].label}
+                    <ChevronDownIcon aria-hidden="true" />
+                  </DropdownMenuTrigger>
+                </FormControl>
+                <DropdownMenuContent>
+                  <DropdownMenuRadioGroup
+                    value={field.value}
+                    onValueChange={(next: ProductVisibility) =>
+                      form.setValue("visibility", next, {
+                        shouldDirty: true,
+                        shouldValidate: form.formState.isSubmitted,
+                      })
+                    }
+                  >
+                    {PRODUCT_VISIBILITIES.map((visibility) => (
+                      <DropdownMenuRadioItem
+                        key={visibility}
+                        value={visibility}
+                        className="items-start"
                       >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
+                        <span className="flex flex-col">
+                          <span>
+                            {PRODUCT_VISIBILITY_COPY[visibility].label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {PRODUCT_VISIBILITY_COPY[visibility].description}
+                          </span>
+                        </span>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <FormDescription>
-                Leave everything unchecked to show this product to everyone.
+                {PRODUCT_VISIBILITY_COPY[field.value].description}
               </FormDescription>
+              {visibility === "LEADERSHIP" && !hasLeadershipPosition ? (
+                <p role="status" className="text-sm text-amber-600">
+                  No position is marked as leadership yet, so no one will see
+                  this product. Mark leadership positions on the Positions page.
+                </p>
+              ) : null}
+              {visibility === "UNSET" && isActive ? (
+                <p role="status" className="text-sm text-amber-600">
+                  This product is trusted for sign-in but hidden from every
+                  account page.
+                </p>
+              ) : null}
               <FormMessage />
             </FormItem>
           )}
         />
+
+        {visibility === "POSITIONS" ? (
+          <FormField
+            control={form.control}
+            name="visibleToPositionKeys"
+            render={() => (
+              <FormItem>
+                <FormLabel>Positions</FormLabel>
+                <Input
+                  type="search"
+                  value={filter}
+                  onChange={(event) => setFilter(event.target.value)}
+                  placeholder="Filter positions"
+                  aria-label="Filter positions"
+                />
+                <div className="max-h-64 overflow-y-auto rounded-lg border p-3">
+                  {groups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No positions match.
+                    </p>
+                  ) : (
+                    groups.map(([category, entries]) => (
+                      <fieldset key={category} className="mb-3 last:mb-0">
+                        <legend className="mb-1 text-xs font-medium text-muted-foreground">
+                          {category}
+                        </legend>
+                        <div className="flex flex-col gap-1">
+                          {entries.map((position) => (
+                            <label
+                              key={position.key}
+                              className="flex items-center gap-2 text-sm"
+                            >
+                              <Checkbox
+                                checked={visibleKeys.includes(position.key)}
+                                onCheckedChange={(checked) =>
+                                  toggleKey(position.key, checked)
+                                }
+                              />
+                              {position.name}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                    ))
+                  )}
+                </div>
+                {unknownKeys.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {unknownKeys.map((key) => (
+                      <Badge key={key} variant="outline" className="font-mono">
+                        {key} · Unknown position
+                        <button
+                          type="button"
+                          aria-label={`Remove ${key}`}
+                          className="ml-1 underline-offset-2 hover:underline"
+                          onClick={() => toggleKey(key, false)}
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
 
         <FormField
           control={form.control}

@@ -11,6 +11,8 @@ import { prisma } from "@/lib/prisma";
 export interface AccountOverview {
   profile: { email: string; name: string; preferredName: string | null };
   positions: { key: string; name: string }[];
+  /** True when the user holds at least one active leadership position. */
+  isLeadership: boolean;
   tools: ToolProduct[];
 }
 
@@ -21,7 +23,8 @@ interface Deps {
 /**
  * What the account page shows for `userId`, or null when the user is missing or
  * not ACTIVE. Positions are the active ones only; a soft-deleted position
- * grants no visibility. Products are read per request, so an admin's edit shows
+ * grants no visibility, and a soft-deleted leadership position confers no
+ * leadership. Products are read per request, so an admin's edit shows
  * immediately. `iconUrl` is not selected: the CSP would block it.
  */
 export async function loadAccountOverview(
@@ -37,7 +40,11 @@ export async function loadAccountOverview(
       status: true,
       positions: {
         where: { position: { deletedAt: null } },
-        select: { position: { select: { key: true, name: true } } },
+        select: {
+          position: {
+            select: { key: true, name: true, isLeadership: true },
+          },
+        },
       },
     },
   });
@@ -53,11 +60,14 @@ export async function loadAccountOverview(
       description: true,
       baseUrl: true,
       isActive: true,
+      visibility: true,
       visibleToPositionKeys: true,
     },
   });
 
-  const positions = user.positions.map((held) => held.position);
+  const held = user.positions.map((entry) => entry.position);
+  const isLeadership = held.some((position) => position.isLeadership);
+  const positions = held.map(({ key, name }) => ({ key, name }));
   return {
     profile: {
       email: user.email,
@@ -65,7 +75,11 @@ export async function loadAccountOverview(
       preferredName: user.preferredName,
     },
     positions: sortPositionsForDisplay(positions),
-    tools: visibleTools(products, new Set(positions.map((p) => p.key))),
+    isLeadership,
+    tools: visibleTools(products, {
+      positionKeys: new Set(positions.map((p) => p.key)),
+      isLeadership,
+    }),
   };
 }
 

@@ -4,6 +4,7 @@ import { MoreHorizontalIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,6 +33,9 @@ export interface PositionListRow {
   name: string;
   category: string | null;
   holderCount: number;
+  isLeadership: boolean;
+  /** The active manager's name, or null for no manager. */
+  managerName: string | null;
 }
 
 export function PositionsList({
@@ -82,6 +86,7 @@ export function PositionsList({
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Key</TableHead>
+                    <TableHead>Reports to</TableHead>
                     <TableHead>Holders</TableHead>
                     <TableHead className="w-12">
                       <span className="sr-only">Actions</span>
@@ -92,16 +97,22 @@ export function PositionsList({
                   {group.positions.map((position) => (
                     <TableRow key={position.id}>
                       <TableCell>
-                        <Link
-                          href={`/admin/positions/${position.id}`}
-                          className="font-medium underline-offset-4 hover:underline"
-                        >
-                          {position.name}
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/admin/positions/${position.id}`}
+                            className="font-medium underline-offset-4 hover:underline"
+                          >
+                            {position.name}
+                          </Link>
+                          {position.isLeadership ? (
+                            <Badge variant="secondary">Leadership</Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell className="font-mono text-xs">
                         {position.key}
                       </TableCell>
+                      <TableCell>{position.managerName ?? "—"}</TableCell>
                       <TableCell aria-label={`${position.holderCount} holders`}>
                         {position.holderCount}
                       </TableCell>

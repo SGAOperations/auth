@@ -47,6 +47,7 @@ export default async function EditProductPage({
     iconUrl: product.iconUrl,
     isActive: product.isActive,
     sortOrder: product.sortOrder,
+    visibility: product.visibility,
     visibleToPositionKeys: product.visibleToPositionKeys,
     loginRedirectPath: product.loginRedirectPath,
   };

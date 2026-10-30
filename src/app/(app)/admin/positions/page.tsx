@@ -23,6 +23,15 @@ export default async function PositionsPage() {
       ),
     ),
   ].sort((a, b) => a.localeCompare(b));
+  const managerOptions = active.map((position) => ({
+    id: position.id,
+    name: position.name,
+    category: position.category,
+    managerPositionId: position.managerPositionId,
+  }));
+  const nameById = new Map(
+    active.map((position) => [position.id, position.name]),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,7 +43,10 @@ export default async function PositionsPage() {
             a position at any time; its key never changes.
           </p>
         </div>
-        <CreatePositionDialog categories={categories} />
+        <CreatePositionDialog
+          categories={categories}
+          managerOptions={managerOptions}
+        />
       </div>
 
       <PositionsTabs
@@ -46,7 +58,10 @@ export default async function PositionsPage() {
       {active.length === 0 ? (
         <div className="flex flex-col items-start gap-3 text-muted-foreground">
           <p>No positions yet.</p>
-          <CreatePositionDialog categories={categories} />
+          <CreatePositionDialog
+            categories={categories}
+            managerOptions={managerOptions}
+          />
         </div>
       ) : (
         <PositionsList
@@ -56,6 +71,10 @@ export default async function PositionsPage() {
             name: position.name,
             category: position.category,
             holderCount: position.holderCount,
+            isLeadership: position.isLeadership,
+            managerName: position.managerPositionId
+              ? (nameById.get(position.managerPositionId) ?? null)
+              : null,
           }))}
         />
       )}

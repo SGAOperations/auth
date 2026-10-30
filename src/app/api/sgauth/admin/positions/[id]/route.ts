@@ -109,6 +109,7 @@ async function remove(request: Request, ctx: Ctx) {
             before: result.before,
             after: { deletedAt: result.deletedAt.toISOString() },
             holderIds: result.holderIds,
+            reportIds: result.reportIds,
           },
         });
         return {

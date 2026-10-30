@@ -178,6 +178,15 @@ const POSITION_ERRORS: Record<
     status: 409,
     message: "This user already holds the maximum number of positions.",
   },
+  MANAGER_NOT_FOUND: {
+    status: 409,
+    message: "The manager position doesn't exist or has been deleted.",
+  },
+  MANAGER_CYCLE: {
+    status: 409,
+    message:
+      "A position can't report to itself or to a position that reports to it.",
+  },
 };
 
 export function positionErrorResponse(err: PositionError): Response {

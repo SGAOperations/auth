@@ -287,6 +287,154 @@ describe("creating a position (AC 3)", () => {
   });
 });
 
+describe("leadership and manager", () => {
+  const patch = (id: string, body: unknown) =>
+    patchPositionRoute(json("PATCH", `${BASE}/${id}`, body), ctx(id));
+
+  it("creates a position with leadership and a manager, and audits both", async () => {
+    const manager = await createPosition();
+    const response = await createPositionRoute(
+      json("POST", BASE, {
+        key: uniqueKey(),
+        name: "Reports Up",
+        isLeadership: true,
+        managerPositionId: manager.id,
+      }),
+    );
+    expect(response.status).toBe(201);
+    const { position } = await response.json();
+    expect(position).toMatchObject({
+      isLeadership: true,
+      managerPositionId: manager.id,
+      reportCount: 0,
+    });
+    const rows = await auditRows(position.id);
+    expect(rows[0]?.metadata).toMatchObject({
+      after: { isLeadership: true, managerPositionId: manager.id },
+    });
+  });
+
+  it("defaults a new position to non-leadership with no manager", async () => {
+    const response = await createPositionRoute(
+      json("POST", BASE, { key: uniqueKey(), name: "Plain" }),
+    );
+    expect(response.status).toBe(201);
+    expect((await response.json()).position).toMatchObject({
+      isLeadership: false,
+      managerPositionId: null,
+    });
+  });
+
+  it("refuses a create under a missing or deleted manager", async () => {
+    const deleted = await createPosition({ deletedAt: new Date() });
+    for (const managerPositionId of [
+      deleted.id,
+      "0194f4a4-6b1e-7c3a-9d52-3f8a1b2c4d5e",
+    ]) {
+      const response = await createPositionRoute(
+        json("POST", BASE, {
+          key: uniqueKey(),
+          name: "Orphan",
+          managerPositionId,
+        }),
+      );
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        code: "MANAGER_NOT_FOUND",
+      });
+    }
+  });
+
+  it("updates leadership and manager, audits the change and counts the report", async () => {
+    const boss = await createPosition();
+    const report = await createPosition();
+
+    const response = await patch(report.id, {
+      isLeadership: true,
+      managerPositionId: boss.id,
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).position).toMatchObject({
+      isLeadership: true,
+      managerPositionId: boss.id,
+    });
+    const rows = await auditRows(report.id, "POSITION_UPDATED");
+    expect(rows[0]?.metadata).toMatchObject({
+      before: { isLeadership: false, managerPositionId: null },
+      after: { isLeadership: true, managerPositionId: boss.id },
+    });
+
+    const preflight = await getPositionRoute(
+      json("GET", `${BASE}/${boss.id}`),
+      ctx(boss.id),
+    );
+    expect((await preflight.json()).position).toMatchObject({ reportCount: 1 });
+
+    const cleared = await patch(report.id, { managerPositionId: null });
+    expect(cleared.status).toBe(200);
+    expect(
+      (await prisma.position.findUniqueOrThrow({ where: { id: report.id } }))
+        .managerPositionId,
+    ).toBeNull();
+  });
+
+  it("refuses a manager that is the position itself or sits below it, and writes nothing", async () => {
+    const top = await createPosition();
+    const middle = await createPosition({ managerPositionId: top.id });
+    const bottom = await createPosition({ managerPositionId: middle.id });
+
+    for (const [id, managerPositionId] of [
+      [top.id, top.id],
+      [top.id, middle.id],
+      [top.id, bottom.id],
+    ]) {
+      const response = await patch(id, { managerPositionId });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ code: "MANAGER_CYCLE" });
+    }
+    expect(
+      (await prisma.position.findUniqueOrThrow({ where: { id: top.id } }))
+        .managerPositionId,
+    ).toBeNull();
+    expect(await auditRows(top.id, "POSITION_UPDATED")).toHaveLength(0);
+  });
+
+  it("refuses a deleted manager and a manager that is not a UUID", async () => {
+    const position = await createPosition();
+    const deleted = await createPosition({ deletedAt: new Date() });
+
+    const gone = await patch(position.id, { managerPositionId: deleted.id });
+    expect(gone.status).toBe(409);
+    expect(await gone.json()).toMatchObject({ code: "MANAGER_NOT_FOUND" });
+
+    const malformed = await patch(position.id, { managerPositionId: "nope" });
+    expect(malformed.status).toBe(400);
+    expect(await malformed.json()).toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("clears the manager of reports when their manager is deleted, and audits their ids", async () => {
+    const boss = await createPosition();
+    const r1 = await createPosition({ managerPositionId: boss.id });
+    const r2 = await createPosition({ managerPositionId: boss.id });
+
+    const response = await deletePositionRoute(
+      json("DELETE", `${BASE}/${boss.id}`, { confirmKey: boss.key }),
+      ctx(boss.id),
+    );
+    expect(response.status).toBe(200);
+
+    for (const report of [r1, r2]) {
+      expect(
+        (await prisma.position.findUniqueOrThrow({ where: { id: report.id } }))
+          .managerPositionId,
+      ).toBeNull();
+    }
+    const rows = await auditRows(boss.id, "POSITION_DELETED");
+    const { reportIds } = rows[0]?.metadata as { reportIds: string[] };
+    expect([...reportIds].sort()).toEqual([r1.id, r2.id].sort());
+  });
+});
+
 describe("admin MFA", () => {
   it("refuses an admin who has not enrolled, then accepts them once enrolled", async () => {
     const unenrolled = await createAdmin({ twoFactorEnabled: false });

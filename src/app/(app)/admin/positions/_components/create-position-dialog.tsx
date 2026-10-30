@@ -23,16 +23,20 @@ import {
 } from "@/lib/position-key";
 import {
   isKeyErrorCode,
+  isManagerErrorCode,
   positionErrorMessage,
   positionFailureToast,
 } from "@/lib/position-view";
+import { OrgFields, type ManagerOption } from "./manager-picker";
 import { PositionKeyField } from "./position-key-field";
 import { createPosition } from "./positions-api";
 
 export function CreatePositionDialog({
   categories,
+  managerOptions,
 }: {
   categories: readonly string[];
+  managerOptions: readonly ManagerOption[];
 }) {
   const router = useRouter();
   const id = useId();
@@ -42,7 +46,12 @@ export function CreatePositionDialog({
   const [keyEdited, setKeyEdited] = useState(false);
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
+  const [isLeadership, setIsLeadership] = useState(false);
+  const [managerPositionId, setManagerPositionId] = useState<string | null>(
+    null,
+  );
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [managerError, setManagerError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const suggested = suggestPositionKey(name);
@@ -58,7 +67,10 @@ export function CreatePositionDialog({
       setKeyEdited(false);
       setCategory("");
       setDescription("");
+      setIsLeadership(false);
+      setManagerPositionId(null);
       setKeyError(null);
+      setManagerError(null);
     }
   }
 
@@ -67,12 +79,15 @@ export function CreatePositionDialog({
     if (!valid || pending) return;
     setPending(true);
     setKeyError(null);
+    setManagerError(null);
     const trimmedName = name.trim();
     const result = await createPosition({
       key,
       name: trimmedName,
       category: category.trim(),
       description: description.trim(),
+      isLeadership,
+      managerPositionId,
     });
     setPending(false);
 
@@ -84,6 +99,12 @@ export function CreatePositionDialog({
     }
     if (isKeyErrorCode(result.code)) {
       setKeyError(positionErrorMessage(result.code));
+      return;
+    }
+    if (isManagerErrorCode(result.code)) {
+      setManagerError(positionErrorMessage(result.code));
+      // A deleted manager means the options are stale.
+      if (result.code === "MANAGER_NOT_FOUND") router.refresh();
       return;
     }
     const failure = positionFailureToast(result);
@@ -176,6 +197,19 @@ export function CreatePositionDialog({
               onChange={(event) => setDescription(event.target.value)}
             />
           </div>
+
+          <OrgFields
+            idPrefix={id}
+            isLeadership={isLeadership}
+            onLeadershipChange={setIsLeadership}
+            managerPositionId={managerPositionId}
+            onManagerChange={(next) => {
+              setManagerPositionId(next);
+              setManagerError(null);
+            }}
+            options={managerOptions}
+            managerError={managerError}
+          />
 
           <DialogFooter>
             <Button

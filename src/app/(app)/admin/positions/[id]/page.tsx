@@ -76,6 +76,10 @@ export default async function PositionPage({
           <ReadOnlyField label="Key" value={position.key} mono />
           <ReadOnlyField label="Category" value={position.category ?? "—"} />
           <ReadOnlyField
+            label="Leadership"
+            value={position.isLeadership ? "Yes" : "No"}
+          />
+          <ReadOnlyField
             label="Description"
             value={position.description ?? "—"}
           />
@@ -106,8 +110,16 @@ export default async function PositionPage({
           name: position.name,
           category: position.category,
           description: position.description,
+          isLeadership: position.isLeadership,
+          managerPositionId: position.managerPositionId,
         }}
         categories={categories}
+        managerOptions={all.map((entry) => ({
+          id: entry.id,
+          name: entry.name,
+          category: entry.category,
+          managerPositionId: entry.managerPositionId,
+        }))}
       />
     </div>
   );

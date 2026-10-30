@@ -46,7 +46,24 @@ describe.skipIf(!url)("product registry schema", () => {
     expect(row.isActive).toBe(true);
     expect(row.sortOrder).toBe(0);
     expect(row.visibleToPositionKeys).toEqual([]);
+    expect(row.visibility).toBe("UNSET");
     expect(row.id).toMatch(UUID_V7);
+  });
+
+  it("accepts every valid visibility and keys pair", async () => {
+    for (const [visibility, keys] of PRODUCT_CASES.visibility.accepted) {
+      await expect(
+        make({ visibility, visibleToPositionKeys: [...keys] }),
+      ).resolves.toBeDefined();
+    }
+  });
+
+  it("rejects every invalid visibility and keys pair", async () => {
+    for (const [visibility, keys] of PRODUCT_CASES.visibility.rejected) {
+      await expect(
+        make({ visibility, visibleToPositionKeys: [...keys] }),
+      ).rejects.toThrow(/Product_visibility_keys_check/);
+    }
   });
 
   it("accepts every valid base URL", async () => {

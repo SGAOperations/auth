@@ -33,9 +33,10 @@ describe("productCreateSchema", () => {
     );
   });
 
-  for (const field of Object.keys(PRODUCT_CASES) as Array<
-    keyof typeof PRODUCT_CASES
-  >) {
+  for (const field of Object.keys(PRODUCT_CASES).filter(
+    (key): key is Exclude<keyof typeof PRODUCT_CASES, "visibility"> =>
+      key !== "visibility",
+  )) {
     describe(field, () => {
       for (const value of PRODUCT_CASES[field].accepted) {
         it(`accepts ${JSON.stringify(value)}`, () => {
@@ -57,6 +58,7 @@ describe("productCreateSchema", () => {
   it("collapses duplicate position keys", () => {
     const parsed = productCreateSchema.parse({
       ...valid,
+      visibility: "POSITIONS",
       visibleToPositionKeys: ["vp-finance", "vp-finance", "president"],
     });
     expect(parsed.visibleToPositionKeys).toEqual(["vp-finance", "president"]);
@@ -66,9 +68,48 @@ describe("productCreateSchema", () => {
     expect(
       productCreateSchema.safeParse({
         ...valid,
+        visibility: "POSITIONS",
         visibleToPositionKeys: ["VP-Finance"],
       }).success,
     ).toBe(false);
+  });
+
+  it("defaults visibility to UNSET", () => {
+    expect(productCreateSchema.parse(valid).visibility).toBe("UNSET");
+  });
+
+  describe("visibility", () => {
+    for (const [visibility, keys] of PRODUCT_CASES.visibility.accepted) {
+      it(`accepts ${visibility} with ${keys.length} keys`, () => {
+        expect(
+          productCreateSchema.safeParse({
+            ...valid,
+            visibility,
+            visibleToPositionKeys: keys,
+          }).success,
+        ).toBe(true);
+      });
+    }
+    for (const [visibility, keys] of PRODUCT_CASES.visibility.rejected) {
+      it(`rejects ${visibility} with ${keys.length} keys`, () => {
+        const result = productCreateSchema.safeParse({
+          ...valid,
+          visibility,
+          visibleToPositionKeys: keys,
+        });
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0]?.path).toEqual([
+          "visibleToPositionKeys",
+        ]);
+      });
+    }
+
+    it("rejects an unknown gate", () => {
+      expect(
+        productCreateSchema.safeParse({ ...valid, visibility: "ADMINS" })
+          .success,
+      ).toBe(false);
+    });
   });
 });
 
@@ -81,5 +122,44 @@ describe("productUpdateSchema", () => {
     const result = productUpdateSchema.safeParse({ name: "Renamed" });
     expect(result.success).toBe(true);
     expect(result.data).toEqual({ name: "Renamed" });
+  });
+
+  it("accepts a gate and its keys together", () => {
+    expect(
+      productUpdateSchema.safeParse({
+        visibility: "POSITIONS",
+        visibleToPositionKeys: ["senator"],
+      }).success,
+    ).toBe(true);
+    expect(
+      productUpdateSchema.safeParse({
+        visibility: "LEADERSHIP",
+        visibleToPositionKeys: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it("refuses a gate without its keys, and keys without their gate", () => {
+    for (const body of [
+      { visibility: "EVERYONE" },
+      { visibleToPositionKeys: ["senator"] },
+    ]) {
+      const result = productUpdateSchema.safeParse(body);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.message).toBe(
+        "Send visibility and visibleToPositionKeys together.",
+      );
+    }
+  });
+
+  it("refuses a broken gate and keys pair", () => {
+    for (const [visibility, keys] of PRODUCT_CASES.visibility.rejected) {
+      expect(
+        productUpdateSchema.safeParse({
+          visibility,
+          visibleToPositionKeys: keys,
+        }).success,
+      ).toBe(false);
+    }
   });
 });

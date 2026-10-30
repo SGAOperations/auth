@@ -488,6 +488,8 @@ describe("position lifecycle metadata", () => {
     name: "VP Finance",
     category: null,
     description: "Runs the budget",
+    isLeadership: false,
+    managerPositionId: null,
   };
   const event = (type: string, metadata: unknown) => ({
     type,
@@ -502,10 +504,27 @@ describe("position lifecycle metadata", () => {
     before: snapshot,
     after: { deletedAt: "2026-10-25T12:00:00.000Z" },
     holderIds: [HOLDER],
+    reportIds: [],
   };
 
   it.each([
     ["POSITION_CREATED", { after: snapshot }],
+    [
+      "POSITION_CREATED",
+      { after: { ...snapshot, isLeadership: true, managerPositionId: HOLDER } },
+    ],
+    [
+      "POSITION_UPDATED",
+      { before: { isLeadership: false }, after: { isLeadership: true } },
+    ],
+    [
+      "POSITION_UPDATED",
+      {
+        before: { managerPositionId: null },
+        after: { managerPositionId: HOLDER },
+      },
+    ],
+    ["POSITION_DELETED", { ...deleted, reportIds: [HOLDER] }],
     [
       "POSITION_UPDATED",
       { before: { name: "Old" }, after: { name: "New Name" } },
@@ -529,6 +548,18 @@ describe("position lifecycle metadata", () => {
     ["POSITION_DELETED", { ...deleted, holderIds: ["not-a-uuid"] }],
     ["POSITION_DELETED", { ...deleted, after: { deletedAt: "yesterday" } }],
     ["POSITION_DELETED", { ...deleted, extra: 1 }],
+    ["POSITION_DELETED", { ...deleted, reportIds: ["not-a-uuid"] }],
+    [
+      "POSITION_UPDATED",
+      {
+        before: { managerPositionId: null },
+        after: { managerPositionId: "not-a-uuid" },
+      },
+    ],
+    [
+      "POSITION_CREATED",
+      { after: { ...snapshot, managerPositionId: "not-a-uuid" } },
+    ],
   ])("rejects %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
   });
@@ -548,6 +579,10 @@ describe("product lifecycle metadata", () => {
     ["PRODUCT_CREATED", { slug: "vaultz" }],
     ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["baseUrl"] }],
     ["PRODUCT_UPDATED", { slug: "vaultz", fields: ["name", "isActive"] }],
+    [
+      "PRODUCT_UPDATED",
+      { slug: "vaultz", fields: ["visibility", "visibleToPositionKeys"] },
+    ],
     ["PRODUCT_DELETED", { slug: "vaultz" }],
   ])("accepts %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();

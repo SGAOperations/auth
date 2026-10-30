@@ -218,9 +218,6 @@ model TwoFactor {
   @@index([userId])
 }
 
-/// `key` has no `@unique` on purpose: uniqueness among active rows comes from the
-/// partial index `Position_key_active_key` in the positions migration, so a key
-/// can be reused once its retirement window has passed.
 /// A WebAuthn credential (AUTH-T105). The row holds the public key only. The
 /// delete_passkeys_when_inactive trigger removes a user's rows when
 /// User.status leaves ACTIVE.
@@ -242,24 +239,36 @@ model Passkey {
   @@index([userId])
 }
 
+/// `key` has no `@unique` on purpose: uniqueness among active rows comes from the
+/// partial index `Position_key_active_key` in the positions migration, so a key
+/// can be reused once its retirement window has passed.
+/// `managerPositionId` forms the org chart. The position_org migration backs the
+/// service rules with the CHECK `Position_manager_not_self_check` and the
+/// `position_manager_valid` trigger (active manager, no cycle), neither of which
+/// Prisma can express.
 model Position {
-  id          String    @id @default(uuid(7))
-  key         String
-  name        String
-  category    String?
-  description String?
-  deletedAt   DateTime?
-  createdById String?
-  createdBy   User?     @relation("PositionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedById String?
-  updatedBy   User?     @relation("PositionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                String    @id @default(uuid(7))
+  key               String
+  name              String
+  category          String?
+  description       String?
+  isLeadership      Boolean   @default(false)
+  managerPositionId String?
+  manager           Position? @relation("PositionManager", fields: [managerPositionId], references: [id], onDelete: SetNull)
+  deletedAt         DateTime?
+  createdById       String?
+  createdBy         User?     @relation("PositionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedById       String?
+  updatedBy         User?     @relation("PositionUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  holders UserPosition[]
-  retired RetiredPositionKey?
+  reports  Position[]         @relation("PositionManager")
+  holders  UserPosition[]
+  retired  RetiredPositionKey?
 
   @@index([deletedAt])
+  @@index([managerPositionId])
 }
 
 model UserPosition {
@@ -286,6 +295,13 @@ model RetiredPositionKey {
   @@index([key, retiredAt])
 }
 
+enum ProductVisibility {
+  EVERYONE
+  LEADERSHIP
+  POSITIONS
+  UNSET
+}
+
 model Product {
   id                    String   @id @default(uuid(7))
   /// immutable kebab-case key; product roles are prefixed with it (`<slug>-<role>`)
@@ -297,7 +313,10 @@ model Product {
   iconUrl               String?
   isActive              Boolean  @default(true)
   sortOrder             Int      @default(0)
-  /// position keys; empty = visible to everyone
+  /// Who sees the product on account pages. POSITIONS needs at least one key; the
+  /// others need none (Product_visibility_keys_check).
+  visibility            ProductVisibility @default(UNSET)
+  /// position keys; used only when visibility is POSITIONS
   visibleToPositionKeys String[] @default([])
   loginRedirectPath     String?
   createdById           String?

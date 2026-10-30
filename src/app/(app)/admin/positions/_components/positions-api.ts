@@ -15,6 +15,7 @@ const positionResponseSchema = z.object({
     key: z.string(),
     name: z.string(),
     holderCount: z.number(),
+    reportCount: z.number(),
   }),
 });
 
@@ -58,12 +59,16 @@ export interface CreatePositionBody {
   name: string;
   category: string;
   description: string;
+  isLeadership: boolean;
+  managerPositionId: string | null;
 }
 
 export interface UpdatePositionBody {
   name: string;
   category: string;
   description: string;
+  isLeadership: boolean;
+  managerPositionId: string | null;
 }
 
 export function createPosition(body: CreatePositionBody) {
@@ -78,17 +83,23 @@ export function updatePosition(id: string, body: UpdatePositionBody) {
   );
 }
 
-/** The holder count shown before a delete is confirmed. */
+/** The holder and report counts shown before a delete is confirmed. */
 export async function deletePositionPreflight(
   id: string,
-): Promise<ApiResult<{ holderCount: number }>> {
+): Promise<ApiResult<{ holderCount: number; reportCount: number }>> {
   const result = await send(
     `${BASE}/${encodeURIComponent(id)}`,
     { method: "GET" },
     positionResponseSchema,
   );
   return result.ok
-    ? { ok: true, data: { holderCount: result.data.position.holderCount } }
+    ? {
+        ok: true,
+        data: {
+          holderCount: result.data.position.holderCount,
+          reportCount: result.data.position.reportCount,
+        },
+      }
     : result;
 }
 
