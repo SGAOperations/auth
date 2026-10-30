@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useReducer } from "react";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { DisabledReason } from "@/components/admin/disabled-reason";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAdminAction } from "@/hooks/use-admin-action";
 import {
+  adminTarget,
+  CONFIRM_CLOSED,
+  confirmCopy,
+  confirmReducer,
+} from "@/lib/admin/account-confirm";
+import {
   deactivateUser,
   grantAdmin,
   reactivateUser,
@@ -22,8 +28,6 @@ import {
   revokeAdmin,
   unlockUser,
 } from "../actions";
-
-type Pending = "admin" | "deactivate" | null;
 
 /** Each reason is the text that explains a disabled control, or null when it is enabled. */
 export interface AccountReasons {
@@ -51,46 +55,30 @@ export function AccountActions({
   reasons: AccountReasons;
 }) {
   const { run, pending } = useAdminAction();
-  const [confirm, setConfirm] = useState<Pending>(null);
+  const [confirm, dispatch] = useReducer(confirmReducer, CONFIRM_CLOSED);
   const deactivated = status === "DEACTIVATED";
 
-  const confirmCopy = {
-    admin: isAdmin
-      ? {
-          title: `Remove admin access from ${name}?`,
-          description: "They'll no longer be able to manage SGAuth.",
-          label: "Remove admin access",
-          destructive: true,
-        }
-      : {
-          title: `Grant admin access to ${name}?`,
-          description:
-            "They'll be able to manage users, positions, and products.",
-          label: "Grant admin access",
-          destructive: false,
-        },
-    deactivate: {
-      title: `Deactivate ${name}?`,
-      description:
-        "They'll be signed out everywhere immediately and can't sign in until reactivated.",
-      label: "Deactivate",
-      destructive: true,
-    },
-  } as const;
-  const dialog = confirm ? confirmCopy[confirm] : null;
+  const dialog = confirm.target ? confirmCopy(confirm.target, name) : null;
 
+  // The target was frozen when the dialog opened, so the action always matches
+  // the copy that was confirmed, whatever `isAdmin` has refreshed to since.
   function confirmed() {
-    if (confirm === "admin") {
-      void run(() => (isAdmin ? revokeAdmin(userId) : grantAdmin(userId)), {
-        success: isAdmin
-          ? `${name} is no longer an admin.`
-          : `${name} is now an admin.`,
-      });
-    } else if (confirm === "deactivate") {
-      void run(() => deactivateUser(userId), {
-        success: `${name} deactivated.`,
-      });
-    }
+    const target = confirm.target;
+    if (target === null) return;
+    dispatch({ type: "confirm" });
+    const action =
+      target === "grantAdmin"
+        ? run(() => grantAdmin(userId), {
+            success: `${name} is now an admin.`,
+          })
+        : target === "revokeAdmin"
+          ? run(() => revokeAdmin(userId), {
+              success: `${name} is no longer an admin.`,
+            })
+          : run(() => deactivateUser(userId), {
+              success: `${name} deactivated.`,
+            });
+    void action.finally(() => dispatch({ type: "settled" }));
   }
 
   const switchId = `admin-switch-${userId}`;
@@ -113,7 +101,9 @@ export function AccountActions({
                 disabled={disabled}
                 aria-describedby={describedBy}
                 // Controlled: the page's data changes it, after the dialog.
-                onCheckedChange={() => setConfirm("admin")}
+                onCheckedChange={() =>
+                  dispatch({ type: "open", target: adminTarget(isAdmin) })
+                }
               />
               <Label htmlFor={switchId}>Administrator</Label>
             </div>
@@ -145,7 +135,9 @@ export function AccountActions({
                   type="button"
                   variant="destructive"
                   {...controlProps}
-                  onClick={() => setConfirm("deactivate")}
+                  onClick={() =>
+                    dispatch({ type: "open", target: "deactivate" })
+                  }
                 >
                   Deactivate
                 </Button>
@@ -193,9 +185,9 @@ export function AccountActions({
       </CardContent>
 
       <ConfirmDialog
-        open={dialog !== null}
+        open={confirm.open}
         onOpenChange={(open) => {
-          if (!open) setConfirm(null);
+          if (!open) dispatch({ type: "dismiss" });
         }}
         title={dialog?.title ?? ""}
         description={dialog?.description ?? ""}
