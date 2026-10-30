@@ -8,6 +8,11 @@ export const ADMIN_USER_ERROR_MESSAGES = {
   UNKNOWN_ACTION: "Unknown action.",
   EMAIL_TAKEN: "An account with that email already exists.",
   USER_DELETED: "This account has been deleted.",
+  EMAIL_UNCHANGED: "That is already this user's email address.",
+  // Never says whose address it is.
+  EMAIL_UNAVAILABLE: "That email address can't be used for this account.",
+  EMAIL_SEND_LIMITED:
+    "Too many emails have been sent to that address. Try again later.",
   ALREADY_DEACTIVATED: "This account is already deactivated.",
   NOT_DEACTIVATED: "This account isn't deactivated.",
   ALREADY_ADMIN: "This user is already an admin.",
@@ -28,6 +33,9 @@ export const ADMIN_USER_ERROR_STATUS: Record<AdminUserErrorCode, number> = {
   UNKNOWN_ACTION: 404,
   EMAIL_TAKEN: 409,
   USER_DELETED: 409,
+  EMAIL_UNCHANGED: 400,
+  EMAIL_UNAVAILABLE: 409,
+  EMAIL_SEND_LIMITED: 429,
   ALREADY_DEACTIVATED: 409,
   NOT_DEACTIVATED: 409,
   ALREADY_ADMIN: 409,

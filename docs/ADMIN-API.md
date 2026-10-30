@@ -32,6 +32,18 @@ All paths are under `/api/sgauth/admin/users`.
 | `POST /:id/reset-mfa`       | `resetMfa`           | yes        | `MFA_RESET`                                            | 200 `{ user, email }`                  |
 | `POST /:id/resend-invite`   | `resendInvite`       | no         | `USER_INVITED`                                         | 200 `{ user, email }`                  |
 
+### Changing a user's email
+
+`POST /:id/email` (fresh auth, `can()` action `changeEmail`) starts an admin-initiated email change. Body, strict: `{ "newEmail": "<address>" }`, trimmed and lower-cased, at most 254 characters. It answers 202 `{ status: "PENDING_VERIFICATION", expiresAt }` and never returns the token.
+
+- Unlike the table above, **re-authentication is checked first**, before the target is loaded or `can()` runs, so every case answers `REAUTH_REQUIRED` while the stamp is stale.
+- `can(changeEmail)`: an active admin may change a non-admin; only the Primary Admin may change another admin or their own email, and any other admin is refused (`PRIMARY_ADMIN_REQUIRED`) on an admin target, themselves included; nobody may change the Primary Admin's email but the Primary Admin (`PRIMARY_ADMIN_PROTECTED`). A deactivated target is allowed, so an address can be fixed before reactivation; a deleted one is 409 `USER_DELETED`.
+- Nothing on the user changes yet. A link goes to the **new** address and a notice (with the new address masked, and no link) to the old one. The old address keeps working until the new mailbox opens `/verify-email-change` and presses the button. That POST swaps the address in one transaction, recomputes `legacyEmail` (`false` only for a northeastern.edu address), signs the user out everywhere, voids reset, set-password and unlock links mailed to the old address, and writes `EMAIL_CHANGED` (actor `SYSTEM`, with `requestedById` in the metadata).
+- A user has at most one open request: a new one cancels the old one, whose link then reads as invalid. A link lasts 24 hours.
+- The request writes `EMAIL_CHANGE_REQUESTED`. Both audit events carry `fromEmail` and `toEmail`, which are listed in `AUDIT_PII_METADATA_FIELDS` and removed when the user is deleted.
+- An address in use answers 409 `EMAIL_UNAVAILABLE` whoever owns it, and the body never names the owner. If the address is taken between the request and the confirm, the confirm page says it could not complete the change and the request expires on its own.
+- If the mailer's caps refuse the link, the request is cancelled and the answer is 429 `EMAIL_SEND_LIMITED`; its audit row stays, since the log is append-only.
+
 - **Force re-login is `revoke-sessions`.** They are the same operation. `deactivate` also revokes every session.
 - `DELETE` and the eight `POST` actions take no body; anything sent is ignored.
 - `GET /:id` returns tombstones. They hold no personal data.
@@ -86,6 +98,9 @@ Every error body is `{ code, message }`, plus the extra fields noted. A 500 is l
 | 404    | `UNKNOWN_ACTION`                                     | the `[action]` segment is not one of the eight                              |
 | 409    | `EMAIL_TAKEN`                                        | create: the address exists, in any case                                     |
 | 409    | `USER_DELETED`                                       | any mutation on a tombstone                                                 |
+| 400    | `EMAIL_UNCHANGED`                                    | email change: the address is the user's current one                         |
+| 409    | `EMAIL_UNAVAILABLE`                                  | email change: the address is in use by any account                          |
+| 429    | `EMAIL_SEND_LIMITED`                                 | email change: the mail caps refused the verification link                   |
 | 409    | `ALREADY_DEACTIVATED`, `NOT_DEACTIVATED`             | deactivate, reactivate                                                      |
 | 409    | `ALREADY_ADMIN`, `NOT_AN_ADMIN`                      | grant-admin, revoke-admin                                                   |
 | 409    | `NOT_LOCKED`                                         | unlock: no live lock                                                        |

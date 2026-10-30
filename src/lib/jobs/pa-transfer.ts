@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { writeAuditEvent, type TransferCancelReason } from "@/lib/audit";
+import { cancelOpenEmailChangeRequests } from "@/lib/email-change/cancel";
 import { logger } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 
@@ -215,6 +216,13 @@ async function execute(
       metadata: { scope: "all" },
     });
   }
+  // Both users' standing changed, so no email change they are the target or
+  // requester of may be confirmed under the old standing.
+  await cancelOpenEmailChangeRequests(
+    tx,
+    [transfer.fromUserId, transfer.toUserId],
+    now,
+  );
   // The cancel link dies with the transfer.
   await tx.primaryAdminTransfer.update({
     where: { id: transfer.id },

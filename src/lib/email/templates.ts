@@ -35,6 +35,16 @@ function adminGreeting(): string {
   return greeting(undefined, "Hello");
 }
 
+/**
+ * `j•••@gmail.com`: the first character and the domain, so the old mailbox's
+ * owner can recognise the address without the notice revealing all of it.
+ */
+export function maskEmail(address: string): string {
+  const at = address.lastIndexOf("@");
+  if (at < 1) return "•••";
+  return `${address.slice(0, 1)}•••${address.slice(at)}`;
+}
+
 function defineTemplate<S extends z.ZodType>(template: {
   schema: S;
   /** Data fields that hold URLs. The mailer checks their origin. */
@@ -270,6 +280,44 @@ export const TEMPLATES = {
         paragraphs: [greeting(d.name), event.body(formatEt(d.occurredAt))],
       });
     },
+  }),
+
+  // Goes to the NEW address and never names the old one.
+  "email-change-verify": defineTemplate({
+    schema: z.object({ name, url, expiresInMinutes }),
+    links: ["url"],
+    render: (d) =>
+      compose("Confirm your new SGAuth email", {
+        preheader:
+          "Confirm this address to finish changing your sign-in email.",
+        heading: "Confirm your new email",
+        paragraphs: [
+          greeting(d.name),
+          `An SGA admin is changing the sign-in email for your SGA account to this address. Confirm it to finish. The link works once and expires in ${formatDuration(d.expiresInMinutes)}.`,
+        ],
+        action: { label: "Confirm email", url: d.url },
+        afterAction: [
+          "If you weren't expecting this, ignore this email. Nothing changes until you confirm.",
+        ],
+      }),
+  }),
+
+  // Goes to the OLD address and carries no link.
+  "email-change-notice": defineTemplate({
+    schema: z.object({ name, newEmail: z.email().max(320) }),
+    links: [],
+    render: (d) =>
+      compose("An SGA admin is changing your account email", {
+        preheader:
+          "Your sign-in email is being changed. Nothing has changed yet.",
+        heading: "Your sign-in email is being changed",
+        paragraphs: [
+          greeting(d.name),
+          `An SGA administrator asked to change the sign-in email for your account to ${maskEmail(d.newEmail)}.`,
+          "Your current address keeps working until the change is confirmed from the new address. After that, this address can no longer be used to sign in.",
+          "If this is unexpected, contact SGA Operations.",
+        ],
+      }),
   }),
 
   "pa-transfer-initiated": defineTemplate({

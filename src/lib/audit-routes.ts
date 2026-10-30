@@ -65,6 +65,19 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "audited",
     events: ["ACCOUNT_UNLOCKED"],
   },
+  // The admin-initiated email change (AUTH-T24). The admin POST writes
+  // EMAIL_CHANGE_REQUESTED with the pending request; the emailed link's POST
+  // writes EMAIL_CHANGED in the transaction that swaps the address.
+  "src/app/api/sgauth/admin/users/[id]/email/route.ts": {
+    kind: "audited",
+    events: ["EMAIL_CHANGE_REQUESTED"],
+    emittedIn: ["src/lib/email-change/service.ts"],
+  },
+  "src/app/verify-email-change/confirm/route.ts": {
+    kind: "audited",
+    events: ["EMAIL_CHANGED"],
+    emittedIn: ["src/lib/email-change/service.ts"],
+  },
   // The Primary Admin transfer routes. Every transition writes its
   // own audit row inside pa-transfer-actions.ts, in the transition's transaction.
   "src/app/api/sgauth/admin/transfer/route.ts": {
