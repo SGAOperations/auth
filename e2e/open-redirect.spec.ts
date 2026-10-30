@@ -29,7 +29,7 @@ test.describe("post-login redirect", () => {
 
   // Well-formed targets that no product registers. They are sealed into the
   // redirect cookie and refused when it is consumed, so sign-in goes through
-  // the real form and must land on /account.
+  // the real form and must land on the home page.
   for (const target of [
     "https://evil.example/",
     "http://a.sga.localhost.evil.example:3001/",
@@ -38,7 +38,7 @@ test.describe("post-login redirect", () => {
       const evilHits = await guardEvilHosts(page);
       await page.goto(loginWithRedirect(target));
       await signIn(page, REDIRECT_EMAIL);
-      await expect(page).toHaveURL(`${AUTH}/account`);
+      await expect(page).toHaveURL(`${AUTH}/`);
       expect(evilHits).toEqual([]);
     });
   }

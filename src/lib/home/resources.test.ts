@@ -28,9 +28,10 @@ describe("resource links", () => {
   });
 
   it("point at Slack only for the SGA Slack link", () => {
-    const slack = allHrefs.filter((href) =>
-      new URL(href).hostname.endsWith("slack.com"),
-    );
+    const slack = allHrefs.filter((href) => {
+      const host = new URL(href).hostname;
+      return host === "slack.com" || host.endsWith(".slack.com");
+    });
     expect(slack).toEqual([SGA_LINKS.slack.href]);
   });
 });
