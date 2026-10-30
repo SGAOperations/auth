@@ -76,7 +76,7 @@ export async function requestCode(input: unknown): Promise<RequestCodeResult> {
 
 /**
  * Step 2. On success the session cookie is set (by `nextCookies`) and the
- * browser is redirected to the validated target, or `/account`.
+ * browser is redirected to the validated target, or home (`/`).
  */
 export async function verifyCode(input: unknown): Promise<EmailCodeFailure> {
   assertEnabled();

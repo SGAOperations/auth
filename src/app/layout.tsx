@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "SGA Account", template: "%s · SGA Account" },
+  title: { default: "SGAuth", template: "%s · SGAuth" },
   description: "Sign in once for every SGA tool.",
   ...(env.SGAUTH_ENV !== "production" && {
     robots: { index: false, follow: false },

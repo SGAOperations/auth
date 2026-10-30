@@ -15,6 +15,12 @@
   --color-particle: var(--particle);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-tile-violet: var(--tile-violet);
+  --color-tile-blue: var(--tile-blue);
+  --color-tile-red: var(--tile-red);
+  --color-tile-green: var(--tile-green);
+  --color-tile-neutral: var(--tile-neutral);
+  --color-tile-foreground: var(--tile-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
@@ -61,10 +67,10 @@
 @theme {
   --animate-ray-breathe: ray-breathe 7s ease-in-out infinite alternate;
   /* Delays live inside the shorthand: a separate animation-delay utility can
-     be reset to 0 by this shorthand depending on stylesheet order. */
-  --animate-ray-pulse: ray-pulse 9s linear var(--ray-delay, 0s) infinite;
-  --animate-branch-grow: branch-grow 700ms ease-out calc(var(--i, 0) * 90ms)
-    both;
+     be reset to 0 by this shorthand depending on stylesheet order. The wave
+     moves a ray down by exactly one wavelength (--wave) per loop. */
+  --animate-ray-wave: ray-wave var(--wave-seconds, 16s) linear
+    var(--wave-delay, 0s) infinite;
 
   @keyframes ray-breathe {
     from {
@@ -74,20 +80,12 @@
       opacity: 0.85;
     }
   }
-  @keyframes ray-pulse {
+  @keyframes ray-wave {
     from {
-      transform: translateY(-20vh);
+      transform: translateY(calc(-1 * var(--wave)));
     }
     to {
-      transform: translateY(120vh);
-    }
-  }
-  @keyframes branch-grow {
-    from {
-      transform: scaleX(0);
-    }
-    to {
-      transform: scaleX(1);
+      transform: translateY(0);
     }
   }
 }
@@ -121,12 +119,8 @@
   /*
    * Backdrop ray geometry (docs/DESIGN.md). The rays sit 2 * --ray-half apart,
    * outside the widest content ((app) main is max-w-5xl, 32rem half).
-   * --tools-half must match the account page's max-w-3xl (24rem half): the
-   * branch length is the gap between the column edge and the ray.
    */
   --ray-half: 34rem;
-  --tools-half: 24rem;
-  --branch-length: calc(var(--ray-half) - var(--tools-half));
   --ray-x: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -185,6 +179,14 @@
   --particle: oklch(1 0 0);
   --warning: oklch(0.879 0.169 91.605);
   --warning-foreground: oklch(0.279 0.077 45.635);
+  /* Product tiles. Each is at least 4.5:1 against --tile-foreground, because
+     the "Go to" button text sits on it. */
+  --tile-violet: oklch(0.52 0.25 300);
+  --tile-blue: oklch(0.5 0.19 258);
+  --tile-red: oklch(0.55 0.22 27);
+  --tile-green: oklch(0.5 0.13 155);
+  --tile-neutral: oklch(0.4 0 0);
+  --tile-foreground: oklch(1 0 0);
 }
 
 @layer base {

@@ -47,8 +47,8 @@ export function RouteError({
       </EmptyHeader>
       <EmptyContent className="flex-row flex-wrap justify-center">
         <Button onClick={reset}>Try again</Button>
-        <Button variant="outline" render={<Link href="/account" />}>
-          Go to your account
+        <Button variant="outline" render={<Link href="/" />}>
+          Go to home
         </Button>
       </EmptyContent>
     </Empty>

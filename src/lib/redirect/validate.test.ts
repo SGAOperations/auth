@@ -6,7 +6,7 @@ import {
 
 const SGAUTH = "https://auth.northeasternsga.com";
 const PRODUCT = "https://vaultz.northeasternsga.com";
-const ACCOUNT = `${SGAUTH}/account`;
+const HOME = `${SGAUTH}/`;
 
 const deps = {
   sgauthOrigin: SGAUTH,
@@ -44,11 +44,11 @@ describe("resolveRedirect open-redirect suite", () => {
     "",
     undefined,
     42,
-  ])("lands on /account for %j", async (raw) => {
-    expect(await resolveRedirect(raw, deps)).toBe(ACCOUNT);
+  ])("lands on home for %j", async (raw) => {
+    expect(await resolveRedirect(raw, deps)).toBe(HOME);
   });
 
-  it("falls back to /account when the allowlist throws or says no", async () => {
+  it("falls back to home when the allowlist throws or says no", async () => {
     const target = `${PRODUCT}/purchases/42`;
     expect(
       await resolveRedirect(target, {
@@ -57,13 +57,13 @@ describe("resolveRedirect open-redirect suite", () => {
           throw new Error("registry down");
         },
       }),
-    ).toBe(ACCOUNT);
+    ).toBe(HOME);
     expect(
       await resolveRedirect(target, {
         ...deps,
         isAllowedRedirect: () => false,
       }),
-    ).toBe(ACCOUNT);
+    ).toBe(HOME);
   });
 });
 

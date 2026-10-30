@@ -39,7 +39,8 @@ const DEV_PRODUCTS = [
     baseUrl: "https://vaultz-dev.northeasternsga.com",
     isActive: false,
     sortOrder: 10,
-    description: "Placeholder until VaultZ is onboarded.",
+    description:
+      "SGA's financial reporting platform. Used for requesting expenses and internal budget management.",
     visibility: "LEADERSHIP",
   },
   {
