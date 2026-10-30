@@ -4,11 +4,13 @@ import { getCookies, parseSetCookieHeader } from "better-auth/cookies";
 import { describe, expect, it } from "vitest";
 import {
   DEVICE_COOKIE_MAX_AGE_SECONDS,
+  TWO_FACTOR_COOKIE,
   assertSecureCookieConfig,
   buildCookieOptions,
   deviceCookieName,
   resolveCookiePolicy,
   sessionCookieName,
+  twoFactorCookieName,
 } from "@/lib/auth/cookies";
 import {
   SESSION_EXPIRES_IN_SECONDS,
@@ -116,6 +118,17 @@ describe("deviceCookieName", () => {
   });
 });
 
+describe("twoFactorCookieName", () => {
+  it("names the challenge cookie for every environment", () => {
+    expect(twoFactorCookieName(resolveCookiePolicy("production"))).toBe(
+      "__Secure-sgauth.two_factor",
+    );
+    expect(twoFactorCookieName(resolveCookiePolicy("local"))).toBe(
+      "sgauth-local.two_factor",
+    );
+  });
+});
+
 describe("buildCookieOptions", () => {
   it("disables cross-subdomain cookies for preview", () => {
     const options = buildCookieOptions(resolveCookiePolicy("preview"));
@@ -162,6 +175,16 @@ describe("Better Auth's view of the cookies", () => {
     });
   });
 
+  it.each(ENVS)(
+    "names the two_factor cookie as Better Auth does (%s)",
+    async (env) => {
+      const context = await testAuth(env).$context;
+      expect(twoFactorCookieName(resolveCookiePolicy(env))).toBe(
+        context.createAuthCookie(TWO_FACTOR_COOKIE).name,
+      );
+    },
+  );
+
   it("gives every environment disjoint cookie names", () => {
     const names = ENVS.flatMap((env) => {
       const cookies = getCookies(optionsFor(env));
@@ -170,6 +193,7 @@ describe("Better Auth's view of the cookies", () => {
         cookies.sessionData.name,
         cookies.dontRememberToken.name,
         cookies.accountData.name,
+        twoFactorCookieName(resolveCookiePolicy(env)),
       ];
     });
     expect(new Set(names).size).toBe(names.length);
