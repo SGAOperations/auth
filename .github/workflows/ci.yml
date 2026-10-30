@@ -157,7 +157,39 @@ jobs:
           DIRECT_URL: "postgresql://placeholder"
       - run: npx vitest run --project unit
 
+  # The Primary Admin transfer suites (vitest project db-transfer). They assume
+  # no committed Primary Admin, so they reset the test branch first and run
+  # before the sharded db job, which resets its own shard branches.
+  db-transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    concurrency:
+      group: neon-test-branch
+      cancel-in-progress: false
+    env:
+      TEST_DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
+      TEST_DIRECT_URL: ${{ secrets.NEON_TEST_DIRECT_URL }}
+      SGAUTH_ENV: local
+      BETTER_AUTH_SECRET: ci-only-not-a-secret-0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+        env:
+          DIRECT_URL: "postgresql://placeholder"
+      - name: Reset Neon test branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: npx neonctl branches reset test --parent --project-id "$NEON_PROJECT_ID"
+      - run: npx vitest run --project db-transfer
+
   test:
+    needs: db-transfer
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
