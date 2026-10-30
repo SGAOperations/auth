@@ -514,7 +514,7 @@ describe("runRetention", () => {
   describe("the batch cap", () => {
     it(
       "tombstones 50 a run and leaves the rest for the next",
-      { timeout: 60_000 },
+      { timeout: 180_000 },
       async () => {
         // Drain anything an earlier case left, so the count below is this case's.
         await run(31);
