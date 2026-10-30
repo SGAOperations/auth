@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { PasskeysSection } from "@/components/account/passkeys-section";
 import { ChangePasswordForm } from "@/components/account/security/change-password-form";
 import { MfaRequiredBanner } from "@/components/account/security/mfa-required-banner";
 import { TwoFactorManage } from "@/components/account/security/two-factor-manage";
 import { TwoFactorSetup } from "@/components/account/security/two-factor-setup";
 import { ReauthProvider } from "@/components/reauth-dialog";
+import { loadPasskeys } from "@/lib/account/passkey-list";
 import { loadSecurityOverview } from "@/lib/account/security-overview";
 import { parseSecurityReason, SECURITY_PATH } from "@/lib/account/security-ui";
 import { requireUser } from "@/lib/auth/guards";
@@ -22,6 +24,7 @@ export default async function SecurityPage({
   if (!overview) {
     redirect(`/login?redirect=${encodeURIComponent(SECURITY_PATH)}`);
   }
+  const passkeys = await loadPasskeys(prisma, user.id);
   const reason = parseSecurityReason(await searchParams);
 
   return (
@@ -29,8 +32,8 @@ export default async function SecurityPage({
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Security</h1>
         <p className="text-sm text-muted-foreground">
-          Manage your password and two-factor authentication. These settings
-          apply to every SGA tool you sign in to with SGAuth.
+          Manage your password, two-factor authentication and passkeys. These
+          settings apply to every SGA tool you sign in to with SGAuth.
         </p>
       </div>
       {overview.mfaRequired ? <MfaRequiredBanner /> : null}
@@ -50,6 +53,7 @@ export default async function SecurityPage({
             mfaRequiredReason={reason === "mfa-required"}
           />
         )}
+        <PasskeysSection passkeys={passkeys} isAdmin={overview.isAdmin} />
       </ReauthProvider>
     </div>
   );

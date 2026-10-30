@@ -1,9 +1,10 @@
+import { passkeyClient } from "@better-auth/passkey/client";
 import { createAuthClient } from "better-auth/react";
 import { mapEmailStepResponse, type EmailStepOutcome } from "@/lib/auth/forms";
 
 // Client-safe: no env, no `server-only`. No `baseURL`, so the client uses the
 // page's own origin, which differs per preview deployment.
-export const authClient = createAuthClient();
+export const authClient = createAuthClient({ plugins: [passkeyClient()] });
 
 export const EMAIL_STEP_PATH = "/api/sgauth/sign-in/email-step";
 

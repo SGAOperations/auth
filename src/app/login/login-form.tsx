@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { PasskeySignIn } from "@/components/auth/passkey-sign-in";
 import { PasswordField } from "@/components/auth/password-field";
 import { ResendVerification } from "@/components/auth/resend-verification";
 import { Button } from "@/components/ui/button";
@@ -148,7 +149,7 @@ export function LoginForm({
                     <Input
                       {...field}
                       type="email"
-                      autoComplete="username"
+                      autoComplete="username webauthn"
                       maxLength={320}
                     />
                   </FormControl>
@@ -170,6 +171,7 @@ export function LoginForm({
             </Button>
           </form>
         </Form>
+        <PasskeySignIn onSignedIn={completeSignIn} />
       </AuthShell>
     );
   }

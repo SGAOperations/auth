@@ -17,6 +17,11 @@ describe("primary admin: Better Auth admin plugin tripwire", () => {
       domains: new Set(["northeastern.edu"]),
       emails: new Set(),
     },
+    passkey: {
+      rpID: "localhost",
+      rpName: "Test",
+      origin: "http://localhost:3000",
+    },
     prisma,
     issuer: "http://localhost:3000",
     secret: "s".repeat(32),

@@ -313,6 +313,40 @@ describe("parseAuthEnv gates", () => {
   });
 });
 
+describe("parseAuthEnv passkey", () => {
+  const base = { BETTER_AUTH_SECRET: SECRET, SGAUTH_PREVIEW_GATE: "off" };
+
+  it.each([
+    ["production", "auth.northeasternsga.com", "https://"],
+    ["dev", "auth-dev.northeasternsga.com", "https://"],
+    ["local", "auth.sga.localhost", "http://"],
+  ])("uses the auth host as the relying party in %s", (env, host, scheme) => {
+    expect(parseAuthEnv({ ...base, SGAUTH_ENV: env }).passkey).toEqual({
+      rpID: host,
+      rpName: "Northeastern SGA",
+      origin: `${scheme}${host}${env === "local" ? ":3000" : ""}`,
+    });
+  });
+
+  it("uses the per-deployment host in a preview", () => {
+    const { passkey } = parseAuthEnv({
+      ...base,
+      SGAUTH_ENV: "preview",
+      VERCEL_BRANCH_URL: "branch-abc.vercel.app",
+    });
+    expect(passkey.rpID).toBe("branch-abc.vercel.app");
+    expect(passkey.origin).toBe("https://branch-abc.vercel.app");
+  });
+
+  it.each(["production", "dev", "local"])(
+    "never uses the parent domain as the relying party in %s",
+    (env) => {
+      const { passkey } = parseAuthEnv({ ...base, SGAUTH_ENV: env });
+      expect(passkey.rpID).not.toBe("northeasternsga.com");
+    },
+  );
+});
+
 describe("parseAuthEnv email OTP", () => {
   const base = { SGAUTH_ENV: "local", BETTER_AUTH_SECRET: SECRET };
 

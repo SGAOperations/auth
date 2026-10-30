@@ -55,7 +55,8 @@ model User {
   unlockTokens                   UnlockToken[]
   emailChangeRequests            EmailChangeRequest[]
   twoFactors                     TwoFactor[]
-  positionsCreated               Position[]             @relation("PositionCreatedBy")
+  passkeys                       Passkey[]
+  positionsCreated              Position[]             @relation("PositionCreatedBy")
   positionsUpdated               Position[]             @relation("PositionUpdatedBy")
   positions                      UserPosition[]         @relation("UserPositionHolder")
   positionsAssigned              UserPosition[]         @relation("UserPositionAssignedBy")
@@ -220,6 +221,27 @@ model TwoFactor {
 /// `key` has no `@unique` on purpose: uniqueness among active rows comes from the
 /// partial index `Position_key_active_key` in the positions migration, so a key
 /// can be reused once its retirement window has passed.
+/// A WebAuthn credential (AUTH-T105). The row holds the public key only. The
+/// delete_passkeys_when_inactive trigger removes a user's rows when
+/// User.status leaves ACTIVE.
+model Passkey {
+  id           String   @id @default(uuid(7))
+  name         String?
+  /// COSE public key, base64
+  publicKey    String
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String   @unique
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  aaguid       String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Position {
   id          String    @id @default(uuid(7))
   key         String
