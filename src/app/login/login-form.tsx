@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -42,11 +43,13 @@ export function LoginForm({
   /** Shows the link to /login/code; off while SGAUTH_EMAIL_OTP_ENABLED is off. */
   emailCodeEnabled?: boolean;
 }) {
+  const router = useRouter();
   const [step, setStep] = useState<"email" | "password">("email");
   const [email, setEmail] = useState("");
   const [hint, setHint] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [signInState, setSignInState] = useState<SignInState | null>(null);
+  const [navigating, setNavigating] = useState(false);
 
   const emailForm = useForm<EmailStepValues>({
     resolver: zodResolver(emailStepSchema),
@@ -85,15 +88,16 @@ export function LoginForm({
   async function submitPassword(values: SignInValues) {
     setSignInState(null);
     let failure: SignInState | null = null;
+    let secondFactor = false;
     try {
       const { data, error } = await authClient.signIn.email({
         email,
         password: values.password,
       });
       if (error) failure = mapSignInError(error);
-      else if (data && "twoFactorRedirect" in data && data.twoFactorRedirect) {
-        failure = "two-factor";
-      }
+      else
+        secondFactor =
+          !!data && "twoFactorRedirect" in data && !!data.twoFactorRedirect;
     } catch {
       failure = "unexpected";
     }
@@ -102,6 +106,12 @@ export function LoginForm({
       setSignInState(failure);
       passwordForm.resetField("password");
       focusPassword("password");
+      return;
+    }
+    if (secondFactor) {
+      // Stays pending until the browser leaves this page.
+      setNavigating(true);
+      router.push("/login/two-factor");
       return;
     }
     // Redirects; the form stays pending until the browser leaves.
@@ -174,7 +184,7 @@ export function LoginForm({
     );
   }
 
-  const pending = passwordForm.formState.isSubmitting;
+  const pending = passwordForm.formState.isSubmitting || navigating;
 
   return (
     <AuthShell

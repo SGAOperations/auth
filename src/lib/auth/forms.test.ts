@@ -4,14 +4,19 @@ import {
   emailCodeMessage,
   emailCodeRequestSchema,
   emailCodeVerifySchema,
+  backupCodeFormSchema,
   emailStepSchema,
   forgotPasswordSchema,
+  isTerminalSecondFactorState,
   mapEmailCodeError,
   mapEmailStepResponse,
   mapRequestError,
+  mapSecondFactorError,
   mapSignInError,
   mapSignUpError,
+  normalizeBackupCodeInput,
   passwordLengthState,
+  secondFactorMessage,
   signInMessage,
   signInSchema,
   signUpSchema,
@@ -176,6 +181,118 @@ describe("mapSignInError", () => {
     expect(mapSignInError({ status: 500, code: "WHAT" })).toBe("unexpected");
     expect(mapSignInError({ status: 0 })).toBe("unexpected");
   });
+});
+
+describe("signInMessage", () => {
+  it("has no arm for a second factor", () => {
+    expect(AUTH_COPY).not.toHaveProperty("signInTwoFactor");
+    expect(signInMessage("unexpected")).toBe(AUTH_COPY.unexpected);
+  });
+});
+
+describe("mapSecondFactorError", () => {
+  it.each([
+    ["INVALID_TWO_FACTOR_COOKIE", 401, "expired"],
+    ["TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE", 400, "too-many"],
+    ["ACCOUNT_TEMPORARILY_LOCKED", 429, "locked"],
+    ["INVALID_CODE", 401, "invalid"],
+  ] as const)("maps %s", (code, status, state) => {
+    expect(mapSecondFactorError({ status, code })).toBe(state);
+  });
+
+  it("checks the lock before the 429 status", () => {
+    expect(
+      mapSecondFactorError({ status: 429, code: "ACCOUNT_TEMPORARILY_LOCKED" }),
+    ).toBe("locked");
+  });
+
+  it("maps a bare 429, a bare 401 and a 500", () => {
+    expect(mapSecondFactorError({ status: 429 })).toBe("rate-limited");
+    expect(mapSecondFactorError({ status: 401 })).toBe("invalid");
+    expect(mapSecondFactorError({ status: 500 })).toBe("unexpected");
+    expect(mapSecondFactorError({ status: 0 })).toBe("unexpected");
+  });
+
+  it("ends the challenge only for expired, too-many and locked", () => {
+    expect(
+      (
+        [
+          "invalid",
+          "rate-limited",
+          "expired",
+          "too-many",
+          "locked",
+          "unexpected",
+        ] as const
+      ).filter(isTerminalSecondFactorState),
+    ).toEqual(["expired", "too-many", "locked"]);
+  });
+});
+
+describe("secondFactorMessage", () => {
+  it("words an invalid code per mode", () => {
+    expect(secondFactorMessage("invalid", "totp")).toBe(AUTH_COPY.totpInvalid);
+    expect(secondFactorMessage("invalid", "backup")).toBe(
+      AUTH_COPY.backupInvalid,
+    );
+  });
+
+  it("reuses the sign-in copy for a limit or a failure", () => {
+    for (const mode of ["totp", "backup"] as const) {
+      expect(secondFactorMessage("rate-limited", mode)).toBe(
+        AUTH_COPY.signInRateLimited,
+      );
+      expect(secondFactorMessage("unexpected", mode)).toBe(
+        AUTH_COPY.unexpected,
+      );
+    }
+  });
+
+  it("has copy for the ended states", () => {
+    expect(secondFactorMessage("expired", "totp")).toBe(
+      AUTH_COPY.secondFactorExpired,
+    );
+    expect(secondFactorMessage("too-many", "backup")).toBe(
+      AUTH_COPY.secondFactorTooMany,
+    );
+    expect(secondFactorMessage("locked", "totp")).toBe(
+      AUTH_COPY.secondFactorLocked,
+    );
+  });
+});
+
+describe("normalizeBackupCodeInput", () => {
+  it("strips whitespace and keeps case", () => {
+    expect(normalizeBackupCodeInput("  aB3dE -fG9hJ ")).toBe("aB3dE-fG9hJ");
+  });
+
+  it("restores a missing hyphen", () => {
+    expect(normalizeBackupCodeInput("aB3dEfG9hJ")).toBe("aB3dE-fG9hJ");
+    expect(normalizeBackupCodeInput("aB3dE fG9hJ")).toBe("aB3dE-fG9hJ");
+  });
+
+  it("leaves anything else as typed, minus whitespace", () => {
+    expect(normalizeBackupCodeInput("abc")).toBe("abc");
+    expect(normalizeBackupCodeInput("aB3d-EfG9hJ")).toBe("aB3d-EfG9hJ");
+  });
+});
+
+describe("backupCodeFormSchema", () => {
+  it.each(["aB3dE-fG9hJ", "aB3dEfG9hJ", " aB3dE-fG9hJ "])(
+    "accepts %j",
+    (code) => {
+      expect(backupCodeFormSchema.safeParse({ code }).success).toBe(true);
+    },
+  );
+
+  it.each(["", "abc", "aB3dE-fG9h", "aB3dE-fG9hJk", "aB3d_-fG9hJ", "123456"])(
+    "rejects %j",
+    (code) => {
+      const result = backupCodeFormSchema.safeParse({ code });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.message).toBe(AUTH_COPY.backupFormat);
+    },
+  );
 });
 
 describe("mapSignUpError", () => {

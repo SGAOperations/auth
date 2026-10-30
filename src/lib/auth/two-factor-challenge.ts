@@ -1,4 +1,5 @@
 import "server-only";
+import { TWO_FACTOR_COOKIE } from "@/lib/auth/cookies";
 
 // The part of a Better Auth endpoint context this reads. Declared here so it
 // does not depend on the internal context types, and so both a before hook and
@@ -19,9 +20,6 @@ export interface ChallengeContext {
   };
 }
 
-// The plugin's own cookie name; it is not exported.
-const TWO_FACTOR_COOKIE_NAME = "two_factor";
-
 /**
  * The user of the pending sign-in challenge, from the signed `two_factor`
  * cookie. Mirrors `verifyTwoFactor` in Better Auth's plugin. Returns null on
@@ -31,7 +29,7 @@ const TWO_FACTOR_COOKIE_NAME = "two_factor";
 export async function resolveChallengeUserId(
   ctx: ChallengeContext,
 ): Promise<string | null> {
-  const cookie = ctx.context.createAuthCookie(TWO_FACTOR_COOKIE_NAME);
+  const cookie = ctx.context.createAuthCookie(TWO_FACTOR_COOKIE);
   const identifier = await ctx.getSignedCookie(cookie.name, ctx.context.secret);
   if (!identifier) return null;
   const challenge =

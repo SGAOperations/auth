@@ -26,8 +26,30 @@ export const AUTH_COPY = {
     "Verify your email before signing in. Check your inbox for the link we sent when you signed up.",
   signInDeactivated: AUTH_ERROR_CODES.ACCOUNT_DEACTIVATED.message,
   signInRateLimited: "Too many sign-in attempts. Wait a minute and try again.",
-  signInTwoFactor:
-    "This account uses two-factor sign-in, which this page can't complete yet.",
+
+  totpTitle: "Enter your authentication code",
+  totpDescription:
+    "Open your authenticator app and enter the 6-digit code for your SGA account.",
+  totpLabel: "6-digit code",
+  totpInvalid:
+    "That code didn't work. Check your authenticator app and try again.",
+  useBackupCode: "Use a backup code instead",
+  backupTitle: "Enter a backup code",
+  backupDescription:
+    "Use one of the backup codes you saved when you turned on two-factor authentication. Each code works once.",
+  backupLabel: "Backup code",
+  backupFormat: "Backup codes look like abcde-12345.",
+  backupInvalid: "That backup code didn't work. Check it, or try another one.",
+  useAuthenticator: "Use your authenticator app instead",
+  signInAgain: "Sign in again",
+  secondFactorExpiredTitle: "Sign in again",
+  secondFactorExpired:
+    "Your sign-in timed out. Enter your email and password again to continue.",
+  secondFactorTooMany:
+    "Too many incorrect codes. Enter your email and password again to get a new chance.",
+  secondFactorLockedTitle: "Try again later",
+  secondFactorLocked:
+    "Too many incorrect codes. Wait 15 minutes, then sign in again.",
 
   signUpRateLimited:
     "Too many sign-up attempts from this network. Try again later.",
@@ -150,7 +172,6 @@ export type SignInState =
   | "unverified"
   | "deactivated"
   | "rate-limited"
-  | "two-factor"
   | "unexpected";
 
 export function mapSignInError(error: AuthClientError): SignInState {
@@ -176,11 +197,80 @@ export function signInMessage(state: SignInState): string {
       return AUTH_COPY.signInDeactivated;
     case "rate-limited":
       return AUTH_COPY.signInRateLimited;
-    case "two-factor":
-      return AUTH_COPY.signInTwoFactor;
     case "unexpected":
       return AUTH_COPY.unexpected;
   }
+}
+
+// ---- Second factor ---------------------------------------------------------
+
+export type SecondFactorMode = "totp" | "backup";
+
+export type SecondFactorState =
+  | "invalid"
+  | "rate-limited"
+  | "expired"
+  | "too-many"
+  | "locked"
+  | "unexpected";
+
+/** Generated codes look like `aB3dE-fG9hJ`; case and hyphen reach the server. */
+const BACKUP_CODE_PATTERN = /^[A-Za-z0-9]{5}-[A-Za-z0-9]{5}$/;
+
+/** Strips whitespace, keeps case, and restores a hyphen typed without one. */
+export function normalizeBackupCodeInput(raw: string): string {
+  const code = raw.replace(/\s/g, "");
+  return /^[A-Za-z0-9]{10}$/.test(code)
+    ? `${code.slice(0, 5)}-${code.slice(5)}`
+    : code;
+}
+
+export const backupCodeFormSchema = z.object({
+  code: z
+    .string()
+    .refine((raw) => BACKUP_CODE_PATTERN.test(normalizeBackupCodeInput(raw)), {
+      message: AUTH_COPY.backupFormat,
+    }),
+});
+
+export type BackupCodeValues = z.infer<typeof backupCodeFormSchema>;
+
+export function mapSecondFactorError(
+  error: AuthClientError,
+): SecondFactorState {
+  if (error.code === "INVALID_TWO_FACTOR_COOKIE") return "expired";
+  if (error.code === "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE") return "too-many";
+  // Before the 429 check: the lock answers 429 too.
+  if (error.code === "ACCOUNT_TEMPORARILY_LOCKED") return "locked";
+  if (error.code === "INVALID_CODE") return "invalid";
+  if (error.status === 429) return "rate-limited";
+  if (error.status === 401) return "invalid";
+  return "unexpected";
+}
+
+export function secondFactorMessage(
+  state: SecondFactorState,
+  mode: SecondFactorMode,
+): string {
+  switch (state) {
+    case "invalid":
+      return mode === "totp" ? AUTH_COPY.totpInvalid : AUTH_COPY.backupInvalid;
+    case "rate-limited":
+      return AUTH_COPY.signInRateLimited;
+    case "expired":
+      return AUTH_COPY.secondFactorExpired;
+    case "too-many":
+      return AUTH_COPY.secondFactorTooMany;
+    case "locked":
+      return AUTH_COPY.secondFactorLocked;
+    case "unexpected":
+      return AUTH_COPY.unexpected;
+  }
+}
+
+/** States that end the challenge: the form is replaced, not shown again. */
+export function isTerminalSecondFactorState(state: SecondFactorState): boolean {
+  return state === "expired" || state === "too-many" || state === "locked";
 }
 
 export interface SignUpErrorResult {

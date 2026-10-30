@@ -48,6 +48,14 @@ export function sessionCookieName(policy: CookiePolicy): string {
   return `${policy.secure ? "__Secure-" : ""}${policy.prefix}.session_token`;
 }
 
+/** Better Auth's base name for the pending sign-in challenge cookie. */
+export const TWO_FACTOR_COOKIE = "two_factor";
+
+/** Mirrors Better Auth's own naming of the `two_factor` challenge cookie. */
+export function twoFactorCookieName(policy: CookiePolicy): string {
+  return `${policy.secure ? "__Secure-" : ""}${policy.prefix}.${TWO_FACTOR_COOKIE}`;
+}
+
 /** One year; each login re-sets it. */
 export const DEVICE_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
