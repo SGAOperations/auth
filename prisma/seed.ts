@@ -20,6 +20,9 @@ import {
   readExistingPositions,
 } from "./seed/positions.js";
 
+// Who sees each product follows the operator's visibility gates (issue #290).
+// Base URLs must be https://<name>.northeasternsga.com (Product_baseUrl_check),
+// so a Vercel deployment URL cannot be seeded here.
 const DEV_PRODUCTS = [
   {
     slug: "sgauth",
@@ -28,6 +31,7 @@ const DEV_PRODUCTS = [
     isActive: true,
     sortOrder: 0,
     description: "Your SGA account: profile, sessions and security.",
+    visibility: "EVERYONE",
   },
   {
     slug: "vaultz",
@@ -36,6 +40,7 @@ const DEV_PRODUCTS = [
     isActive: false,
     sortOrder: 10,
     description: "Placeholder until VaultZ is onboarded.",
+    visibility: "LEADERSHIP",
   },
   {
     slug: "chambers",
@@ -44,6 +49,7 @@ const DEV_PRODUCTS = [
     isActive: false,
     sortOrder: 20,
     description: "Placeholder until Chambers is onboarded.",
+    visibility: "EVERYONE",
   },
   {
     slug: "aplio",
@@ -52,6 +58,33 @@ const DEV_PRODUCTS = [
     isActive: false,
     sortOrder: 30,
     description: "Placeholder until Aplio is onboarded.",
+    visibility: "EVERYONE",
+  },
+  {
+    slug: "senateportal",
+    name: "SenatePortal",
+    baseUrl: "https://senateportal-dev.northeasternsga.com",
+    isActive: false,
+    sortOrder: 40,
+    description: "Placeholder until SenatePortal is onboarded.",
+    visibility: "POSITIONS",
+    visibleToPositionKeys: [
+      "senator",
+      "speaker-of-the-senate",
+      "vice-president-of-academic-affairs",
+      "vice-president-of-campus-affairs",
+      "vice-president-of-diversity-equity-and-inclusion",
+      "vice-president-of-external-affairs",
+      "vice-president-of-student-involvement",
+      "vice-president-of-student-success",
+      "vice-president-of-operational-affairs",
+      "student-body-president",
+      "executive-vice-president",
+      "senate-operations-coordinator",
+      "legislative-affairs-coordinator",
+      "senate-communications-coordinator",
+      "parliamentarian",
+    ],
   },
 ];
 

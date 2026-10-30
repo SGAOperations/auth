@@ -105,17 +105,22 @@ const positionOnUser = {
 
 // Position metadata holds position fields only. User ids are the one piece of
 // person data, and only in POSITION_DELETED's holderIds (as in positionOnUser).
+// Manager and report ids are position ids, not person data.
 const positionSnapshot = z.strictObject({
   key: z.string(),
   name: z.string(),
   category: z.string().nullable(),
   description: z.string().nullable(),
+  isLeadership: z.boolean(),
+  managerPositionId: z.uuid().nullable(),
 });
 
 const positionChanges = z.strictObject({
   name: z.string().optional(),
   category: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  isLeadership: z.boolean().optional(),
+  managerPositionId: z.uuid().nullable().optional(),
 });
 
 /** The product fields an update can change. `slug` is immutable and absent. */
@@ -126,6 +131,7 @@ export const PRODUCT_AUDIT_FIELDS = [
   "iconUrl",
   "isActive",
   "sortOrder",
+  "visibility",
   "visibleToPositionKeys",
   "loginRedirectPath",
 ] as const;
@@ -339,6 +345,8 @@ export const AUDIT_CATALOG = {
       before: positionSnapshot,
       after: z.strictObject({ deletedAt: z.iso.datetime() }),
       holderIds: z.array(z.uuid()),
+      // Positions that reported to this one and lost their manager with it.
+      reportIds: z.array(z.uuid()),
     }),
   },
   // Target the user so the user timeline can use the (targetType, targetId,

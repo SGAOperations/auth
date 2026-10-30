@@ -56,6 +56,9 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   POSITION_NOT_FOUND: "This position no longer exists.",
   POSITION_DELETED: "This position has been deleted.",
   POSITION_LIMIT: "This person already holds the maximum number of positions.",
+  MANAGER_CYCLE:
+    "That position already reports to this one, so this would make a loop. Pick another.",
+  MANAGER_NOT_FOUND: "That position was deleted. Pick another.",
 };
 
 /** User-facing copy for an API error code, with a generic fallback. */
@@ -96,6 +99,11 @@ export function isKeyErrorCode(code: string): boolean {
   return (
     code === "KEY_TAKEN" || code === "KEY_RETIRED" || code === "INVALID_KEY"
   );
+}
+
+/** Codes that belong under the "Reports to" picker rather than in a toast. */
+export function isManagerErrorCode(code: string): boolean {
+  return code === "MANAGER_CYCLE" || code === "MANAGER_NOT_FOUND";
 }
 
 export const KEY_ISSUE_MESSAGES = {

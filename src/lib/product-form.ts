@@ -1,5 +1,6 @@
 import type { FieldErrors, Resolver } from "react-hook-form";
 import { productCreateSchema, productUpdateSchema } from "@/lib/product-input";
+import type { ProductVisibility } from "@/lib/product-visibility";
 
 // Pure and client-safe, like product-input.ts: no database, no `server-only`.
 
@@ -14,6 +15,8 @@ export interface ProductFormValues {
   iconUrl: string;
   isActive: boolean;
   sortOrder: number;
+  visibility: ProductVisibility;
+  /** Kept while another gate is chosen, so switching back restores the ticks. */
   visibleToPositionKeys: string[];
   loginRedirectPath: string;
 }
@@ -26,6 +29,7 @@ export const PRODUCT_FORM_DEFAULTS: ProductFormValues = {
   iconUrl: "",
   isActive: true,
   sortOrder: 0,
+  visibility: "UNSET",
   visibleToPositionKeys: [],
   loginRedirectPath: "",
 };
@@ -55,17 +59,21 @@ export interface ProductPayload extends Omit<
 
 /**
  * The form values as the schemas and the server actions take them. Only blank
- * optional text becomes null; nothing else is normalised, because
- * `product-input.ts` rejects rather than repairs.
+ * optional text becomes null, and the position keys are sent only under
+ * Specific positions. Nothing else is normalised, because `product-input.ts`
+ * rejects rather than repairs.
  */
 export function toProductPayload(
   values: ProductFormValues,
   mode: ProductFormMode,
 ): ProductPayload {
-  const { slug, iconUrl, loginRedirectPath, ...rest } = values;
+  const { slug, iconUrl, loginRedirectPath, visibleToPositionKeys, ...rest } =
+    values;
   return {
     ...(mode === "create" ? { slug } : {}),
     ...rest,
+    visibleToPositionKeys:
+      values.visibility === "POSITIONS" ? visibleToPositionKeys : [],
     iconUrl: iconUrl === "" ? null : iconUrl,
     loginRedirectPath: loginRedirectPath === "" ? null : loginRedirectPath,
   };
@@ -80,6 +88,7 @@ export function productToFormValues(product: {
   iconUrl: string | null;
   isActive: boolean;
   sortOrder: number;
+  visibility: ProductVisibility;
   visibleToPositionKeys: string[];
   loginRedirectPath: string | null;
 }): ProductFormValues {

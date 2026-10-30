@@ -5,6 +5,7 @@ import {
   formatPositionDate,
   groupPositionsByCategory,
   isKeyErrorCode,
+  isManagerErrorCode,
   positionErrorMessage,
   positionFailureToast,
 } from "@/lib/position-view";
@@ -122,6 +123,21 @@ describe("isKeyErrorCode", () => {
     expect(isKeyErrorCode("KEY_RETIRED")).toBe(true);
     expect(isKeyErrorCode("INVALID_KEY")).toBe(true);
     expect(isKeyErrorCode("INVALID_INPUT")).toBe(false);
+  });
+});
+
+describe("manager errors", () => {
+  it("has copy for both manager codes", () => {
+    expect(positionErrorMessage("MANAGER_CYCLE")).toContain("make a loop");
+    expect(positionErrorMessage("MANAGER_NOT_FOUND")).toBe(
+      "That position was deleted. Pick another.",
+    );
+  });
+
+  it("isManagerErrorCode is true only for the manager codes", () => {
+    expect(isManagerErrorCode("MANAGER_CYCLE")).toBe(true);
+    expect(isManagerErrorCode("MANAGER_NOT_FOUND")).toBe(true);
+    expect(isManagerErrorCode("KEY_TAKEN")).toBe(false);
   });
 });
 

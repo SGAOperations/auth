@@ -19,6 +19,8 @@ const snapshot = {
   name: "Name",
   category: null,
   description: null,
+  isLeadership: false,
+  managerPositionId: null,
 };
 
 interface AuditSeed {
@@ -49,6 +51,7 @@ const lifecycle = (
             before: snapshot,
             after: { deletedAt: BASE.toISOString() },
             holderIds: [],
+            reportIds: [],
           },
 });
 

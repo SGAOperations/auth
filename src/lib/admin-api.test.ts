@@ -271,6 +271,8 @@ describe("positionErrorResponse", () => {
     KEY_RETIRED: 409,
     POSITION_DELETED: 409,
     POSITION_LIMIT: 409,
+    MANAGER_NOT_FOUND: 409,
+    MANAGER_CYCLE: 409,
   };
 
   it.each(Object.entries(expected))("maps %s to %i", async (code, status) => {

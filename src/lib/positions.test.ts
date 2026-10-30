@@ -6,10 +6,13 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import {
   PositionError,
   createPosition,
+  createPositionInputSchema,
   toPositionError,
   updatePosition,
   updatePositionInputSchema,
 } from "@/lib/positions";
+
+const MANAGER_ID = "0192f3a4-7b1c-7d2e-8f3a-4b5c6d7e8f90";
 
 // Shapes observed under @prisma/client 7.10 with adapter-pg, loaded the way the
 // app loads the client. Violations are PrismaClientKnownRequestErrors.
@@ -72,6 +75,21 @@ describe("toPositionError", () => {
       "POSITION_LIMIT",
       "POSITION_LIMIT: user u1 already holds 50 active positions",
     ],
+    [
+      "MANAGER_NOT_FOUND",
+      "MANAGER_NOT_FOUND",
+      "MANAGER_NOT_FOUND: manager position p9 does not exist or is deleted",
+    ],
+    [
+      "MANAGER_CYCLE",
+      "MANAGER_CYCLE",
+      "MANAGER_CYCLE: position p1 cannot report to p2",
+    ],
+    [
+      "Position_manager_not_self_check",
+      "MANAGER_CYCLE",
+      'new row for relation "Position" violates check constraint "Position_manager_not_self_check"',
+    ],
   ])("maps %s from a P2039", (_name, code, originalMessage) => {
     const err = checkOrTriggerViolation(originalMessage);
     expect(err.code).toBe("P2039");
@@ -132,6 +150,64 @@ describe("updatePositionInputSchema", () => {
     expect(updatePositionInputSchema.parse({ name: " VP Finance " })).toEqual({
       name: "VP Finance",
     });
+  });
+
+  it("accepts leadership and a manager, and null clears the manager", () => {
+    expect(
+      updatePositionInputSchema.parse({
+        isLeadership: true,
+        managerPositionId: MANAGER_ID,
+      }),
+    ).toEqual({ isLeadership: true, managerPositionId: MANAGER_ID });
+    expect(
+      updatePositionInputSchema.parse({ managerPositionId: null }),
+    ).toEqual({ managerPositionId: null });
+  });
+
+  it("rejects a manager that is not a UUID", () => {
+    expect(
+      updatePositionInputSchema.safeParse({ managerPositionId: "nope" })
+        .success,
+    ).toBe(false);
+  });
+
+  it("names every editable field in the empty-body message", () => {
+    const result = updatePositionInputSchema.safeParse({});
+    expect(result.success).toBe(false);
+    expect(result.error?.message).toContain("isLeadership");
+    expect(result.error?.message).toContain("managerPositionId");
+  });
+});
+
+describe("createPositionInputSchema", () => {
+  const base = { key: "vp-finance", name: "VP Finance" };
+
+  it("defaults to non-leadership with no manager", () => {
+    expect(createPositionInputSchema.parse(base)).toMatchObject({
+      isLeadership: false,
+      managerPositionId: null,
+    });
+  });
+
+  it("accepts a manager and turns an omitted or null manager into null", () => {
+    expect(
+      createPositionInputSchema.parse({
+        ...base,
+        isLeadership: true,
+        managerPositionId: MANAGER_ID,
+      }),
+    ).toMatchObject({ isLeadership: true, managerPositionId: MANAGER_ID });
+    expect(
+      createPositionInputSchema.parse({ ...base, managerPositionId: null })
+        .managerPositionId,
+    ).toBeNull();
+  });
+
+  it("rejects a manager that is not a UUID", () => {
+    expect(
+      createPositionInputSchema.safeParse({ ...base, managerPositionId: "x" })
+        .success,
+    ).toBe(false);
   });
 });
 

@@ -28,7 +28,13 @@ export interface DeletablePosition {
   name: string;
 }
 
-type Preflight = { holderCount: number } | "failed" | null;
+type Preflight = { holderCount: number; reportCount: number } | "failed" | null;
+
+function reportLine(reportCount: number): string {
+  return reportCount === 1
+    ? "1 position reports to it. It'll have no manager after you delete it."
+    : `${reportCount} positions report to it. They'll have no manager after you delete it.`;
+}
 
 function holderLine(holderCount: number): string {
   if (holderCount === 0) return "No one holds this position.";
@@ -63,9 +69,7 @@ function DeleteBody({
     let active = true;
     void deletePositionPreflight(position.id).then((result) => {
       if (!active) return;
-      setPreflight(
-        result.ok ? { holderCount: result.data.holderCount } : "failed",
-      );
+      setPreflight(result.ok ? result.data : "failed");
     });
     return () => {
       active = false;
@@ -114,6 +118,9 @@ function DeleteBody({
           ) : (
             <div className="flex flex-col gap-2">
               <p>{holderLine(preflight.holderCount)}</p>
+              {preflight.reportCount > 0 ? (
+                <p>{reportLine(preflight.reportCount)}</p>
+              ) : null}
               <p>
                 The key <code className="font-mono">{position.key}</code> will
                 be retired until {retiredUntil}. Assignment history is kept.

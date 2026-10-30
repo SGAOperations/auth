@@ -50,6 +50,20 @@ describe("toProductPayload", () => {
     expect(toProductPayload(values, "create")).toEqual(values);
   });
 
+  it("sends the ticked positions only under Specific positions", () => {
+    const ticked = { ...valid, visibleToPositionKeys: ["senator"] };
+    expect(
+      toProductPayload({ ...ticked, visibility: "POSITIONS" }, "update")
+        .visibleToPositionKeys,
+    ).toEqual(["senator"]);
+    for (const visibility of ["EVERYONE", "LEADERSHIP", "UNSET"] as const) {
+      expect(
+        toProductPayload({ ...ticked, visibility }, "update")
+          .visibleToPositionKeys,
+      ).toEqual([]);
+    }
+  });
+
   it("drops the slug in update mode", () => {
     expect(toProductPayload(valid, "update")).not.toHaveProperty("slug");
   });
@@ -83,6 +97,26 @@ describe("productFormResolver", () => {
       { fields: {}, shouldUseNativeValidation: false },
     );
     expect(result.errors.baseUrl?.message).toContain("Base URL");
+  });
+
+  it("asks for a position when Specific positions has none", async () => {
+    const result = await productFormResolver("update")(
+      { ...valid, visibility: "POSITIONS", visibleToPositionKeys: [] },
+      undefined,
+      { fields: {}, shouldUseNativeValidation: false },
+    );
+    expect(result.errors.visibleToPositionKeys?.message).toBe(
+      "Choose at least one position.",
+    );
+  });
+
+  it("accepts stale ticks under another gate, since they are not sent", async () => {
+    const result = await productFormResolver("update")(
+      { ...valid, visibility: "EVERYONE", visibleToPositionKeys: ["senator"] },
+      undefined,
+      { fields: {}, shouldUseNativeValidation: false },
+    );
+    expect(result.errors).toEqual({});
   });
 
   it("does not require a slug in update mode", async () => {

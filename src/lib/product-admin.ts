@@ -4,6 +4,7 @@ import {
   Prisma,
   type PrismaClient,
   type Product,
+  type ProductVisibility as PrismaProductVisibility,
 } from "@/generated/prisma/client";
 import type { ProductAuditField } from "@/lib/audit-catalog";
 import { logger } from "@/lib/log";
@@ -13,6 +14,7 @@ import {
   productUpdateSchema,
   type ProductUpdateInput,
 } from "@/lib/product-input";
+import type { ProductVisibility } from "@/lib/product-visibility";
 
 export type ProductErrorCode =
   | "INVALID_INPUT"
@@ -137,10 +139,27 @@ export function getProductForAdmin(
   return db.product.findUnique({ where: { id } });
 }
 
+/**
+ * Compile-time proof that the pure `PRODUCT_VISIBILITIES` tuple and the
+ * generated Prisma enum list the same values, in both directions. The type
+ * resolves to `never` when they drift, so assigning `true` to it in the const
+ * below fails the type check.
+ */
+type ProductVisibilitiesMatchPrisma = [ProductVisibility] extends [
+  PrismaProductVisibility,
+]
+  ? [PrismaProductVisibility] extends [ProductVisibility]
+    ? true
+    : never
+  : never;
+
+export const productVisibilitiesMatchPrisma: ProductVisibilitiesMatchPrisma = true;
+
 export interface PositionOption {
   key: string;
   name: string;
   category: string | null;
+  isLeadership: boolean;
 }
 
 export function listPositionOptions({ db = prisma }: { db?: Db } = {}): Promise<
@@ -148,7 +167,7 @@ export function listPositionOptions({ db = prisma }: { db?: Db } = {}): Promise<
 > {
   return db.position.findMany({
     where: { deletedAt: null },
-    select: { key: true, name: true, category: true },
+    select: { key: true, name: true, category: true, isLeadership: true },
     orderBy: [{ category: { sort: "asc", nulls: "last" } }, { name: "asc" }],
   });
 }
@@ -167,6 +186,7 @@ type ProductEditable = Pick<
   | "iconUrl"
   | "isActive"
   | "sortOrder"
+  | "visibility"
   | "visibleToPositionKeys"
   | "loginRedirectPath"
 >;
@@ -187,6 +207,7 @@ export function changedProductFields(
     "iconUrl",
     "isActive",
     "sortOrder",
+    "visibility",
     "loginRedirectPath",
   ] as const;
   for (const field of scalars) {

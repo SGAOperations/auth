@@ -17,6 +17,7 @@ const before = {
   iconUrl: null,
   isActive: true,
   sortOrder: 0,
+  visibility: "POSITIONS" as const,
   visibleToPositionKeys: ["vp-finance", "president"],
   loginRedirectPath: null,
 };
@@ -38,6 +39,21 @@ describe("changedProductFields", () => {
     expect(
       changedProductFields(before, { visibleToPositionKeys: ["president"] }),
     ).toEqual(["visibleToPositionKeys"]);
+  });
+
+  it("detects a visibility change, alone or with the keys", () => {
+    expect(changedProductFields(before, { visibility: "POSITIONS" })).toEqual(
+      [],
+    );
+    expect(changedProductFields(before, { visibility: "LEADERSHIP" })).toEqual([
+      "visibility",
+    ]);
+    expect(
+      changedProductFields(before, {
+        visibility: "EVERYONE",
+        visibleToPositionKeys: [],
+      }),
+    ).toEqual(["visibility", "visibleToPositionKeys"]);
   });
 
   it("detects isActive and baseUrl changes", () => {
