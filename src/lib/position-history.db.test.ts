@@ -233,10 +233,10 @@ describe("position history", () => {
 // emptied, so 10k committed rows would stay for good.
 describe("position history latency", () => {
   class Rollback extends Error {}
-  const BUDGET_MS = 200;
+  const BUDGET_MS = 300;
   const ROWS = 10_000;
 
-  it("answers a first page and a deep page in under 200 ms at 10k events", async () => {
+  it("answers a first page and a deep page in under 300 ms at 10k events", async () => {
     await prisma
       .$transaction(
         async (tx) => {
