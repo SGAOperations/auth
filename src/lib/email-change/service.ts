@@ -19,7 +19,9 @@ import { tokenLinkUrl } from "@/lib/token-links/actions";
 // own address.
 
 /** 24 hours. */
-export const EMAIL_CHANGE_TTL_MS = 24 * 60 * 60 * 1000;
+export // Enough retries for a burst of concurrent requests for one user to settle.
+const MAX_STORE_ATTEMPTS = 5;
+const EMAIL_CHANGE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Lower-case hex SHA-256: the only form of a token that is ever stored. */
 export function hashEmailChangeToken(raw: string): string {
@@ -188,15 +190,17 @@ export function createEmailChangeService({
           },
         ),
       );
-    // Two concurrent requests for one user can both find the same open row; the
-    // loser then hits the one-open-request unique index. Its retry sees the
-    // winner's row as open and replaces it, so one retry settles it.
-    let requestId: string;
-    try {
-      requestId = await store();
-    } catch (err) {
-      if (!isUniqueViolation(err)) throw err;
-      requestId = await store();
+    // Concurrent requests for one user can all find the same open row, and each
+    // loser then hits the one-open-request unique index. A retry sees the
+    // current winner's row as open and replaces it, so a few attempts settle it.
+    let requestId = "";
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        requestId = await store();
+        break;
+      } catch (err) {
+        if (!isUniqueViolation(err) || attempt === MAX_STORE_ATTEMPTS) throw err;
+      }
     }
 
     const name = target.preferredName ?? target.name;
