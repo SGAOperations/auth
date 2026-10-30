@@ -573,12 +573,12 @@ describe("changes while a transfer is in flight", () => {
     expect(await primaryAdminIds()).toEqual([pa.user.id]);
   }
 
-  // The first three of these assert what ticket #49 asked the admin endpoints to do: call
-  // `cancelForIneligibleRecipient` in the same transaction as the change. The
-  // endpoints do not, so the transfer is still in flight when they answer.
-  // `it.fails` keeps the assertion exactly as written and keeps CI green; when
-  // the endpoints are fixed these start passing, Vitest reports that, and the
-  // `.fails` is removed.
+  // The first three of these assert what ticket #49 asked the admin
+  // endpoints to do: call `cancelForIneligibleRecipient` in the same
+  // transaction as the change. The endpoints do not, so the transfer is still
+  // in flight when they answer. `it.fails` keeps the assertion exactly as
+  // written and keeps CI green; when the endpoints are fixed these start
+  // passing, Vitest reports that, and the `.fails` is removed.
   for (const from of FROM) {
     it.fails(
       `${from}: deactivating the recipient cancels the transfer at once`,

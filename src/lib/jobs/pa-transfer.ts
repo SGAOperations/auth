@@ -9,8 +9,9 @@ import { prisma } from "@/lib/prisma";
 // Database side of the Primary Admin transfer that the scheduled job owns:
 // executes a COOLING transfer whose window has ended, expires a
 // PENDING_ACCEPTANCE one nobody accepted, and cancels one whose recipient is no
-// longer an eligible admin (active, admin and MFA-enrolled). Initiate, accept, decline and cancel are the user
-// actions in pa-transfer-actions.ts, which reuse the helpers exported here.
+// longer an eligible admin (active, admin and MFA-enrolled). Initiate,
+// accept, decline and cancel are the user actions in pa-transfer-actions.ts,
+// which reuse the helpers exported here.
 //
 // Concurrency: the job claims each transfer with FOR UPDATE SKIP LOCKED inside
 // its own transaction, and everything is decided while that lock is held. A
