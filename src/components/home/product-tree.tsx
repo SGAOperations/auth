@@ -2,13 +2,15 @@
 
 import { useSyncExternalStore } from "react";
 import { useMotionPreference } from "@/hooks/use-motion-preference";
-import type { TreeLayout, TreeStrand } from "@/lib/home/tree";
+import { TREE_WIDTH, type TreeLayout, type TreeStrand } from "@/lib/home/tree";
 
-// Glowing lines that wave down the left of the product explorer, one ending at
-// each tile. The waving is SMIL `d` morphing between two curves that share
-// their end points, so the tile ends stay fixed while the rest sways. Server
-// HTML, reduced motion and "Pause motion" all render the still `rest` curves.
-// See docs/DESIGN.md "Home: product explorer".
+// One glowing branch per tile, growing out of the backdrop's primary left ray
+// and ending on the tile's left edge. The SVG starts at the ray (`--ray-gap`
+// left of the tile column) and is stretched to span it, hence
+// `preserveAspectRatio="none"` and non-scaling strokes. The swaying is SMIL `d`
+// morphing between two curves that share their end points, so the ray root and
+// the tile tip stay fixed. Server HTML, reduced motion and "Pause motion" all
+// render the still `rest` curves. See docs/DESIGN.md "Home: product explorer".
 
 const noopSubscribe = () => () => {};
 
@@ -21,7 +23,6 @@ function useHydrated(): boolean {
 }
 
 function strandOpacity(strand: TreeStrand, selectedIndex: number | null) {
-  if (strand.tileIndex === null) return 0.45;
   if (selectedIndex === null) return 0.8;
   return strand.tileIndex === selectedIndex ? 1 : 0.25;
 }
@@ -37,11 +38,11 @@ function StrandPath({
   animate: boolean;
   halo: boolean;
 }) {
-  const selected =
-    strand.tileIndex !== null && strand.tileIndex === selectedIndex;
+  const selected = strand.tileIndex === selectedIndex;
   return (
     <path
       d={strand.rest}
+      vectorEffect="non-scaling-stroke"
       stroke={halo ? "var(--glow-muted)" : "var(--glow)"}
       strokeWidth={halo ? 6 : selected ? 2.5 : 2}
       strokeLinecap="round"
@@ -75,9 +76,10 @@ export function ProductTree({
   const { motion } = useMotionPreference();
   const animate = hydrated && motion === "animate";
   const svgProps = {
-    width: layout.width,
+    width: "100%",
     height: layout.height,
     viewBox: `0 0 ${layout.width} ${layout.height}`,
+    preserveAspectRatio: "none",
     focusable: false,
     fill: "none",
   } as const;
@@ -85,7 +87,12 @@ export function ProductTree({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute top-0 left-0 [mask-image:linear-gradient(to_bottom,transparent,black_8%,black_92%,transparent)] forced-colors:hidden print:hidden"
+      className="pointer-events-none absolute top-0 forced-colors:hidden print:hidden"
+      style={{
+        left: "calc(-1 * var(--ray-gap))",
+        width: `calc(var(--ray-gap) + ${TREE_WIDTH}px)`,
+        height: layout.height,
+      }}
     >
       <svg {...svgProps} className="absolute top-0 left-0 blur-[3px]">
         {layout.strands.map((strand) => (

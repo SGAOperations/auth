@@ -98,11 +98,12 @@ function ProductTileMark({
   );
 }
 
-// The product explorer: a column of tiles with lines waving down to them, a
-// divider, and a panel for the selected tool. Selection is a group of toggle
-// buttons (`aria-pressed`), not ARIA tabs. The Tailwind spacing on the tile
-// list (`pt-10 gap-5 pl-[5.5rem]`) must equal PAD_Y, ROW_GAP and TREE_WIDTH in
-// src/lib/home/tree.ts, or the lines miss the tiles. See docs/DESIGN.md.
+// The product explorer: a column of tiles with branches growing to them from
+// the backdrop ray, a divider, and a panel for the selected tool. Selection is
+// a group of toggle buttons (`aria-pressed`), not ARIA tabs. The Tailwind
+// spacing on the tile list (`pt-10 gap-5 pl-[5.5rem]`) must equal PAD_Y,
+// ROW_GAP and TREE_WIDTH in src/lib/home/tree.ts, or the branches miss the
+// tiles. See docs/DESIGN.md.
 export function ProductExplorer({ products }: { products: HomeProduct[] }) {
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const panel = useRef<HTMLElement>(null);
