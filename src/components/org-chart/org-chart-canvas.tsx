@@ -292,7 +292,8 @@ export function OrgChartCanvas({
       commit(panBy(viewRef.current, dx, dy), true);
       return;
     }
-    if (event.shiftKey) return;
+    // "+" and "_" need Shift on most layouts, so Shift must not block zoom.
+    if (event.shiftKey && event.key !== "+" && event.key !== "_") return;
 
     let target: string | null | undefined;
     switch (event.key) {
@@ -401,7 +402,7 @@ export function OrgChartCanvas({
                   else nodeRefs.current.delete(node.id);
                 }}
                 role="treeitem"
-                aria-selected={node.id === tabStop}
+                aria-selected={false}
                 aria-level={links.level}
                 aria-posinset={links.position}
                 aria-setsize={links.setSize}
@@ -485,7 +486,7 @@ export function OrgChartCanvas({
       </div>
       <p id={hintId} className="text-sm text-muted-foreground">
         Drag to pan. Scroll or pinch to zoom. Arrow keys move between positions,
-        plus and minus zoom, 0 fits the chart.
+        Shift with an arrow key pans, plus and minus zoom, 0 fits the chart.
       </p>
     </div>
   );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadOrgChart, type OrgChartPosition } from "@/lib/org-chart";
 import { layoutOrgChart } from "@/lib/org-chart-layout";
+import { prisma } from "@/lib/prisma";
 import type { OrgTreeNode } from "@/lib/position-org";
 import { createPosition } from "@/test/factories";
 
@@ -74,8 +75,15 @@ describe("loadOrgChart", () => {
     const manager = await createPosition({ isLeadership: true });
     const report = await createPosition({ managerPositionId: manager.id });
     const lone = await createPosition();
-    const gone = await createPosition({ deletedAt: new Date() });
+    // The position_manager_valid trigger rejects an insert under a deleted
+    // manager, so delete the manager afterwards. It only fires on an update of
+    // managerPositionId, so this leaves the orphan pointing at a deleted manager.
+    const gone = await createPosition();
     const orphan = await createPosition({ managerPositionId: gone.id });
+    await prisma.position.update({
+      where: { id: gone.id },
+      data: { deletedAt: new Date() },
+    });
 
     const chart = await loadOrgChart();
     const layout = layoutOrgChart(chart.roots);
