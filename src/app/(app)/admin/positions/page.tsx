@@ -51,7 +51,7 @@ export default async function PositionsPage() {
             href="/org-chart"
             className={cn(buttonVariants({ variant: "outline" }))}
           >
-            View org chart
+            View Org Chart
           </Link>
           <CreatePositionDialog
             categories={categories}

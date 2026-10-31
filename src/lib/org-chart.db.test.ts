@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { loadOrgChart, type OrgChartPosition } from "@/lib/org-chart";
+import { layoutOrgChart } from "@/lib/org-chart-layout";
 import type { OrgTreeNode } from "@/lib/position-org";
 import { createPosition } from "@/test/factories";
 
@@ -65,6 +66,37 @@ describe("loadOrgChart", () => {
         "isLeadership",
         "managerPositionId",
         "name",
+      ]);
+    }
+  });
+
+  it("places every loaded position exactly once in the layout", async () => {
+    const manager = await createPosition({ isLeadership: true });
+    const report = await createPosition({ managerPositionId: manager.id });
+    const lone = await createPosition();
+    const gone = await createPosition({ deletedAt: new Date() });
+    const orphan = await createPosition({ managerPositionId: gone.id });
+
+    const chart = await loadOrgChart();
+    const layout = layoutOrgChart(chart.roots);
+    const placed = [
+      ...layout.nodes.map((node) => node.id),
+      ...chart.unlinked.map((node) => node.id),
+    ];
+
+    expect(placed.length).toBe(chart.total);
+    expect(new Set(placed).size).toBe(placed.length);
+    expect(placed).toEqual(
+      expect.arrayContaining([manager.id, report.id, lone.id, orphan.id]),
+    );
+    expect(placed).not.toContain(gone.id);
+    for (const node of layout.nodes) {
+      expect(Object.keys(node).sort()).toEqual([
+        "depth",
+        "id",
+        "parentId",
+        "x",
+        "y",
       ]);
     }
   });

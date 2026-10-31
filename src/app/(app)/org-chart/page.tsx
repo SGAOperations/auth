@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { OrgChartCard, OrgTree } from "@/components/org-chart/org-tree";
+import { OrgChartCanvas } from "@/components/org-chart/org-chart-canvas";
+import { OrgChartCard } from "@/components/org-chart/org-tree";
 import {
   Empty,
   EmptyDescription,
@@ -11,7 +12,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { canViewOrgChart } from "@/lib/authz";
 import { loadOrgChart } from "@/lib/org-chart";
 
-export const metadata: Metadata = { title: "Org chart" };
+export const metadata: Metadata = { title: "Org Chart" };
 
 export default async function OrgChartPage() {
   // The layout is skipped on soft navigation, so the page checks again.
@@ -21,9 +22,9 @@ export default async function OrgChartPage() {
   const { roots, unlinked, total } = await loadOrgChart();
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Org chart</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Org Chart</h1>
         <p className="text-muted-foreground">
           How SGA positions report to each other.
         </p>
@@ -41,7 +42,7 @@ export default async function OrgChartPage() {
       ) : (
         <>
           {roots.length > 0 ? (
-            <OrgTree roots={roots} />
+            <OrgChartCanvas roots={roots} />
           ) : (
             <p className="text-muted-foreground">
               No reporting lines have been set yet.
