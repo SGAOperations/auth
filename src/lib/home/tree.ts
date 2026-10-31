@@ -1,16 +1,14 @@
-// Pure and client-safe geometry for the home page's product tree: one short
-// curved branch per tile, growing out of the backdrop's primary left ray and
-// ending on the tile's left edge. The explorer's Tailwind spacing must equal
+// Pure and client-safe geometry for the home page's product tree: one curved
+// branch per tile. Every branch starts on the ray at the top of the tree and
+// ends on its tile's left edge. The explorer's Tailwind spacing must equal
 // these constants: `pl-[5.5rem]` is TREE_WIDTH, `pt-10` is PAD_Y, `gap-5` is
-// ROW_GAP and `size-14` is TILE. A branch starts on the ray, which sits
-// `--ray-gap` (at most ROOT_RUN px) left of the tile column (docs/DESIGN.md).
+// ROW_GAP and `size-14` is TILE. The ray sits `--ray-gap` (at most ROOT_RUN px)
+// left of the tile column (docs/DESIGN.md).
 
 /** Width of the line column, px. Tiles start at its right edge. */
 export const TREE_WIDTH = 88;
 /** The widest root-to-tile distance, px: `--ray-gap` at `>= 70rem` (3.5rem). */
 export const ROOT_RUN = 56;
-/** How far above its tile's centre a branch peels off the ray, px. */
-export const RISE = 72;
 export const TILE = 56;
 export const ROW_GAP = 20;
 export const PAD_Y = 40;
@@ -56,7 +54,7 @@ function fmt(value: number): string {
 function branchStrand(index: number): TreeStrand {
   const width = ROOT_RUN + TREE_WIDTH;
   const yc = tileCenterY(index);
-  const y0 = Math.max(0, yc - RISE);
+  const y0 = 0;
   const sway = 5 + ((index * 3) % 4);
   const curve = (c1y: number, c2y: number) =>
     `M 0 ${fmt(y0)} C 0 ${fmt(c1y)} ${fmt(width / 2)} ${fmt(c2y)} ${fmt(width)} ${fmt(yc)}`;
