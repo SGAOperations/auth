@@ -17,16 +17,19 @@ const BEARER_PREFIX = "Bearer ";
 /** How stale `lastUsedAt` may get before a request stamps it again. */
 export const LAST_USED_RESOLUTION_MS = 5 * 60 * 1000;
 
-/** Lower-case hex SHA-256: the only form of a key that is ever stored. */
-export function hashProductApiKey(key: string): string {
-  return createHash("sha256").update(key).digest("hex");
+/**
+ * Lower-case hex SHA-256: the only form of a key that is ever stored. A fast
+ * hash is right here: the key is 256 random bits, not a guessable password.
+ */
+export function hashProductToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
 
-/** A fresh key. The caller stores `prefix` and `keyHash` and shows `key` once. */
-export function generateProductApiKey(): {
-  key: string;
+/** A fresh key. The caller stores `prefix` and `tokenHash` and shows `token` once. */
+export function generateProductToken(): {
+  token: string;
   prefix: string;
-  keyHash: string;
+  tokenHash: string;
 } {
   // 12 base-36 characters from 9 random bytes, so the prefix is unique in
   // practice; the unique index catches the rest.
@@ -34,18 +37,18 @@ export function generateProductApiKey(): {
     .toString(36)
     .padStart(12, "0")
     .slice(-12);
-  const key = `sgak_${prefix}_${randomBytes(32).toString("base64url")}`;
-  return { key, prefix, keyHash: hashProductApiKey(key) };
+  const token = `sgak_${prefix}_${randomBytes(32).toString("base64url")}`;
+  return { token, prefix, tokenHash: hashProductToken(token) };
 }
 
 /** The prefix of a well-formed bearer key, or null. */
-export function parseProductApiKey(
+export function parseProductToken(
   header: string | null,
-): { key: string; prefix: string } | null {
+): { token: string; prefix: string } | null {
   if (!header?.startsWith(BEARER_PREFIX)) return null;
-  const key = header.slice(BEARER_PREFIX.length).trim();
-  const match = KEY_PATTERN.exec(key);
-  return match ? { key, prefix: match[1] } : null;
+  const token = header.slice(BEARER_PREFIX.length).trim();
+  const match = KEY_PATTERN.exec(token);
+  return match ? { token, prefix: match[1] } : null;
 }
 
 export interface AuthenticatedProduct {
@@ -67,7 +70,7 @@ export async function authenticateProductKey(
   header: string | null,
   now: Date = new Date(),
 ): Promise<AuthenticatedProduct | null> {
-  const parsed = parseProductApiKey(header);
+  const parsed = parseProductToken(header);
   if (!parsed) return null;
 
   const row = await db.productApiKey.findUnique({
@@ -82,7 +85,7 @@ export async function authenticateProductKey(
   });
   if (!row) return null;
 
-  const presented = Buffer.from(hashProductApiKey(parsed.key), "hex");
+  const presented = Buffer.from(hashProductToken(parsed.token), "hex");
   const stored = Buffer.from(row.keyHash, "hex");
   if (stored.length !== presented.length) return null;
   if (!timingSafeEqual(presented, stored)) return null;
@@ -155,12 +158,12 @@ export async function createProductApiKey(
   if (live >= MAX_ACTIVE_KEYS_PER_PRODUCT) {
     return { ok: false, code: "TOO_MANY_KEYS" };
   }
-  const { key, prefix, keyHash } = generateProductApiKey();
+  const { token, prefix, tokenHash } = generateProductToken();
   const row = await db.productApiKey.create({
-    data: { ...input, prefix, keyHash },
+    data: { ...input, prefix, keyHash: tokenHash },
     select: { id: true },
   });
-  return { ok: true, id: row.id, key, prefix };
+  return { ok: true, id: row.id, key: token, prefix };
 }
 
 /** Revokes a live key of this product. Null when there is none to revoke. */

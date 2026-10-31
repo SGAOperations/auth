@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   LAST_USED_RESOLUTION_MS,
   authenticateProductKey,
-  generateProductApiKey,
-  hashProductApiKey,
-  parseProductApiKey,
+  generateProductToken,
+  hashProductToken,
+  parseProductToken,
 } from "@/lib/product-api-keys";
 
 const NOW = new Date("2026-11-01T12:00:00Z");
@@ -29,7 +29,7 @@ function rowFor(
 ) {
   return {
     id: "0192f0a0-0000-7000-8000-00000000000a",
-    keyHash: hashProductApiKey(key),
+    keyHash: hashProductToken(key),
     revokedAt: overrides.revokedAt ?? null,
     lastUsedAt: overrides.lastUsedAt ?? null,
     product: {
@@ -40,28 +40,28 @@ function rowFor(
   };
 }
 
-describe("generateProductApiKey", () => {
+describe("generateProductToken", () => {
   it("makes a key that its own prefix and hash describe", () => {
-    const { key, prefix, keyHash } = generateProductApiKey();
+    const { token: key, prefix, tokenHash: keyHash } = generateProductToken();
     expect(key).toMatch(/^sgak_[a-z0-9]{12}_[A-Za-z0-9_-]{43}$/);
     expect(key.startsWith(`sgak_${prefix}_`)).toBe(true);
-    expect(keyHash).toBe(hashProductApiKey(key));
+    expect(keyHash).toBe(hashProductToken(key));
     expect(keyHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("never repeats a prefix", () => {
     const prefixes = new Set(
-      Array.from({ length: 50 }, () => generateProductApiKey().prefix),
+      Array.from({ length: 50 }, () => generateProductToken().prefix),
     );
     expect(prefixes.size).toBe(50);
   });
 });
 
-describe("parseProductApiKey", () => {
-  const { key, prefix } = generateProductApiKey();
+describe("parseProductToken", () => {
+  const { token: key, prefix } = generateProductToken();
 
   it("reads a bearer key", () => {
-    expect(parseProductApiKey(`Bearer ${key}`)).toEqual({ key, prefix });
+    expect(parseProductToken(`Bearer ${key}`)).toEqual({ token: key, prefix });
   });
 
   it.each([
@@ -73,12 +73,12 @@ describe("parseProductApiKey", () => {
     `Bearer ${key}x`,
     `Bearer ${key.replace("sgak_", "sgk_")}`,
   ])("refuses %s", (header) => {
-    expect(parseProductApiKey(header)).toBeNull();
+    expect(parseProductToken(header)).toBeNull();
   });
 });
 
 describe("authenticateProductKey", () => {
-  const { key } = generateProductApiKey();
+  const { token: key } = generateProductToken();
 
   it("names the product of a live key and stamps its first use", async () => {
     const { db, updateMany } = fakeDb(rowFor(key));
