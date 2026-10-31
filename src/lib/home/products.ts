@@ -37,11 +37,10 @@ function tileFor(slug: string): { tone: TileTone; letter: string } | null {
 }
 
 /**
- * The icon's absolute href when it is on `ownOrigin`, otherwise null. The CSP
- * allows images from this origin only, so any other or malformed value falls
- * back to the letter and the client never receives a foreign URL. It returns
- * the absolute href, not the path, because a normalised path can begin with
- * `//` and a protocol-relative `src` would load from another host.
+ * The icon's `ownOrigin` + path + query when it is on `ownOrigin`, otherwise
+ * null. The CSP allows images from this origin only, so any other or malformed
+ * value falls back to the letter. Credentials and fragment are dropped, and the
+ * origin prefix stops a leading `//` becoming a protocol-relative `src`.
  */
 export function sameOriginIconSrc(
   iconUrl: string | null,
