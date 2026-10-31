@@ -26,7 +26,7 @@ async function coolingTransfer(
   overrides: { executesAt?: Date; cancelTokenHash?: string } = {},
 ) {
   const from = await createAdmin();
-  const to = await createAdmin();
+  const to = await createAdmin({ twoFactorEnabled: true });
   const transfer = await prisma.primaryAdminTransfer.create({
     data: {
       fromUserId: from.id,
@@ -179,7 +179,7 @@ describe("runPaTransferJob", () => {
 
   it("expires a stale pending transfer exactly once under two concurrent runs", async () => {
     const from = await createAdmin();
-    const to = await createAdmin();
+    const to = await createAdmin({ twoFactorEnabled: true });
     const transfer = await prisma.primaryAdminTransfer.create({
       data: {
         fromUserId: from.id,
@@ -279,7 +279,7 @@ describe("runPaTransferJob", () => {
 
     await prisma.primaryAdminTransfer.delete({ where: { id: cooling.id } });
     const from = await createAdmin();
-    const to = await createUser({ isAdmin: true });
+    const to = await createUser({ isAdmin: true, twoFactorEnabled: true });
     const pending = await prisma.primaryAdminTransfer.create({
       data: { fromUserId: from.id, toUserId: to.id },
     });
@@ -340,9 +340,57 @@ describe("runPaTransferJob", () => {
     ]);
   });
 
+  it("cancels a due COOLING transfer whose recipient lost MFA, instead of executing", async () => {
+    const { to, transfer } = await coolingTransfer();
+    await prisma.user.update({
+      where: { id: to.id },
+      data: { twoFactorEnabled: false },
+    });
+
+    const result = await runPaTransferJob({ notify: vi.fn() });
+
+    expect(result).toMatchObject({ executed: 0, cancelled: 1, expired: 0 });
+    expect(
+      await prisma.primaryAdminTransfer.findUniqueOrThrow({
+        where: { id: transfer.id },
+      }),
+    ).toMatchObject({
+      status: "CANCELLED",
+      reason: "recipient_ineligible",
+      cancelledById: null,
+    });
+    expect((await cancelledAudit(transfer.id)).metadata).toEqual({
+      reason: "recipient_ineligible",
+      via: "system",
+    });
+    expect(await auditCount(transfer.id, "PA_TRANSFER_CANCELLED")).toBe(1);
+    expect(await auditCount(transfer.id, "PA_TRANSFER_COMPLETED")).toBe(0);
+  });
+
+  it("sweeps a PENDING transfer whose recipient lost MFA", async () => {
+    const from = await createAdmin();
+    const to = await createAdmin({ twoFactorEnabled: true });
+    const transfer = await prisma.primaryAdminTransfer.create({
+      data: { fromUserId: from.id, toUserId: to.id },
+    });
+    await prisma.user.update({
+      where: { id: to.id },
+      data: { twoFactorEnabled: false },
+    });
+
+    const result = await runPaTransferJob({ notify: vi.fn() });
+
+    expect(result).toMatchObject({ cancelled: 1, executed: 0, expired: 0 });
+    expect(
+      await prisma.primaryAdminTransfer.findUniqueOrThrow({
+        where: { id: transfer.id },
+      }),
+    ).toMatchObject({ status: "CANCELLED", reason: "recipient_ineligible" });
+  });
+
   it("sweeps a PENDING transfer whose recipient lost admin", async () => {
     const from = await createAdmin();
-    const to = await createAdmin();
+    const to = await createAdmin({ twoFactorEnabled: true });
     const transfer = await prisma.primaryAdminTransfer.create({
       data: { fromUserId: from.id, toUserId: to.id },
     });
@@ -396,6 +444,39 @@ describe("runPaTransferJob", () => {
       expect(await auditCount(transfer.id, "PA_TRANSFER_CANCELLED")).toBe(1);
     });
 
+    it("cancels once the recipient has no MFA", async () => {
+      const { to, transfer } = await coolingTransfer({
+        executesAt: new Date(Date.now() + 12 * HOUR_MS),
+        cancelTokenHash: "cancel-token-hash",
+      });
+      const now = new Date();
+
+      const notice = await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: to.id },
+          data: { twoFactorEnabled: false },
+        });
+        const cancelled = await cancelForIneligibleRecipient(tx, to.id, now);
+        const inside = await tx.primaryAdminTransfer.findUniqueOrThrow({
+          where: { id: transfer.id },
+        });
+        expect(inside).toMatchObject({
+          status: "CANCELLED",
+          reason: "recipient_ineligible",
+          cancelledAt: now,
+          cancelTokenHash: null,
+        });
+        return cancelled;
+      });
+
+      expect(notice).toMatchObject({
+        kind: "cancelled",
+        transferId: transfer.id,
+        reason: "recipient_ineligible",
+      });
+      expect(await auditCount(transfer.id, "PA_TRANSFER_CANCELLED")).toBe(1);
+    });
+
     it("returns null and changes nothing while the recipient is still eligible, or has no transfer", async () => {
       const { to, from, transfer } = await coolingTransfer({
         executesAt: new Date(Date.now() + 12 * HOUR_MS),
@@ -424,7 +505,7 @@ describe("runPaTransferJob", () => {
 
   it("counts a throwing notifier and still commits the transition", async () => {
     const from = await createAdmin();
-    const to = await createAdmin();
+    const to = await createAdmin({ twoFactorEnabled: true });
     const transfer = await prisma.primaryAdminTransfer.create({
       data: {
         fromUserId: from.id,

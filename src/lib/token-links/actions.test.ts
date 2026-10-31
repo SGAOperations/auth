@@ -15,12 +15,13 @@ const ACTIONS = Object.keys(TOKEN_ACTIONS) as TokenActionName[];
 const live = ACTIONS.filter((a) => TOKEN_ACTIONS[a].status === "live");
 
 describe("registry", () => {
-  it("has exactly five live actions today", () => {
+  it("has exactly six live actions today", () => {
     expect(live).toEqual([
       "verify-email",
       "reset-password",
       "set-password",
       "account-unlock",
+      "email-change",
       "pa-transfer-cancel",
     ]);
   });
@@ -108,6 +109,23 @@ describe("resolveLinkTarget", () => {
         `${ORIGIN}/admin/transfer/accept?token=t`,
       ),
     ).toEqual({ ok: false, reason: "query" });
+  });
+
+  it("accepts the email-change link with one token, and no other path", () => {
+    expect(
+      resolveLinkTarget(
+        "email-change-verify",
+        "url",
+        `${ORIGIN}/verify-email-change?token=t`,
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      resolveLinkTarget(
+        "email-change-verify",
+        "url",
+        `${ORIGIN}/verify-email?token=t`,
+      ),
+    ).toEqual({ ok: false, reason: "path" });
   });
 
   it("accepts the Primary Admin cancel link with one token", () => {

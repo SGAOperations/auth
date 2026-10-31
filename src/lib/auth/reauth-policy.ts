@@ -74,4 +74,8 @@ export const FRESH_AUTH_AUTH_PATHS: readonly string[] = [
   "/two-factor/get-totp-uri",
   // Replaces the backup codes.
   "/two-factor/generate-backup-codes",
+  // Enrolling a passkey (both steps of the ceremony) and removing one.
+  "/passkey/generate-register-options",
+  "/passkey/verify-registration",
+  "/passkey/delete-passkey",
 ];

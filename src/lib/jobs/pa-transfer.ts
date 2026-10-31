@@ -1,14 +1,17 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { writeAuditEvent, type TransferCancelReason } from "@/lib/audit";
+import { cancelOpenEmailChangeRequests } from "@/lib/email-change/cancel";
+import { recipientIneligibility } from "@/lib/jobs/pa-transfer-machine";
 import { logger } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 
 // Database side of the Primary Admin transfer that the scheduled job owns:
 // executes a COOLING transfer whose window has ended, expires a
 // PENDING_ACCEPTANCE one nobody accepted, and cancels one whose recipient is no
-// longer an eligible admin. Initiate, accept, decline and cancel are the user
-// actions in pa-transfer-actions.ts, which reuse the helpers exported here.
+// longer an eligible admin (active, admin and MFA-enrolled). Initiate,
+// accept, decline and cancel are the user actions in pa-transfer-actions.ts,
+// which reuse the helpers exported here.
 //
 // Concurrency: the job claims each transfer with FOR UPDATE SKIP LOCKED inside
 // its own transaction, and everything is decided while that lock is held. A
@@ -80,14 +83,25 @@ type SystemCancelReason = Extract<
   "recipient_ineligible" | "sender_not_primary_admin"
 >;
 
+/**
+ * The rule the initiate path applies, so the job and initiate cannot drift:
+ * the recipient is active, an admin and MFA-enrolled.
+ */
+function recipientIsEligible(
+  transfer: Pick<ClaimedTransfer, "fromUserId" | "toUser">,
+): boolean {
+  return recipientIneligibility(transfer.toUser, transfer.fromUserId) === null;
+}
+
 async function claimIneligibleInFlight(tx: Tx) {
   // The recipient test is the one the execute path applies, so a transfer that
-  // would be refused at execution is cancelled as soon as the job sees it.
+  // would be refused at execution is cancelled as soon as the job sees it. It
+  // mirrors recipientIneligibility minus SELF, which a transfer row cannot have.
   const rows = await tx.$queryRaw<{ id: string }[]>`
     SELECT t."id" FROM "PrimaryAdminTransfer" t
     JOIN "User" u ON u."id" = t."toUserId"
     WHERE t."status" IN ('PENDING_ACCEPTANCE', 'COOLING')
-      AND (u."status" <> 'ACTIVE' OR NOT u."isAdmin")
+      AND (u."status" <> 'ACTIVE' OR NOT u."isAdmin" OR NOT u."twoFactorEnabled")
     ORDER BY t."createdAt" LIMIT 1 FOR UPDATE OF t SKIP LOCKED`;
   return rows[0] ? readTransfer(tx, rows[0].id) : null;
 }
@@ -162,10 +176,29 @@ async function cancelIneligible(
 }
 
 /**
- * For the revoke-admin and deactivate paths: inside their transaction, after
- * they change `userId`, cancel the in-flight transfer that names that user as
- * recipient if they can no longer receive it. Returns the notice to send after
- * commit, or `null` when there is nothing to cancel.
+ * Takes the row lock on the in-flight transfer that names `userId` as
+ * recipient, if there is one. Call it before writing that user's row. The job
+ * locks the transfer and then writes the user rows in `execute`, so a caller
+ * that writes the user row first and then asks for the transfer lock can
+ * deadlock against a running job. Blocking, not SKIP LOCKED: the caller waits
+ * for the job and then re-reads.
+ */
+export async function lockInFlightTransferTo(
+  tx: Tx,
+  userId: string,
+): Promise<void> {
+  await tx.$queryRaw`
+    SELECT "id" FROM "PrimaryAdminTransfer"
+    WHERE "toUserId" = ${userId} AND "status" IN ('PENDING_ACCEPTANCE', 'COOLING')
+    FOR UPDATE`;
+}
+
+/**
+ * For the revoke-admin, deactivate and delete paths: inside their transaction,
+ * after they change `userId`, cancel the in-flight transfer that names that
+ * user as recipient if they can no longer receive it. The caller has already
+ * taken the lock with `lockInFlightTransferTo`. Returns the notice to send
+ * after commit, or `null` when there is nothing to cancel.
  */
 export async function cancelForIneligibleRecipient(
   tx: Tx,
@@ -178,9 +211,7 @@ export async function cancelForIneligibleRecipient(
     FOR UPDATE`;
   if (!rows[0]) return null;
   const transfer = await readTransfer(tx, rows[0].id);
-  if (transfer.toUser.status === "ACTIVE" && transfer.toUser.isAdmin) {
-    return null;
-  }
+  if (recipientIsEligible(transfer)) return null;
   return cancelIneligible(tx, transfer, now, "recipient_ineligible");
 }
 
@@ -215,6 +246,13 @@ async function execute(
       metadata: { scope: "all" },
     });
   }
+  // Both users' standing changed, so no email change they are the target or
+  // requester of may be confirmed under the old standing.
+  await cancelOpenEmailChangeRequests(
+    tx,
+    [transfer.fromUserId, transfer.toUserId],
+    now,
+  );
   // The cancel link dies with the transfer.
   await tx.primaryAdminTransfer.update({
     where: { id: transfer.id },
@@ -270,11 +308,11 @@ async function processOne(
   if (due) {
     await hooks.afterClaim?.(tx, due);
     // Re-read inside the lock: the parties may have changed during cooling.
-    const { fromUser, toUser } = await readTransfer(tx, due.id);
+    const fresh = await readTransfer(tx, due.id);
     let notice: TransferNotice;
-    if (toUser.status !== "ACTIVE" || !toUser.isAdmin) {
+    if (!recipientIsEligible(fresh)) {
       notice = await cancelIneligible(tx, due, now, "recipient_ineligible");
-    } else if (!fromUser.isPrimaryAdmin) {
+    } else if (!fresh.fromUser.isPrimaryAdmin) {
       notice = await cancelIneligible(tx, due, now, "sender_not_primary_admin");
     } else {
       notice = await execute(tx, due, now);

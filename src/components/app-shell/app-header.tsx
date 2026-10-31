@@ -15,14 +15,20 @@ export function AppHeader({
 }) {
   const name = displayName(user);
   return (
-    <header className="sticky top-0 z-40 border-b bg-background">
+    <header className="sticky top-0 z-40 border-b border-glow-faint bg-background/60 backdrop-blur-md">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-2 px-4 sm:gap-4 sm:px-6">
-        <Link href="/account" className="inline-flex min-h-11 items-center">
+        <span className="inline-flex min-h-11 items-center">
           <SgaWordmark />
-        </Link>
+        </span>
         <nav aria-label="Main" className="flex flex-1 items-center gap-1">
+          <Link href="/" className={navLinkClass}>
+            Home
+          </Link>
           <Link href="/account" className={navLinkClass}>
             Account
+          </Link>
+          <Link href="/org-chart" className={navLinkClass}>
+            Org Chart
           </Link>
           {showAdmin && (
             <Link href="/admin" className={navLinkClass}>

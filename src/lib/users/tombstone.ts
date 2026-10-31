@@ -1,14 +1,22 @@
 import "server-only";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import {
+  AUDIT_PII_METADATA_FIELDS,
   withAuditAnonymization,
   writeAuditEvent,
   type AuditActor,
 } from "@/lib/audit";
+import {
+  cancelForIneligibleRecipient,
+  lockInFlightTransferTo,
+  type TransferNotice,
+} from "@/lib/jobs/pa-transfer";
+import { TOMBSTONE_NAME, tombstoneEmail } from "@/lib/retention/policy";
 
 export interface TombstoneInput {
   userId: string;
-  reason: "admin";
+  /** The rule that fired: `admin` for the admin delete, else a retention rule. */
+  reason: "admin" | "deactivated_30d" | "inactive_12mo" | "unverified_7d";
   actor: AuditActor;
   /** Extra conditions on the row, so a caller can make the tombstone conditional. */
   guard?: Prisma.UserWhereInput;
@@ -21,12 +29,14 @@ export interface TombstoneInput {
  * Primary Admin, is already deleted, or does not match `guard`.
  *
  * It runs in its own anonymization transaction, so a caller does not wrap it.
- * Writes exactly one audit row, `USER_DELETED`.
+ * Writes exactly one audit row, `USER_DELETED`, plus `PA_TRANSFER_CANCELLED`
+ * when it cancels a transfer to this user; the notice for that one is returned
+ * for the caller to send after the commit.
  */
 export async function tombstoneUser(
   client: PrismaClient,
   { userId, reason, actor, guard }: TombstoneInput,
-): Promise<{ tombstoned: boolean }> {
+): Promise<{ tombstoned: boolean; transferNotice?: TransferNotice | null }> {
   return withAuditAnonymization(client, async (tx) => {
     // The old address is used below to find its tokens, and is never logged.
     const current = await tx.user.findUnique({
@@ -43,6 +53,8 @@ export async function tombstoneUser(
     });
     if (!current) return { tombstoned: false };
 
+    // Before the user row, the order the job uses: see lockInFlightTransferTo.
+    await lockInFlightTransferTo(tx, userId);
     const scrubbed = await tx.user.updateMany({
       where: {
         id: userId,
@@ -53,22 +65,32 @@ export async function tombstoneUser(
       data: {
         status: "DELETED",
         deletedAt: new Date(),
-        email: `deleted+${userId}@invalid`,
-        name: "Deleted user",
+        email: tombstoneEmail(userId),
+        name: TOMBSTONE_NAME,
         preferredName: null,
         image: null,
         emailVerified: false,
         twoFactorEnabled: false,
         isAdmin: false,
+        inactivityNoticeSentAt: null,
       },
     });
     if (scrubbed.count === 0) return { tombstoned: false };
+
+    // The scrub made the user a non-admin, so a transfer to them cannot go on.
+    const transferNotice = await cancelForIneligibleRecipient(
+      tx,
+      userId,
+      new Date(),
+    );
 
     await tx.session.deleteMany({ where: { userId } });
     await tx.account.deleteMany({ where: { userId } });
     await tx.twoFactor.deleteMany({ where: { userId } });
     await tx.knownDevice.deleteMany({ where: { userId } });
     await tx.unlockToken.deleteMany({ where: { userId } });
+    // A pending request holds an address that is not the user's own yet.
+    await tx.emailChangeRequest.deleteMany({ where: { userId } });
     await tx.accountLock.deleteMany({ where: { userId } });
     await tx.userPosition.deleteMany({ where: { userId } });
     // Set-password and reset tokens carry the user id as their value, and
@@ -77,14 +99,23 @@ export async function tombstoneUser(
       where: { OR: [{ value: userId }, { identifier: current.email }] },
     });
 
-    // The strict audit catalog already keeps PII out of `metadata`, so only
-    // the network fields need scrubbing. The rows themselves stay.
+    // The strict audit catalog keeps PII out of `metadata` except the keys it
+    // lists in AUDIT_PII_METADATA_FIELDS, which are removed here. The network
+    // fields are nulled, and the rows themselves stay.
     await tx.auditEvent.updateMany({
       where: {
         OR: [{ actorUserId: userId }, { targetType: "USER", targetId: userId }],
       },
       data: { ip: null, userAgent: null },
     });
+    for (const [type, fields] of Object.entries(AUDIT_PII_METADATA_FIELDS)) {
+      await tx.$executeRaw`
+        UPDATE "AuditEvent"
+        SET "metadata" = "metadata" - ${[...fields]}::text[]
+        WHERE "type" = ${type}
+          AND "targetType" = 'USER'::"AuditTargetType"
+          AND "targetId" = ${userId}`;
+    }
 
     // `writeAuditEvent`, not `audit()`: the row is about a scrubbed user, so its
     // own ip and user agent are null on purpose and must not fall back to the
@@ -103,6 +134,6 @@ export async function tombstoneUser(
       ip: null,
       userAgent: null,
     });
-    return { tombstoned: true };
+    return { tombstoned: true, transferNotice };
   });
 }

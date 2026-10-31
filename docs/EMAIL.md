@@ -53,9 +53,12 @@ Each template is a zod schema plus a pure `render(data)` that returns `{ subject
 | `verify-email`          | `name?`, `url`, `expiresInMinutes`                                                                                 | `url`       |
 | `reset-password`        | `name?`, `url`, `expiresInMinutes`                                                                                 | `url`       |
 | `set-password`          | `name?`, `url`, `expiresInMinutes`, `kind`: `first-sign-in` or `admin-invite`                                      | `url`       |
+| `sign-in-code`          | `otp` (6 digits), `expiresMinutes`; a code and no link, sent only while email sign-in codes are on                 | none        |
 | `account-locked`        | `name?`, `lockedUntil`                                                                                             | none        |
 | `account-unlock`        | `name?`, `url`, `expiresInMinutes`                                                                                 | `url`       |
 | `security-notice`       | `name?`, `event`: `password-changed`, `password-reset` or `admin-granted`, `occurredAt`                            | none        |
+| `email-change-verify`   | `name?`, `url`, `expiresInMinutes`. Goes to the new address and never names the old one                            | `url`       |
+| `email-change-notice`   | `name?`, `newEmail`. Goes to the old address, shows the new one masked (`j•••@gmail.com`), carries no link         | none        |
 | `pa-transfer-initiated` | `role: "recipient"` with `url`, `fromName`, `acceptBy`; or `role: "initiator"` with `toName`, `acceptBy`           | `url`       |
 | `pa-transfer-accepted`  | `role: "initiator"` with `cancelUrl`, `toName`, `executesAt`; or `role: "recipient"` with `fromName`, `executesAt` | `cancelUrl` |
 | `pa-transfer-cancelled` | `role`, `otherName`, `reason`: `cancelled`, `declined`, `expired` or `recipient-ineligible`                        | none        |
@@ -73,13 +76,14 @@ Northeastern mail is Microsoft 365, and Defender Safe Links pre-fetches every li
 
 The links are registered in `TOKEN_ACTIONS` in `src/lib/token-links/actions.ts`:
 
-| Action               | Page               | Owner          | Status  |
-| -------------------- | ------------------ | -------------- | ------- |
-| `verify-email`       | `/verify-email`    | T103, T18, T24 | live    |
-| `reset-password`     | `/reset-password`  | T19 #31        | pending |
-| `set-password`       | `/set-password`    | T22 #34        | live    |
-| `account-unlock`     | `/unlock`          | T64 #76        | live    |
-| `pa-transfer-cancel` | `/transfer/cancel` | T37 #49        | live    |
+| Action               | Page                   | Owner          | Status  |
+| -------------------- | ---------------------- | -------------- | ------- |
+| `verify-email`       | `/verify-email`        | T103, T18, T24 | live    |
+| `reset-password`     | `/reset-password`      | T19 #31        | pending |
+| `set-password`       | `/set-password`        | T22 #34        | live    |
+| `account-unlock`     | `/unlock`              | T64 #76        | live    |
+| `email-change`       | `/verify-email-change` | T24 #36        | live    |
+| `pa-transfer-cancel` | `/transfer/cancel`     | T37 #49        | live    |
 
 `TEMPLATE_LINK_TARGETS` maps each template's `links` field to one of these actions, or to a plain link with no token and no side effect (`sign-in`, used by `inactivity-notice`, and `pa-transfer-accept`, the `/admin/transfer/accept` page that `pa-transfer-initiated` links to). The accept link carries no token because its authority is the recipient's session plus a fresh re-authentication, and only one transfer can be in flight. The cancel link is public, since the Primary Admin may have no session, so its page sits outside `/admin`. `tokenLinkUrl(origin, action, token)` builds the URL, and the mailer refuses any link whose path is not the live target registered for its field. A `pending` action has no page: `tokenLinkUrl` throws for it, and the mailer throws for its templates, so nothing can mail a link to a missing page. A test enumerates every template link and every live page.
 

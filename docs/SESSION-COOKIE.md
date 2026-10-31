@@ -13,7 +13,7 @@ The policy comes from `SGAUTH_ENV`, not from separate environment variables, so 
 | `preview`    | `__Secure-sgauth-preview.session_token` | host-only (the deployment's `*.vercel.app` host) | yes    | yes      | Lax      | `/`  | SGAuth's own testing only           |
 | `local`      | `sgauth-local.session_token`            | `sga.localhost`                                  | no     | yes      | Lax      | `/`  | local development                   |
 
-- Better Auth's other cookies share the same prefix and attributes: `dont_remember`, and `session_data` and `account_data`, which are never set here.
+- Better Auth's other cookies share the same prefix and attributes: `dont_remember`, and `session_data` and `account_data`, which are never set here. `two_factor` is the pending sign-in challenge: the password step sets it for an account with two-factor on, it lasts 10 minutes, is signed, and is cleared on success or after too many attempts.
 - There is no cookie cache, so no `session_data` cookie. Every request reads the session from the database, and revocation and sign-out take effect on the next request.
 - `Max-Age` follows `session.expiresIn`: 30 days, see [Session lifetime](#session-lifetime).
 - No cookie name is overridden per cookie. Every name is `<__Secure->?<prefix>.<cookie>`.

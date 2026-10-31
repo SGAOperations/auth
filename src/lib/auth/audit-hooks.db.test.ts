@@ -280,7 +280,6 @@ describe.skipIf(!url)("audit events from Better Auth", () => {
       {
         currentPassword: STRONG,
         newPassword: "a-brand-new-password-9",
-        revokeOtherSessions: true,
       },
       { cookie },
     );

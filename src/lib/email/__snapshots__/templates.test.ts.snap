@@ -65,6 +65,77 @@ Replies to this address aren't read.",
 }
 `;
 
+exports[`rendering > renders email-change-notice with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your sign-in email is being changed</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Your sign-in email is being changed. Nothing has changed yet.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Your sign-in email is being changed</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">An SGA administrator asked to change the sign-in email for your account to j•••@gmail.com.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Your current address keeps working until the change is confirmed from the new address. After that, this address can no longer be used to sign in.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If this is unexpected, contact SGA Operations.</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "An SGA admin is changing your account email",
+  "text": "SGAuth
+
+Your sign-in email is being changed
+
+Hi Avery,
+
+An SGA administrator asked to change the sign-in email for your account to j•••@gmail.com.
+
+Your current address keeps working until the change is confirmed from the new address. After that, this address can no longer be used to sign in.
+
+If this is unexpected, contact SGA Operations.
+
+--
+Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders email-change-verify with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Confirm your new email</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Confirm this address to finish changing your sign-in email.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Confirm your new email</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Hi Avery,</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">An SGA admin is changing the sign-in email for your SGA account to this address. Confirm it to finish. The link works once and expires in 24 hours.</p>
+<p style="margin:8px 0 24px;"><a href="https://auth.northeasternsga.com/verify-email-change?token=sample-token" style="font-family:Arial,Helvetica,sans-serif;display:inline-block;background:#c8102e;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;">Confirm email</a></p><p style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#52606d;margin:0 0 16px;">If the button doesn't work, copy this link:<br><a href="https://auth.northeasternsga.com/verify-email-change?token=sample-token" style="color:#52606d;word-break:break-all;">https://auth.northeasternsga.com/verify-email-change?token=sample-token</a></p>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you weren&#39;t expecting this, ignore this email. Nothing changes until you confirm.</p>
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Confirm your new SGAuth email",
+  "text": "SGAuth
+
+Confirm your new email
+
+Hi Avery,
+
+An SGA admin is changing the sign-in email for your SGA account to this address. Confirm it to finish. The link works once and expires in 24 hours.
+
+Confirm email:
+https://auth.northeasternsga.com/verify-email-change?token=sample-token
+
+If you weren't expecting this, ignore this email. Nothing changes until you confirm.
+
+--
+Replies to this address aren't read.",
+}
+`;
+
 exports[`rendering > renders inactivity-notice with a subject, html and text 1`] = `
 {
   "html": "<!doctype html>
@@ -908,6 +979,39 @@ This link expires in 7 days.
 
 Set password:
 https://auth.northeasternsga.com/set-password?token=sample-token
+
+--
+Replies to this address aren't read.",
+}
+`;
+
+exports[`rendering > renders sign-in-code with a subject, html and text 1`] = `
+{
+  "html": "<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your sign-in code</title></head>
+<body style="margin:0;padding:0;background:#f5f7fa;">
+<div style="display:none;max-height:0;overflow:hidden;">Your SGA sign-in code is 123456.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;"><tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:8px;">
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;letter-spacing:1px;color:#c8102e;padding:24px 32px 0;">SGAuth</td></tr>
+<tr><td style="padding:16px 32px 8px;"><h1 style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:28px;color:#102a43;margin:0 0 16px;">Your sign-in code</h1>
+<p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Your SGA sign-in code is 123456. It expires in 10 minutes.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">If you didn&#39;t ask for this, you can ignore this email. Nobody can sign in without the code, and your password still works.</p><p style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#1f2933;margin:0 0 16px;">Sent by SGA Auth (auth.northeasternsga.com)</p>
+
+
+</td></tr>
+<tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#7b8794;padding:16px 32px 24px;border-top:1px solid #e4e7eb;">Replies to this address aren&#39;t read.</td></tr>
+</table></td></tr></table></body></html>",
+  "subject": "Your SGA sign-in code",
+  "text": "SGAuth
+
+Your sign-in code
+
+Your SGA sign-in code is 123456. It expires in 10 minutes.
+
+If you didn't ask for this, you can ignore this email. Nobody can sign in without the code, and your password still works.
+
+Sent by SGA Auth (auth.northeasternsga.com)
 
 --
 Replies to this address aren't read.",

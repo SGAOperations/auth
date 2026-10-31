@@ -312,3 +312,91 @@ describe("parseAuthEnv gates", () => {
     expect(message).not.toContain(secretish);
   });
 });
+
+describe("parseAuthEnv passkey", () => {
+  const base = { BETTER_AUTH_SECRET: SECRET, SGAUTH_PREVIEW_GATE: "off" };
+
+  it.each([
+    ["production", "auth.northeasternsga.com", "https://"],
+    ["dev", "auth-dev.northeasternsga.com", "https://"],
+    ["local", "auth.sga.localhost", "http://"],
+  ])("uses the auth host as the relying party in %s", (env, host, scheme) => {
+    expect(parseAuthEnv({ ...base, SGAUTH_ENV: env }).passkey).toEqual({
+      rpID: host,
+      rpName: "Northeastern SGA",
+      origin: `${scheme}${host}${env === "local" ? ":3000" : ""}`,
+    });
+  });
+
+  it("uses the per-deployment host in a preview", () => {
+    const { passkey } = parseAuthEnv({
+      ...base,
+      SGAUTH_ENV: "preview",
+      VERCEL_BRANCH_URL: "branch-abc.vercel.app",
+    });
+    expect(passkey.rpID).toBe("branch-abc.vercel.app");
+    expect(passkey.origin).toBe("https://branch-abc.vercel.app");
+  });
+
+  it.each(["production", "dev", "local"])(
+    "never uses the parent domain as the relying party in %s",
+    (env) => {
+      const { passkey } = parseAuthEnv({ ...base, SGAUTH_ENV: env });
+      expect(passkey.rpID).not.toBe("northeasternsga.com");
+    },
+  );
+});
+
+describe("parseAuthEnv email OTP", () => {
+  const base = { SGAUTH_ENV: "local", BETTER_AUTH_SECRET: SECRET };
+
+  it("is disabled with a cap of 100 when both variables are absent", () => {
+    expect(parseAuthEnv(base).emailOtp).toEqual({
+      enabled: false,
+      dailyCap: 100,
+    });
+  });
+
+  it("treats empty strings as unset", () => {
+    expect(
+      parseAuthEnv({
+        ...base,
+        SGAUTH_EMAIL_OTP_ENABLED: "",
+        SGAUTH_EMAIL_OTP_DAILY_CAP: "",
+      }).emailOtp,
+    ).toEqual({ enabled: false, dailyCap: 100 });
+  });
+
+  it("is enabled by exactly true", () => {
+    expect(
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_ENABLED: "true" }).emailOtp
+        .enabled,
+    ).toBe(true);
+  });
+
+  it("is disabled by false", () => {
+    expect(
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_ENABLED: "false" }).emailOtp
+        .enabled,
+    ).toBe(false);
+  });
+
+  it("fails startup on any other flag value, naming the variable", () => {
+    expect(() =>
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_ENABLED: "yes" }),
+    ).toThrow(/SGAUTH_EMAIL_OTP_ENABLED/);
+  });
+
+  it("reads the cap", () => {
+    expect(
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_DAILY_CAP: "25" }).emailOtp
+        .dailyCap,
+    ).toBe(25);
+  });
+
+  it("rejects a cap of 0, naming the variable", () => {
+    expect(() =>
+      parseAuthEnv({ ...base, SGAUTH_EMAIL_OTP_DAILY_CAP: "0" }),
+    ).toThrow(/SGAUTH_EMAIL_OTP_DAILY_CAP/);
+  });
+});

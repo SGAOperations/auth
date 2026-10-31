@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { connection } from "next/server";
+import { Backdrop } from "@/components/backdrop/backdrop";
 import { EnvironmentBanner } from "@/components/environment-banner";
 import { SiteFooter } from "@/components/site-footer";
 import { Toaster } from "@/components/ui/sonner";
@@ -19,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "SGA Account", template: "%s · SGA Account" },
+  title: { default: "SGAuth", template: "%s · SGAuth" },
   description: "Sign in once for every SGA tool.",
   ...(env.SGAUTH_ENV !== "production" && {
     robots: { index: false, follow: false },
@@ -47,6 +48,7 @@ export default async function RootLayout({
       )}
     >
       <body className="min-h-full flex flex-col">
+        <Backdrop />
         <EnvironmentBanner sgauthEnv={env.SGAUTH_ENV} />
         {children}
         <SiteFooter />

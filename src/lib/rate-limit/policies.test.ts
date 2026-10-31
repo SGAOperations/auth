@@ -11,6 +11,9 @@ describe("matchAuthRoute", () => {
     ["POST", "/send-verification-email", "verificationResend"],
     ["POST", "/token", "token"],
     ["GET", "/token", "token"],
+    ["POST", "/passkey/verify-authentication", "passkeySignIn"],
+    ["GET", "/passkey/generate-authenticate-options", "passkeyOptions"],
+    ["POST", "/passkey/generate-authenticate-options", "passkeyOptions"],
   ])("%s %s is limited by %s", (method, path, policy) => {
     expect(matchAuthRoute(method, path)).toBe(policy);
   });
@@ -22,8 +25,14 @@ describe("matchAuthRoute", () => {
     ["GET", "/sign-in/email"],
     ["GET", "/two-factor/verify-totp"],
     ["POST", "/two-factor/disable"],
+    // Limited in its Better Auth hook, where the user id is known.
+    ["POST", "/change-password"],
     ["POST", "/sign-in/email/extra"],
     ["POST", "/sign-out"],
+    ["GET", "/passkey/verify-authentication"],
+    // Behind a session and re-auth, so no IP budget.
+    ["GET", "/passkey/generate-register-options"],
+    ["POST", "/passkey/verify-registration"],
     ["POST", "/"],
   ])("%s %s is not limited", (method, path) => {
     expect(matchAuthRoute(method, path)).toBeNull();
@@ -38,6 +47,9 @@ describe("POLICIES", () => {
     expect(flat).toEqual([
       ["sign-in:ip:1m", 10, 60, "ip"],
       ["sign-in:ip:1h", 50, 3600, "ip"],
+      ["passkey-sign-in:ip:1m", 10, 60, "ip"],
+      ["passkey-sign-in:ip:1h", 50, 3600, "ip"],
+      ["passkey-options:ip:1m", 30, 60, "ip"],
       ["sign-up:ip:1h", 5, 3600, "ip"],
       ["reset:ip:10m", 3, 600, "ip"],
       ["reset:email:10m", 3, 600, "email"],
@@ -46,11 +58,18 @@ describe("POLICIES", () => {
       ["session-lookup:session:1m", 120, 60, "session"],
       ["token-link:ip:10m", 20, 600, "ip"],
       ["reauth:user:1m", 5, 60, "user"],
+      ["change-password:user:10m", 10, 600, "user"],
       ["admin:user:1m", 100, 60, "user"],
+      ["admin-export:user:10m", 10, 600, "user"],
       ["set-password:ip:10m", 10, 600, "ip"],
       ["set-password:email:10m", 5, 600, "email"],
       ["set-password-link:user:1h", 3, 3600, "user"],
       ["invite:user:1d", 3, 86400, "user"],
+      ["email-otp-send:email:15m", 3, 900, "email"],
+      ["email-otp-send:email:1d", 6, 86400, "email"],
+      ["email-otp-send:ip:1h", 10, 3600, "ip"],
+      ["email-otp-sign-in:email:15m", 10, 900, "email"],
+      ["email-otp-sign-in:ip:1h", 20, 3600, "ip"],
     ]);
   });
 

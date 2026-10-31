@@ -46,6 +46,16 @@ If an alert cannot be delivered (no eligible admin, or every send failed), the
 job fails and the Actions run turns red. The condition is not marked as
 reported, so the next run tries again.
 
+## Retention job
+
+A daily job (`POST /api/jobs/retention`) tombstones deactivated and inactive
+users and purges expired sessions and tokens. See [retention.md](retention.md).
+
+| Signal                             | What it means                                                         | First step                                                                              |
+| ---------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `[ALERT] retention job had errors` | A step failed. The run is red and "Scheduled job failed" is emailed.  | Find `retention_step_failed` in the Vercel logs for the step. The next run tries again. |
+| `retention_exempt` warning         | An admin or the Primary Admin is past a threshold and was left alone. | Review them by hand, as in [retention.md](retention.md#manual-review-list).             |
+
 ## Never add keep-warm pings
 
 Do not schedule or poll database traffic to keep the compute awake. Scale-to-zero
@@ -64,6 +74,7 @@ is what keeps SGAuth inside the Free quota.
 - [legacy-bcrypt.md](legacy-bcrypt.md): imported bcrypt hashes still awaiting re-hash, and when to remove the path.
 - [subdomain-review.md](subdomain-review.md): inventory the DNS zone and remove dangling records.
 - [chambers-import.md](chambers-import.md): one-time import of Chambers users, passwords and positions.
+- [retention.md](retention.md): the daily retention job, its dry run and its manual-review list.
 
 ## Upgrade log
 

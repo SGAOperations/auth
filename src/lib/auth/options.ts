@@ -1,7 +1,12 @@
 import "server-only";
 import type { BetterAuthOptions } from "better-auth";
 import { prismaAdapter } from "@better-auth/prisma-adapter";
-import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+  isAPIError,
+} from "better-auth/api";
 import { deleteSessionCookie } from "better-auth/cookies";
 import { z } from "zod";
 import type { PrismaClient } from "@/generated/prisma/client";
@@ -32,7 +37,13 @@ import {
   createSendResetPassword,
 } from "@/lib/auth/password-reset";
 import type { DeviceCookie } from "@/lib/auth/known-device";
+import {
+  CHANGE_PASSWORD_PATH,
+  createPasswordChangeHooks,
+} from "@/lib/auth/password-change";
 import type { Mailer } from "@/lib/email/mailer";
+import { createRateLimiter, type RateLimiter } from "@/lib/rate-limit/limiter";
+import { createMemoryBackend } from "@/lib/rate-limit/memory-backend";
 import { setRequestUserId } from "@/lib/log/context";
 import { hasPassword } from "@/lib/set-password/service";
 import { tokenLinkUrl } from "@/lib/token-links/actions";
@@ -65,6 +76,12 @@ interface AuthOptionsInput {
     /** Runs a task after the response; the default runs it inline. */
     defer?: Defer;
   };
+  /**
+   * The limiter for the change-password policy, checked inside the Better Auth
+   * hook. config.ts passes the shared Upstash-backed one. Left out, each call
+   * builds its own in-memory limiter, which is what tests want.
+   */
+  rateLimiter?: Pick<RateLimiter, "check">;
   /**
    * A self-sign-up for the address of an ACTIVE account with no password
    * (AUTH-T22). Sends that account a set-password link; the sign-up answer is
@@ -112,6 +129,11 @@ export function buildAuthOptions({
   advanced,
   analytics = NOOP_ANALYTICS,
   lockout,
+  rateLimiter = createRateLimiter({
+    backend: createMemoryBackend(),
+    // The memory backend never rejects, so nothing is ever logged.
+    log: { error() {} },
+  }),
   onPasswordlessSignUp,
   logger = { error: () => {} },
 }: AuthOptionsInput) {
@@ -125,6 +147,14 @@ export function buildAuthOptions({
     linkOrigin,
     defer: lockout.defer,
     auditHooks,
+  });
+  const passwordChange = createPasswordChangeHooks({
+    prisma,
+    mailer: lockout.mailer,
+    deviceCookie: lockout.deviceCookie,
+    auditHooks,
+    lockoutHooks,
+    rateLimiter,
   });
 
   // Runs only after a successful sign-in, so a wrong, unverified or
@@ -292,6 +322,10 @@ export function buildAuthOptions({
     },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
+        // The body has no `email`, so the branch below never applied to it.
+        if (ctx.path === CHANGE_PASSWORD_PATH) {
+          return passwordChange.before(ctx, await getSessionFromCtx(ctx));
+        }
         const parsed = credentialsBody.safeParse(ctx.body);
         if (!parsed.success) return;
         const normalized = normalizeEmail(parsed.data.email);
@@ -312,6 +346,13 @@ export function buildAuthOptions({
         };
       }),
       after: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === CHANGE_PASSWORD_PATH) {
+          // On an endpoint error the session may not be on the context.
+          await passwordChange.after(
+            ctx,
+            ctx.context.session ?? (await getSessionFromCtx(ctx)),
+          );
+        }
         await auditHooks.afterEndpoint(ctx);
         analyticsHooks.afterEndpoint(ctx);
         if (

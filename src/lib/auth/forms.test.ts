@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   AUTH_COPY,
+  emailCodeMessage,
+  emailCodeRequestSchema,
+  emailCodeVerifySchema,
+  backupCodeFormSchema,
   emailStepSchema,
   forgotPasswordSchema,
+  isTerminalSecondFactorState,
+  mapEmailCodeError,
   mapEmailStepResponse,
   mapRequestError,
+  mapSecondFactorError,
   mapSignInError,
   mapSignUpError,
+  normalizeBackupCodeInput,
   passwordLengthState,
+  secondFactorMessage,
   signInMessage,
   signInSchema,
   signUpSchema,
@@ -174,6 +183,118 @@ describe("mapSignInError", () => {
   });
 });
 
+describe("signInMessage", () => {
+  it("has no arm for a second factor", () => {
+    expect(AUTH_COPY).not.toHaveProperty("signInTwoFactor");
+    expect(signInMessage("unexpected")).toBe(AUTH_COPY.unexpected);
+  });
+});
+
+describe("mapSecondFactorError", () => {
+  it.each([
+    ["INVALID_TWO_FACTOR_COOKIE", 401, "expired"],
+    ["TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE", 400, "too-many"],
+    ["ACCOUNT_TEMPORARILY_LOCKED", 429, "locked"],
+    ["INVALID_CODE", 401, "invalid"],
+  ] as const)("maps %s", (code, status, state) => {
+    expect(mapSecondFactorError({ status, code })).toBe(state);
+  });
+
+  it("checks the lock before the 429 status", () => {
+    expect(
+      mapSecondFactorError({ status: 429, code: "ACCOUNT_TEMPORARILY_LOCKED" }),
+    ).toBe("locked");
+  });
+
+  it("maps a bare 429, a bare 401 and a 500", () => {
+    expect(mapSecondFactorError({ status: 429 })).toBe("rate-limited");
+    expect(mapSecondFactorError({ status: 401 })).toBe("invalid");
+    expect(mapSecondFactorError({ status: 500 })).toBe("unexpected");
+    expect(mapSecondFactorError({ status: 0 })).toBe("unexpected");
+  });
+
+  it("ends the challenge only for expired, too-many and locked", () => {
+    expect(
+      (
+        [
+          "invalid",
+          "rate-limited",
+          "expired",
+          "too-many",
+          "locked",
+          "unexpected",
+        ] as const
+      ).filter(isTerminalSecondFactorState),
+    ).toEqual(["expired", "too-many", "locked"]);
+  });
+});
+
+describe("secondFactorMessage", () => {
+  it("words an invalid code per mode", () => {
+    expect(secondFactorMessage("invalid", "totp")).toBe(AUTH_COPY.totpInvalid);
+    expect(secondFactorMessage("invalid", "backup")).toBe(
+      AUTH_COPY.backupInvalid,
+    );
+  });
+
+  it("reuses the sign-in copy for a limit or a failure", () => {
+    for (const mode of ["totp", "backup"] as const) {
+      expect(secondFactorMessage("rate-limited", mode)).toBe(
+        AUTH_COPY.signInRateLimited,
+      );
+      expect(secondFactorMessage("unexpected", mode)).toBe(
+        AUTH_COPY.unexpected,
+      );
+    }
+  });
+
+  it("has copy for the ended states", () => {
+    expect(secondFactorMessage("expired", "totp")).toBe(
+      AUTH_COPY.secondFactorExpired,
+    );
+    expect(secondFactorMessage("too-many", "backup")).toBe(
+      AUTH_COPY.secondFactorTooMany,
+    );
+    expect(secondFactorMessage("locked", "totp")).toBe(
+      AUTH_COPY.secondFactorLocked,
+    );
+  });
+});
+
+describe("normalizeBackupCodeInput", () => {
+  it("strips whitespace and keeps case", () => {
+    expect(normalizeBackupCodeInput("  aB3dE -fG9hJ ")).toBe("aB3dE-fG9hJ");
+  });
+
+  it("restores a missing hyphen", () => {
+    expect(normalizeBackupCodeInput("aB3dEfG9hJ")).toBe("aB3dE-fG9hJ");
+    expect(normalizeBackupCodeInput("aB3dE fG9hJ")).toBe("aB3dE-fG9hJ");
+  });
+
+  it("leaves anything else as typed, minus whitespace", () => {
+    expect(normalizeBackupCodeInput("abc")).toBe("abc");
+    expect(normalizeBackupCodeInput("aB3d-EfG9hJ")).toBe("aB3d-EfG9hJ");
+  });
+});
+
+describe("backupCodeFormSchema", () => {
+  it.each(["aB3dE-fG9hJ", "aB3dEfG9hJ", " aB3dE-fG9hJ "])(
+    "accepts %j",
+    (code) => {
+      expect(backupCodeFormSchema.safeParse({ code }).success).toBe(true);
+    },
+  );
+
+  it.each(["", "abc", "aB3dE-fG9h", "aB3dE-fG9hJk", "aB3d_-fG9hJ", "123456"])(
+    "rejects %j",
+    (code) => {
+      const result = backupCodeFormSchema.safeParse({ code });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.message).toBe(AUTH_COPY.backupFormat);
+    },
+  );
+});
+
 describe("mapSignUpError", () => {
   it("routes the domain and length codes to their fields", () => {
     expect(
@@ -210,6 +331,64 @@ describe("mapSignUpError", () => {
       field: null,
       message: AUTH_COPY.unexpected,
     });
+  });
+});
+
+describe("emailCodeRequestSchema and emailCodeVerifySchema", () => {
+  it("trims the address", () => {
+    expect(
+      emailCodeRequestSchema.parse({ email: "  a@northeastern.edu " }).email,
+    ).toBe("a@northeastern.edu");
+  });
+
+  it.each(["123456", "000000"])("accepts the code %s", (otp) => {
+    expect(
+      emailCodeVerifySchema.safeParse({ email: "a@northeastern.edu", otp })
+        .success,
+    ).toBe(true);
+  });
+
+  it.each(["12345", "1234567", "12345a", "", " 12345", "١٢٣٤٥٦"])(
+    "rejects the code %j",
+    (otp) => {
+      expect(
+        emailCodeVerifySchema.safeParse({ email: "a@northeastern.edu", otp })
+          .success,
+      ).toBe(false);
+    },
+  );
+});
+
+describe("mapEmailCodeError", () => {
+  it.each([
+    [{ status: 429 }, "rate-limited"],
+    [{ status: 503, code: "EMAIL_OTP_UNAVAILABLE" }, "unavailable"],
+    [{ status: 403, code: "TOO_MANY_ATTEMPTS" }, "invalid"],
+    [{ status: 400, code: "INVALID_OTP" }, "invalid"],
+    [{ status: 400, code: "OTP_EXPIRED" }, "invalid"],
+    [{ status: 400, code: "INVALID_REQUEST" }, "invalid"],
+    [{ status: 500 }, "unexpected"],
+    [{ status: 0 }, "unexpected"],
+  ] as const)("maps %j to %s", (error, state) => {
+    expect(mapEmailCodeError(error)).toBe(state);
+  });
+
+  it("writes the copy for each state", () => {
+    expect(emailCodeMessage("invalid")).toBe(
+      "That code didn't work. Check it, or send a new code.",
+    );
+    expect(emailCodeMessage("rate-limited", 1)).toBe(
+      "Too many requests. Try again in 1 minute.",
+    );
+    expect(emailCodeMessage("rate-limited", 12)).toBe(
+      "Too many requests. Try again in 12 minutes.",
+    );
+    expect(emailCodeMessage("unavailable")).toBe(
+      "Email codes are unavailable right now. Sign in with your password, or reset it.",
+    );
+    expect(emailCodeMessage("unexpected")).toBe(
+      "Something went wrong. Try again.",
+    );
   });
 });
 

@@ -40,6 +40,7 @@ import {
 } from "@/lib/audit";
 import { can, type UserAction } from "@/lib/authz";
 import type { Mailer, SendResult } from "@/lib/email/mailer";
+import type { TransferNotice } from "@/lib/jobs/pa-transfer";
 import { logger } from "@/lib/log";
 import type { AdminInviteResult } from "@/lib/set-password/service";
 import { tombstoneUser } from "@/lib/users/tombstone";
@@ -69,6 +70,8 @@ export interface AdminUserDeps {
     input: { userId: string; now: Date },
   ): Promise<AdminInviteResult>;
   mailer: Pick<Mailer, "sendEmail">;
+  /** After commit; logs and never throws. */
+  sendTransferNotice(notice: TransferNotice): Promise<void>;
   now(): Date;
 }
 
@@ -79,6 +82,8 @@ export interface RunSuccess {
   extra?: Record<string, unknown>;
   /** Runs after the commit; its status goes in the body as `email`. */
   send?: () => Promise<SendResult>;
+  /** A Primary Admin transfer the action cancelled; announced after the commit. */
+  transferNotice?: TransferNotice;
 }
 
 export type RunOutcome = { fail: AdminUserErrorCode } | RunSuccess;
@@ -208,6 +213,10 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
     } catch (err) {
       if (err instanceof Abort) return userError(err.code);
       throw err;
+    }
+
+    if (outcome.transferNotice) {
+      await deps.sendTransferNotice(outcome.transferNotice);
     }
 
     const body: Record<string, unknown> = {
@@ -375,13 +384,14 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
     if ("response" in auth) return auth.response;
     const { actor, target } = auth;
 
-    const { tombstoned } = await tombstoneUser(prisma, {
+    const { tombstoned, transferNotice } = await tombstoneUser(prisma, {
       userId: target.id,
       reason: "admin",
       actor: { actorType: "USER", actorUserId: actor.id },
     });
     // A race: the user was deleted between the load and the tombstone.
     if (!tombstoned) return userError("USER_DELETED");
+    if (transferNotice) await deps.sendTransferNotice(transferNotice);
     return apiJson({ user: await getUser(prisma, target.id) });
   });
 

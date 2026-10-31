@@ -12,7 +12,7 @@ export default function NotFound() {
         The page you&apos;re looking for doesn&apos;t exist or you don&apos;t
         have access to it.
       </p>
-      <Button render={<Link href="/account" />}>Go to your account</Button>
+      <Button render={<Link href="/" />}>Go to home</Button>
     </main>
   );
 }

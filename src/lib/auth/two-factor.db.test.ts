@@ -34,6 +34,7 @@ describe.skipIf(!url)("TOTP multi-factor authentication", () => {
     }),
     plugins: buildAuthPlugins({
       signupAllowlist: null,
+      passkey: { rpID: "localhost", rpName: "Test", origin: BASE_URL },
       prisma,
       issuer: BASE_URL,
       secret: SECRET,

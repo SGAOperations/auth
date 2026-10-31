@@ -3,6 +3,7 @@ import { createAdminUserHandlers } from "@/lib/admin/users/handlers";
 import { clearAccountLock } from "@/lib/auth/lockout";
 import { requireFreshAuth } from "@/lib/auth/server";
 import { mailer } from "@/lib/email/server";
+import { sendNotice } from "@/lib/jobs/pa-transfer-http";
 import { prisma } from "@/lib/prisma";
 import { setPasswordService } from "@/lib/set-password/server";
 
@@ -19,5 +20,6 @@ export const liveAdminUserHandlers = createAdminUserHandlers({
   issueAdminInvite: (db, input) =>
     setPasswordService.issueAdminInvite(db, input),
   mailer,
+  sendTransferNotice: sendNotice,
   now: () => new Date(),
 });

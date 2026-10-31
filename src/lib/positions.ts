@@ -8,6 +8,11 @@ import {
   positionKeySchema,
   positionNameSchema,
 } from "@/lib/position-key";
+import {
+  managerChain,
+  wouldCreateCycle,
+  type ManagerNode,
+} from "@/lib/position-org";
 
 export type PositionErrorCode =
   | "INVALID_INPUT"
@@ -18,7 +23,9 @@ export type PositionErrorCode =
   | "POSITION_LIMIT"
   | "POSITION_NOT_FOUND"
   | "POSITION_DELETED"
-  | "CONFIRM_KEY_MISMATCH";
+  | "CONFIRM_KEY_MISMATCH"
+  | "MANAGER_NOT_FOUND"
+  | "MANAGER_CYCLE";
 
 export class PositionError extends Error {
   readonly code: PositionErrorCode;
@@ -49,6 +56,11 @@ export const createPositionInputSchema = z.object({
   name: positionNameSchema,
   category: optionalText(CATEGORY_MAX),
   description: optionalText(DESCRIPTION_MAX),
+  isLeadership: z.boolean().default(false),
+  managerPositionId: z
+    .uuid()
+    .nullish()
+    .transform((value) => value ?? null),
 });
 
 export type CreatePositionInput = z.infer<typeof createPositionInputSchema>;
@@ -60,9 +72,13 @@ export const updatePositionInputSchema = z
     name: positionNameSchema.optional(),
     category: optionalText(CATEGORY_MAX).optional(),
     description: optionalText(DESCRIPTION_MAX).optional(),
+    isLeadership: z.boolean().optional(),
+    // null clears the manager.
+    managerPositionId: z.uuid().nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
-    message: "Send at least one of name, category or description",
+    message:
+      "Send at least one of name, category, description, isLeadership or managerPositionId",
   });
 
 export type UpdatePositionInput = z.infer<typeof updatePositionInputSchema>;
@@ -73,9 +89,19 @@ export function positionSnapshot(position: {
   name: string;
   category: string | null;
   description: string | null;
+  isLeadership: boolean;
+  managerPositionId: string | null;
 }) {
-  const { key, name, category, description } = position;
-  return { key, name, category, description };
+  const { key, name, category, description, isLeadership, managerPositionId } =
+    position;
+  return {
+    key,
+    name,
+    category,
+    description,
+    isLeadership,
+    managerPositionId,
+  };
 }
 
 /**
@@ -185,7 +211,57 @@ export function toPositionError(err: unknown): PositionError | null {
       "Position name length is invalid",
     );
   }
+  if (message.includes("MANAGER_NOT_FOUND")) {
+    return new PositionError(
+      "MANAGER_NOT_FOUND",
+      "Manager position does not exist or is deleted",
+    );
+  }
+  if (
+    message.includes("MANAGER_CYCLE") ||
+    message.includes("Position_manager_not_self_check")
+  ) {
+    return new PositionError(
+      "MANAGER_CYCLE",
+      "A position cannot report to itself or to a position below it",
+    );
+  }
   return null;
+}
+
+// The same lock the `position_manager_valid` trigger takes, so the service's
+// read of the graph and its write sit in one serialised section.
+async function lockManagerGraph(tx: Db) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('position_manager_graph', 0))`;
+}
+
+/**
+ * Throws MANAGER_NOT_FOUND when the manager is not an active position, and
+ * MANAGER_CYCLE when it is the position itself or sits below it. `positionId`
+ * is null for a position that does not exist yet. Call inside a transaction.
+ */
+async function assertManagerValid(
+  tx: Db,
+  positionId: string | null,
+  managerId: string,
+): Promise<void> {
+  await lockManagerGraph(tx);
+  const nodes = await tx.position.findMany({
+    where: { deletedAt: null },
+    select: { id: true, managerPositionId: true },
+  });
+  if (!nodes.some((node) => node.id === managerId)) {
+    throw new PositionError(
+      "MANAGER_NOT_FOUND",
+      "Manager position does not exist or is deleted",
+    );
+  }
+  if (positionId !== null && wouldCreateCycle(nodes, positionId, managerId)) {
+    throw new PositionError(
+      "MANAGER_CYCLE",
+      "A position cannot report to itself or to a position below it",
+    );
+  }
 }
 
 /**
@@ -207,16 +283,22 @@ export async function createPosition(
       parsed.error.message,
     );
   }
-  const { key, name, category, description } = parsed.data;
+  const { key, name, category, description, isLeadership, managerPositionId } =
+    parsed.data;
 
   const run = async (tx: Db) => {
     await assertPositionKeyAvailable(key, { db: tx, now });
+    if (managerPositionId !== null) {
+      await assertManagerValid(tx, null, managerPositionId);
+    }
     return tx.position.create({
       data: {
         key,
         name,
         category,
         description,
+        isLeadership,
+        managerPositionId,
         createdById: actorId,
         updatedById: actorId,
       },
@@ -280,10 +362,12 @@ export type PositionChanges = {
   name?: string;
   category?: string | null;
   description?: string | null;
+  isLeadership?: boolean;
+  managerPositionId?: string | null;
 };
 
 /**
- * Updates name, category and description. `before` and `after` hold only the
+ * Updates name, category, description, leadership and manager. `before` and `after` hold only the
  * fields whose value changed; when none did, nothing is written and `changed`
  * is false. A body that names `key` is refused even when it is unchanged.
  * Writes no audit row; the calling handler owns that and authorization.
@@ -304,6 +388,10 @@ export async function updatePosition(
   const requested = parsed.data;
 
   return inTransaction(db, async (tx) => {
+    // Graph lock first when the manager may change; see deletePosition.
+    if (requested.managerPositionId !== undefined) {
+      await lockManagerGraph(tx);
+    }
     const current = await lockPosition(tx, id);
 
     const before: PositionChanges = {};
@@ -326,9 +414,26 @@ export async function updatePosition(
       before.description = current.description;
       after.description = requested.description;
     }
+    if (
+      requested.isLeadership !== undefined &&
+      requested.isLeadership !== current.isLeadership
+    ) {
+      before.isLeadership = current.isLeadership;
+      after.isLeadership = requested.isLeadership;
+    }
+    if (
+      requested.managerPositionId !== undefined &&
+      requested.managerPositionId !== current.managerPositionId
+    ) {
+      before.managerPositionId = current.managerPositionId;
+      after.managerPositionId = requested.managerPositionId;
+    }
 
     if (Object.keys(after).length === 0) {
       return { position: current, before, after, changed: false };
+    }
+    if (after.managerPositionId) {
+      await assertManagerValid(tx, id, after.managerPositionId);
     }
     const position = await tx.position.update({
       where: { id },
@@ -342,7 +447,10 @@ export async function updatePosition(
  * Soft-deletes a position. `confirmKey` must equal the key exactly. Sets
  * `deletedAt`, retires the key, and keeps every UserPosition row: holders
  * lose the position on their next session read, which filters on `deletedAt`.
- * Returns the pre-delete snapshot and the sorted holder ids for the audit row.
+ * Direct reports lose their manager in the same transaction, so every active
+ * edge keeps pointing at an active position.
+ * Returns the pre-delete snapshot, the sorted holder ids and the sorted ids of
+ * the reports that lost their manager, for the audit row.
  * Writes no audit row; the calling handler owns that and authorization.
  */
 export async function deletePosition(
@@ -360,12 +468,30 @@ export async function deletePosition(
   }
 
   return inTransaction(db, async (tx) => {
+    // The graph lock comes before the row lock, here and in updatePosition, so
+    // two transactions never wait on each other in opposite orders. It also
+    // means a concurrent "set the manager to this position" either finishes
+    // first (and is cleared below) or waits and then fails because the manager
+    // is deleted.
+    await lockManagerGraph(tx);
     const current = await lockPosition(tx, id);
     if (parsedConfirmKey.data !== current.key) {
       throw new PositionError(
         "CONFIRM_KEY_MISMATCH",
         "confirmKey does not match the position key",
       );
+    }
+
+    const reports = await tx.position.findMany({
+      where: { managerPositionId: id },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+    if (reports.length > 0) {
+      await tx.position.updateMany({
+        where: { managerPositionId: id },
+        data: { managerPositionId: null, updatedById: actorId },
+      });
     }
 
     await tx.position.update({
@@ -384,6 +510,7 @@ export async function deletePosition(
       before: positionSnapshot(current),
       deletedAt: now,
       holderIds: holders.map((holder) => holder.userId),
+      reportIds: reports.map((report) => report.id),
     };
   });
 }
@@ -394,20 +521,26 @@ const summarySelect = {
   name: true,
   category: true,
   description: true,
+  isLeadership: true,
+  managerPositionId: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
-  _count: { select: { holders: true } },
+  _count: {
+    select: { holders: true, reports: { where: { deletedAt: null } } },
+  },
 } satisfies Prisma.PositionSelect;
 
 type SummaryRow = Prisma.PositionGetPayload<{ select: typeof summarySelect }>;
 
 export type PositionSummary = Omit<SummaryRow, "_count"> & {
   holderCount: number;
+  /** Active positions that list this one as their manager. */
+  reportCount: number;
 };
 
 function toSummary({ _count, ...rest }: SummaryRow): PositionSummary {
-  return { ...rest, holderCount: _count.holders };
+  return { ...rest, holderCount: _count.holders, reportCount: _count.reports };
 }
 
 /** One position, deleted or not, with its holder count. Null when unknown. */
@@ -433,4 +566,50 @@ export async function listPositions({
     orderBy: [{ category: { sort: "asc", nulls: "last" } }, { key: "asc" }],
   });
   return rows.map(toSummary);
+}
+
+export type PositionGraphNode = ManagerNode & {
+  key: string;
+  name: string;
+  category: string | null;
+  isLeadership: boolean;
+};
+
+/** The active positions with their manager edges: the org chart's input. */
+export async function loadPositionGraph({
+  db = prisma,
+}: { db?: Db } = {}): Promise<PositionGraphNode[]> {
+  return db.position.findMany({
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      key: true,
+      name: true,
+      category: true,
+      isLeadership: true,
+      managerPositionId: true,
+    },
+    orderBy: [{ category: { sort: "asc", nulls: "last" } }, { name: "asc" }],
+  });
+}
+
+/** Active leadership positions, by category (uncategorized last), then name. */
+export async function listLeadershipPositions({
+  db = prisma,
+}: { db?: Db } = {}): Promise<PositionGraphNode[]> {
+  const graph = await loadPositionGraph({ db });
+  return graph.filter((position) => position.isLeadership);
+}
+
+/**
+ * The managers above a position, from its immediate manager up to the root.
+ * Null for an unknown or deleted position.
+ */
+export async function getManagerChain(
+  positionId: string,
+  { db = prisma }: { db?: Db } = {},
+): Promise<PositionGraphNode[] | null> {
+  const graph = await loadPositionGraph({ db });
+  if (!graph.some((position) => position.id === positionId)) return null;
+  return managerChain(graph, positionId);
 }

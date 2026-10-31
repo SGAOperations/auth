@@ -11,10 +11,12 @@ import {
 const HOSTILE = "<script>alert(1)</script> & co";
 
 describe("template registry", () => {
-  it("holds exactly the 12 templates", () => {
+  it("holds exactly the 15 templates", () => {
     expect([...TEMPLATE_NAMES].sort()).toEqual([
       "account-locked",
       "account-unlock",
+      "email-change-notice",
+      "email-change-verify",
       "inactivity-notice",
       "pa-transfer-accepted",
       "pa-transfer-cancelled",
@@ -24,6 +26,7 @@ describe("template registry", () => {
       "security-alert",
       "security-notice",
       "set-password",
+      "sign-in-code",
       "verify-email",
     ]);
   });
@@ -81,6 +84,55 @@ describe("rendering", () => {
     expect(TEMPLATES["pa-transfer-accepted"].links).toEqual(["cancelUrl"]);
     expect(TEMPLATES["inactivity-notice"].links).toEqual(["signInUrl"]);
     expect(TEMPLATES["account-locked"].links).toEqual([]);
+  });
+});
+
+describe("email change templates", () => {
+  it("masks the new address in the notice and carries no link", () => {
+    const prepared = prepareTemplate("email-change-notice", {
+      name: "Avery",
+      newEmail: "jordan.lee@gmail.com",
+    });
+    if (!prepared.ok) throw new Error("notice did not parse");
+    expect(prepared.links).toEqual([]);
+    expect(prepared.content.text).toContain("j•••@gmail.com");
+    expect(prepared.content.text).not.toContain("jordan.lee");
+    expect(prepared.content.html).not.toContain("jordan.lee");
+    expect(prepared.content.html).not.toContain("href=");
+  });
+
+  it("states the expiry in the verify mail", () => {
+    const { text } = renderTemplate("email-change-verify", {
+      url: "https://auth.northeasternsga.com/verify-email-change?token=t",
+      expiresInMinutes: 1440,
+    });
+    expect(text).toContain("24 hours");
+  });
+});
+
+describe("sign-in-code", () => {
+  const sample = SAMPLES.find((s) => s.id === "sign-in-code");
+
+  it("carries no link in the HTML or the text", () => {
+    if (sample?.template !== "sign-in-code") throw new Error("missing sample");
+    const { html, text } = renderTemplate(sample.template, sample.data);
+    expect(html).not.toContain("href");
+    expect(text).not.toMatch(/https?:\/\//);
+    expect(TEMPLATES["sign-in-code"].links).toEqual([]);
+  });
+
+  it("shows the code and its lifetime", () => {
+    if (sample?.template !== "sign-in-code") throw new Error("missing sample");
+    const { subject, text } = renderTemplate(sample.template, sample.data);
+    expect(subject).toBe("Your SGA sign-in code");
+    expect(text).toContain("Your SGA sign-in code is 123456.");
+    expect(text).toContain("It expires in 10 minutes.");
+  });
+
+  it("rejects a code that is not six digits", () => {
+    expect(
+      prepareTemplate("sign-in-code", { otp: "12345", expiresMinutes: 10 }),
+    ).toEqual({ ok: false, paths: ["otp"] });
   });
 });
 

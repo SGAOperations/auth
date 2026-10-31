@@ -4,6 +4,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
 } from "@/components/ui/card";
 import { AUTH_COPY } from "@/lib/auth/forms";
@@ -27,11 +28,11 @@ export function AuthShell({
 }: AuthShellProps) {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm bg-card/80 shadow-[0_0_80px_-24px_var(--glow-muted)] ring-glow-faint backdrop-blur-md">
         <CardHeader>
           <SgaWordmark className="mb-2" />
           {/* CardTitle renders a div; the page needs a real h1. */}
-          <h1 className="font-heading text-base leading-snug font-medium">
+          <h1 className="font-heading text-xl leading-snug font-semibold tracking-tight">
             {title}
           </h1>
           {description ? (
@@ -49,7 +50,11 @@ export function AuthShell({
           <CardContent className="flex flex-col gap-4">{children}</CardContent>
         ) : null}
         {footer ? (
-          <div className="px-4 text-sm text-muted-foreground">{footer}</div>
+          // CardFooter is a flex row, which drops the space between a text node
+          // and a link; the paragraph keeps the footer as one line of text.
+          <CardFooter className="justify-center border-glow-faint bg-transparent text-sm text-muted-foreground">
+            <p className="text-center">{footer}</p>
+          </CardFooter>
         ) : null}
       </Card>
       <p className="max-w-sm text-center text-sm text-muted-foreground">

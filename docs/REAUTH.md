@@ -58,15 +58,18 @@ if (!fresh.ok) return fresh.response; // 401 UNAUTHORIZED or 403 REAUTH_REQUIRED
 
 **A Better Auth endpoint** is gated by adding its path to `FRESH_AUTH_AUTH_PATHS` in `src/lib/auth/reauth-policy.ts`. The `sgauth-reauth` plugin's `before` hook answers 403 `REAUTH_REQUIRED` before the endpoint runs. Do not add a second gate to the same endpoint. The gated paths are:
 
-| Path                                | Why                          |
-| ----------------------------------- | ---------------------------- |
-| `/change-password`                  | Changing the password        |
-| `/revoke-sessions`                  | Revoking every session       |
-| `/revoke-other-sessions`            | Revoking every other session |
-| `/two-factor/enable`                | Starting MFA enrollment      |
-| `/two-factor/disable`               | Turning MFA off              |
-| `/two-factor/get-totp-uri`          | Reveals the TOTP secret      |
-| `/two-factor/generate-backup-codes` | Replaces the backup codes    |
+| Path                                 | Why                          |
+| ------------------------------------ | ---------------------------- |
+| `/change-password`                   | Changing the password        |
+| `/revoke-sessions`                   | Revoking every session       |
+| `/revoke-other-sessions`             | Revoking every other session |
+| `/two-factor/enable`                 | Starting MFA enrollment      |
+| `/two-factor/disable`                | Turning MFA off              |
+| `/two-factor/get-totp-uri`           | Reveals the TOTP secret      |
+| `/two-factor/generate-backup-codes`  | Replaces the backup codes    |
+| `/passkey/generate-register-options` | Starting passkey enrollment  |
+| `/passkey/verify-registration`       | Finishing passkey enrollment |
+| `/passkey/delete-passkey`            | Removing a passkey           |
 
 The plugin runs after `sgauth-mfa`, so an admin's refusal on `/two-factor/disable` answers before the re-auth prompt. Server-side `auth.api` calls with no session headers have no session and are unaffected.
 

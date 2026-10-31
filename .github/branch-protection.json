@@ -8,7 +8,8 @@
       { "context": "audit" },
       { "context": "migrations" },
       { "context": "authz" },
-      { "context": "test" }
+      { "context": "test" },
+      { "context": "e2e" }
     ]
   },
   "enforce_admins": false,

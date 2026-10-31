@@ -31,6 +31,12 @@ After every completed login SGAuth sets a signed, HttpOnly, host-only cookie and
 - A successful login does **not** clear an active account lock: a known-device success shows the owner is present, not that the attacker stopped. Unknown browsers stay locked until the lock expires or one of the unlock paths below runs.
 - A stolen cookie and the password are both needed to use the exemption. A password reset does not revoke known devices.
 
+## What counts
+
+Besides a wrong password at sign-in, a wrong password at re-authentication ([REAUTH.md](REAUTH.md)) and a wrong **current password at change-password** count toward the same account (or device) counter, and the failure that reaches the threshold takes the lock and sends the same two emails. A signed-in caller has no enumeration surface to protect, so these run inline rather than deferred.
+
+Change-password is refused while locked, with `403 PASSWORD_CHANGE_LOCKED` (the same known-device exemption as sign-in applies), and a refused attempt is not counted again. A new password equal to the current one, a too-short or too-long new password, and an account with no password are refused without counting. A successful change resets the counter like any completed login.
+
 ## What resets what
 
 | Event                        | Failure counter | Active lock | Lock level | Outstanding unlock links |
@@ -51,11 +57,12 @@ The link follows the scanner-safe pattern in `EMAIL.md`: `GET /unlock?token=` on
 
 ## Audit events
 
-| Event                                   | When                                                        | Metadata                                          |
-| --------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
-| `ACCOUNT_LOCKED`                        | A failure takes the lock, written in the lock's transaction | `lockLevel`, `durationMinutes`                    |
-| `ACCOUNT_UNLOCKED`                      | Unlock link, password reset, admin                          | `method`: `email_link`, `password_reset`, `admin` |
-| `LOGIN_FAILED` `reason: ACCOUNT_LOCKED` | Each refused attempt                                        | `reason`                                          |
+| Event                                   | When                                                        | Metadata                                               |
+| --------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `ACCOUNT_LOCKED`                        | A failure takes the lock, written in the lock's transaction | `lockLevel`, `durationMinutes`                         |
+| `ACCOUNT_UNLOCKED`                      | Unlock link, password reset, admin                          | `method`: `email_link`, `password_reset`, `admin`      |
+| `LOGIN_FAILED` `reason: ACCOUNT_LOCKED` | Each refused attempt                                        | `reason`                                               |
+| `PASSWORD_CHANGE_FAILED`                | A wrong current password, or a change refused while locked  | `reason`: `INVALID_CURRENT_PASSWORD`, `ACCOUNT_LOCKED` |
 
 No metadata carries an address.
 

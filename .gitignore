@@ -20,6 +20,12 @@
 # production
 /build
 
+# playwright (e2e)
+/e2e/product-stub/.next/
+/playwright-report/
+/test-results/
+/playwright/.cache/
+
 # misc
 .DS_Store
 *.pem
@@ -49,7 +55,13 @@ docs/sgauth-design/out/tmp/
 
 # Chambers user export (AUTH-T86): never commit
 chambers-export*.json
+# Aplio user export (AUTH-T88): never commit
+aplio-export*.json
 !docs/runbooks/chambers-export.sample.json
+
+# Chambers import inputs (AUTH-T86): local operator files, never commit
+chambers-positions.json
+chambers-email-replacements*.txt
 
 # port pipeline
 .agents/

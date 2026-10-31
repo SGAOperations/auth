@@ -209,6 +209,58 @@ describe("parseServerEnv", () => {
     });
   });
 
+  describe("Aplio dual-write window", () => {
+    const secret = "a".repeat(32);
+    const cutover = "2026-12-01T05:00:00-05:00";
+
+    it("is off when neither variable is set", () => {
+      const env = parseServerEnv(valid);
+      expect(env.APLIO_DUAL_WRITE_SECRET).toBeUndefined();
+      expect(env.APLIO_READ_CUTOVER_AT).toBeUndefined();
+    });
+
+    it("parses when both are set", () => {
+      const env = parseServerEnv({
+        ...valid,
+        APLIO_DUAL_WRITE_SECRET: secret,
+        APLIO_READ_CUTOVER_AT: cutover,
+      });
+      expect(env.APLIO_READ_CUTOVER_AT).toBe(cutover);
+    });
+
+    it("rejects the secret without the cutover", () => {
+      expect(
+        messageOf({ ...valid, APLIO_DUAL_WRITE_SECRET: secret }),
+      ).toContain("APLIO_READ_CUTOVER_AT: missing");
+    });
+
+    it("rejects the cutover without the secret", () => {
+      expect(messageOf({ ...valid, APLIO_READ_CUTOVER_AT: cutover })).toContain(
+        "APLIO_DUAL_WRITE_SECRET: missing",
+      );
+    });
+
+    it("rejects a cutover without an offset", () => {
+      const message = messageOf({
+        ...valid,
+        APLIO_DUAL_WRITE_SECRET: secret,
+        APLIO_READ_CUTOVER_AT: "2026-12-01T05:00:00",
+      });
+      expect(message).toContain("APLIO_READ_CUTOVER_AT");
+    });
+
+    it("rejects a short secret without echoing it", () => {
+      const short = "z".repeat(31);
+      const message = messageOf({
+        ...valid,
+        APLIO_DUAL_WRITE_SECRET: short,
+        APLIO_READ_CUTOVER_AT: cutover,
+      });
+      expect(message).toContain("APLIO_DUAL_WRITE_SECRET");
+      expect(message).not.toContain(short);
+    });
+  });
+
   describe("POSTHOG_DISABLED", () => {
     it.each(["true", "false"])("accepts %s", (value) => {
       const env = parseServerEnv({ ...valid, POSTHOG_DISABLED: value });

@@ -114,5 +114,16 @@ export function toAuthSettings(env: z.infer<typeof authEnvSchema>) {
     baseURL,
     signupAllowlist,
     previewGate,
+    // The relying party is the auth host itself, never the parent domain, so a
+    // sibling product subdomain cannot run a ceremony for an SGAuth credential.
+    passkey: {
+      rpID: new URL(baseURL).hostname,
+      rpName: "Northeastern SGA",
+      origin: baseURL,
+    },
+    emailOtp: {
+      enabled: env.SGAUTH_EMAIL_OTP_ENABLED === "true",
+      dailyCap: env.SGAUTH_EMAIL_OTP_DAILY_CAP,
+    },
   };
 }

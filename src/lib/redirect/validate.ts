@@ -9,7 +9,7 @@ import { MAX_REDIRECT_LENGTH } from "@/lib/product-registry";
 const PRINTABLE_ASCII = /^[\x21-\x7e]+$/;
 const ABSOLUTE_HTTP = /^https?:\/\//i;
 
-export const FALLBACK_PATH = "/account";
+export const FALLBACK_PATH = "/";
 
 export interface RedirectDeps {
   sgauthOrigin: string;

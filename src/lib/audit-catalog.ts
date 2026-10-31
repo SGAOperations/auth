@@ -14,8 +14,11 @@ export const AUDIT_EVENT_TYPES = [
   "PASSWORD_SET_REQUESTED",
   "PASSWORD_SET",
   "PASSWORD_CHANGED",
+  "PASSWORD_CHANGE_FAILED",
   "PASSWORD_REHASHED",
   "EMAIL_VERIFIED",
+  "EMAIL_CHANGE_REQUESTED",
+  "EMAIL_CHANGED",
   "USER_CREATED",
   "USER_INVITED",
   "USER_UPDATED",
@@ -48,8 +51,11 @@ export const AUDIT_EVENT_TYPES = [
   "MFA_BACKUP_CODES_REGENERATED",
   "REAUTH_SUCCEEDED",
   "REAUTH_FAILED",
+  "PASSKEY_ADDED",
+  "PASSKEY_REMOVED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
+  "AUDIT_EXPORTED",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
@@ -85,7 +91,6 @@ interface AuditEventSpec {
 const noMetadata = z.strictObject({});
 
 const userTarget = { targetType: "USER", metadata: noMetadata } as const;
-const productTarget = { targetType: "PRODUCT", metadata: noMetadata } as const;
 const transferTarget = {
   targetType: "TRANSFER",
   metadata: noMetadata,
@@ -100,18 +105,42 @@ const positionOnUser = {
 
 // Position metadata holds position fields only. User ids are the one piece of
 // person data, and only in POSITION_DELETED's holderIds (as in positionOnUser).
+// Manager and report ids are position ids, not person data.
 const positionSnapshot = z.strictObject({
   key: z.string(),
   name: z.string(),
   category: z.string().nullable(),
   description: z.string().nullable(),
+  isLeadership: z.boolean(),
+  managerPositionId: z.uuid().nullable(),
 });
 
 const positionChanges = z.strictObject({
   name: z.string().optional(),
   category: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  isLeadership: z.boolean().optional(),
+  managerPositionId: z.uuid().nullable().optional(),
 });
+
+/** The product fields an update can change. `slug` is immutable and absent. */
+export const PRODUCT_AUDIT_FIELDS = [
+  "name",
+  "description",
+  "baseUrl",
+  "iconUrl",
+  "isActive",
+  "sortOrder",
+  "visibility",
+  "visibleToPositionKeys",
+  "loginRedirectPath",
+] as const;
+
+export type ProductAuditField = (typeof PRODUCT_AUDIT_FIELDS)[number];
+
+// Slugs and field names are not PII, and the slug keeps the history readable
+// after a delete. Never put values here: an update records field names only.
+const productSlugMetadata = z.strictObject({ slug: z.string().min(2).max(64) });
 
 const hasChange = (changes: Record<string, unknown>) =>
   Object.keys(changes).length > 0;
@@ -140,8 +169,24 @@ export const TRANSFER_CANCEL_REASONS = [
 
 export type TransferCancelReason = (typeof TRANSFER_CANCEL_REASONS)[number];
 
+/**
+ * Why an emailed-code sign-in failed: a wrong, expired or spent code, or the
+ * refusal rule that applied (email-otp-policy.ts). Rule names only, never an
+ * address or a code.
+ */
+export const OTP_LOGIN_FAILED_REASONS = [
+  "OTP_INVALID",
+  "OTP_NO_ACCOUNT",
+  "OTP_INACTIVE",
+  "OTP_UNVERIFIED",
+  "OTP_ADMIN",
+  "OTP_MFA",
+  "OTP_LOCKED",
+] as const;
+
 const sha256Hex = z.string().regex(/^[0-9a-f]{64}$/);
 const count = z.number().int().nonnegative();
+const emailAddress = z.string().min(3).max(320);
 
 const breakGlassOperator = z.string().trim().min(1).max(100);
 const breakGlassReason = z.string().trim().min(10).max(500);
@@ -155,6 +200,8 @@ export const AUDIT_CATALOG = {
         "email_verification",
         "totp",
         "backup_code",
+        "email_otp",
+        "passkey",
         "other",
       ]),
     }),
@@ -168,12 +215,20 @@ export const AUDIT_CATALOG = {
         "ACCOUNT_DEACTIVATED",
         "ACCOUNT_LOCKED",
         "INVALID_TWO_FACTOR_CODE",
+        ...OTP_LOGIN_FAILED_REASONS,
         "OTHER",
       ]),
+      // Set on an emailed-code sign-in only; the password path omits it.
+      method: z.literal("email_otp").optional(),
     }),
   },
   LOGOUT: sessionTarget,
-  SESSION_REVOKED: sessionTarget,
+  // An admin revoking one of another user's sessions names that user, so the
+  // user's timeline can find the row. The user's own revoke leaves it out.
+  SESSION_REVOKED: {
+    targetType: "SESSION",
+    metadata: z.strictObject({ userId: z.uuid().optional() }),
+  },
   SESSIONS_REVOKED: {
     targetType: "USER",
     metadata: z.strictObject({ scope: z.enum(["all", "others"]) }),
@@ -194,12 +249,51 @@ export const AUDIT_CATALOG = {
     targetType: "USER",
     metadata: z.strictObject({ revokedOtherSessions: z.boolean() }),
   },
+  // A wrong current password at change-password, or a refusal while locked.
+  PASSWORD_CHANGE_FAILED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: z.enum(["INVALID_CURRENT_PASSWORD", "ACCOUNT_LOCKED"]),
+    }),
+  },
   PASSWORD_REHASHED: userTarget,
   EMAIL_VERIFIED: userTarget,
+  // An admin asked to change a user's email (AUTH-T24). Both addresses are PII,
+  // so they are listed in AUDIT_PII_METADATA_FIELDS and the tombstone scrubs them.
+  EMAIL_CHANGE_REQUESTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      requestId: z.string().min(1),
+      fromEmail: emailAddress,
+      toEmail: emailAddress,
+      // Set when this request replaced a still-open one.
+      supersededRequestId: z.string().min(1).optional(),
+    }),
+  },
+  // The new mailbox confirmed. Written with a SYSTEM actor: the token holder has
+  // no session, and `requestedById` names the admin.
+  EMAIL_CHANGED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      requestId: z.string().min(1),
+      requestedById: z.string().min(1),
+      fromEmail: emailAddress,
+      toEmail: emailAddress,
+      legacyEmail: z.strictObject({ from: z.boolean(), to: z.boolean() }),
+      sessionsRevoked: count,
+    }),
+  },
   USER_CREATED: {
     targetType: "USER",
     metadata: z.strictObject({
-      source: z.enum(["self_signup", "admin", "system"]),
+      source: z.enum([
+        "self_signup",
+        "admin",
+        "bulk_import",
+        "system",
+        // Aplio's server, through POST /api/provision/aplio/users.
+        "aplio_dual_write",
+      ]),
       // Set by the admin create endpoint only: whether an invite was issued.
       invited: z.boolean().optional(),
     }),
@@ -222,10 +316,16 @@ export const AUDIT_CATALOG = {
   USER_REACTIVATED: userTarget,
   // The tombstone (docs/DATA_HANDLING.md). `removedPositionIds` stands in for
   // one POSITION_UNASSIGNED per position, so a delete writes a single row.
+  // `reason` names the rule that fired: an admin, or a retention rule (#90).
   USER_DELETED: {
     targetType: "USER",
     metadata: z.strictObject({
-      reason: z.enum(["admin"]),
+      reason: z.enum([
+        "admin",
+        "deactivated_30d",
+        "inactive_12mo",
+        "unverified_7d",
+      ]),
       removedPositionIds: z.array(z.string().min(1)).max(50),
     }),
   },
@@ -245,15 +345,22 @@ export const AUDIT_CATALOG = {
       before: positionSnapshot,
       after: z.strictObject({ deletedAt: z.iso.datetime() }),
       holderIds: z.array(z.uuid()),
+      // Positions that reported to this one and lost their manager with it.
+      reportIds: z.array(z.uuid()),
     }),
   },
   // Target the user so the user timeline can use the (targetType, targetId,
   // createdAt) index. Position-side history reads metadata.positionId.
   POSITION_ASSIGNED: positionOnUser,
   POSITION_UNASSIGNED: positionOnUser,
-  PRODUCT_CREATED: productTarget,
-  PRODUCT_UPDATED: productTarget,
-  PRODUCT_DELETED: productTarget,
+  PRODUCT_CREATED: { targetType: "PRODUCT", metadata: productSlugMetadata },
+  PRODUCT_UPDATED: {
+    targetType: "PRODUCT",
+    metadata: productSlugMetadata.extend({
+      fields: z.array(z.enum(PRODUCT_AUDIT_FIELDS)).min(1),
+    }),
+  },
+  PRODUCT_DELETED: { targetType: "PRODUCT", metadata: productSlugMetadata },
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,
   // `via` says which door the cancel came through. The transfer row already
@@ -332,26 +439,75 @@ export const AUDIT_CATALOG = {
       reason: z.enum(["INVALID_CREDENTIALS", "ACCOUNT_LOCKED"]),
     }),
   },
-  // One per `--apply` of scripts/import-users.ts. Counts and checksums only: no
-  // address, name or hash. A later import source widens `source`.
+  // A passkey id is an opaque UUID, not PII. A passkey the database trigger
+  // removes on deactivation writes no PASSKEY_REMOVED: the deactivating code's
+  // USER_DEACTIVATED / USER_DELETED event covers it.
+  PASSKEY_ADDED: {
+    targetType: "USER",
+    metadata: z.strictObject({ passkeyId: z.string().min(1) }),
+  },
+  PASSKEY_REMOVED: {
+    targetType: "USER",
+    metadata: z.strictObject({ passkeyId: z.string().min(1) }),
+  },
+  // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
+  // and one per admin CSV import.
+  // Counts and checksums only: no address, name, position key or hash. A later
+  // import source adds a member keyed on `source`.
   BULK_IMPORT: {
     targetType: null,
-    metadata: z.strictObject({
-      source: z.enum(["chambers"]),
-      exportSource: z.enum(["chambers-neon", "supabase"]),
-      sourceSha256: sha256Hex,
-      mappingSha256: sha256Hex,
-      replacementsSha256: sha256Hex.nullable(),
-      created: count,
-      merged: count,
-      unchanged: count,
-      skipped: count,
-      emailsReplaced: count,
-      positionsAssigned: count,
-    }),
+    metadata: z.discriminatedUnion("source", [
+      z.strictObject({
+        source: z.literal("chambers"),
+        exportSource: z.enum(["chambers-neon", "supabase"]),
+        sourceSha256: sha256Hex,
+        mappingSha256: sha256Hex,
+        replacementsSha256: sha256Hex.nullable(),
+        created: count,
+        merged: count,
+        unchanged: count,
+        skipped: count,
+        emailsReplaced: count,
+        positionsAssigned: count,
+      }),
+      z.strictObject({
+        source: z.literal("aplio"),
+        sourceSha256: sha256Hex,
+        created: count,
+        merged: count,
+        duplicateInSource: count,
+        skipped: count,
+        legacyEmails: count,
+        aplioAdmins: count,
+      }),
+      z.strictObject({
+        source: z.literal("csv"),
+        rows: count,
+        created: count,
+        updated: count,
+        unchanged: count,
+        skipped: count,
+        positionsAssigned: count,
+        skipInvalid: z.boolean(),
+        sendInvites: z.boolean(),
+      }),
+    ]),
   },
   JWKS_ROTATED: noTarget,
+  // An admin downloaded the audit log as CSV. No filter values: a user filter
+  // is an email address, and the catalog keeps PII out of audit rows.
+  AUDIT_EXPORTED: noTarget,
 } as const satisfies { [K in AuditEventType]: AuditEventSpec };
+
+/**
+ * The metadata keys that hold personal data, by event type. The tombstone
+ * removes them from every row that targets the deleted user. An event that
+ * carries PII in `metadata` must be listed here, and nowhere else.
+ */
+export const AUDIT_PII_METADATA_FIELDS = {
+  EMAIL_CHANGE_REQUESTED: ["fromEmail", "toEmail"],
+  EMAIL_CHANGED: ["fromEmail", "toEmail"],
+} as const satisfies Partial<Record<AuditEventType, readonly string[]>>;
 
 export type AuditMetadata<T extends AuditEventType> = z.input<
   (typeof AUDIT_CATALOG)[T]["metadata"]

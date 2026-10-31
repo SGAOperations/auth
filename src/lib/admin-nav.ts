@@ -8,4 +8,24 @@ export interface AdminSection {
 
 export const ADMIN_NAV: readonly AdminSection[] = [
   { href: "/admin", label: "Dashboard", description: "Overview" },
+  {
+    href: "/admin/users",
+    label: "Users",
+    description: "Accounts, positions, sessions and activity",
+  },
+  {
+    href: "/admin/products",
+    label: "Products",
+    description: "Connected tools, trusted origins and visibility",
+  },
+  {
+    href: "/admin/positions",
+    label: "Positions",
+    description: "Position keys, categories and holders",
+  },
+  {
+    href: "/admin/audit",
+    label: "Audit log",
+    description: "Search and export security events",
+  },
 ];

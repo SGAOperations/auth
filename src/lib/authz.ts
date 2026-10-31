@@ -45,6 +45,7 @@ export type AuthzDenialReason =
   | "PRIMARY_ADMIN_PROTECTED"
   | "PRIMARY_ADMIN_REQUIRED"
   | "TARGET_NOT_ELIGIBLE"
+  | "NOT_SELF"
   | "NOT_TRANSFER_RECIPIENT"
   | "NOT_TRANSFER_INITIATOR";
 
@@ -149,6 +150,30 @@ export function can(
   }
 
   return allow;
+}
+
+/**
+ * Whether `actor` may edit their own name and preferred name from the account
+ * page. Any ACTIVE user may, for themselves only; an admin editing someone
+ * else's profile is `can(actor, "updateProfile", target)`.
+ */
+export function canUpdateOwnProfile(
+  actor: AuthzSubject,
+  targetUserId: string,
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  return actor.id === targetUserId ? allow : deny("NOT_SELF");
+}
+
+/**
+ * Whether `actor` may view the position org chart. Any ACTIVE user may: the
+ * chart shows structure only (name, category, leadership flag) and carries no
+ * holders, keys or counts.
+ */
+export function canViewOrgChart(actor: AuthzSubject): AuthzDecision {
+  return actor.status === "ACTIVE" ? allow : deny("ACTOR_INACTIVE");
 }
 
 /** The two people a Primary Admin transfer names. */

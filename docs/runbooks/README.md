@@ -15,10 +15,12 @@ events it produces, so you can confirm the result in the audit log.
 | Onboard a product                  | A new product joins SGAuth                    | Any admin                      | [onboard-product.md](onboard-product.md)                |
 | Semester turnover                  | Officers change at the end of a semester      | The Primary Admin              | [semester-turnover.md](semester-turnover.md)            |
 | Restore the Neon `main` branch     | Production data needs a point-in-time restore | Neon org Admin                 | [neon-restore.md](neon-restore.md)                      |
+| Email sign-in codes                | Deciding on, or flipping, the code sign-in    | Admins with env access         | [email-otp.md](email-otp.md)                            |
 
 Other runbooks: [neon-upgrade.md](neon-upgrade.md), [on-call.md](on-call.md),
 [positions-sync.md](positions-sync.md), [legacy-bcrypt.md](legacy-bcrypt.md),
-[chambers-export.md](chambers-export.md).
+[chambers-export.md](chambers-export.md), [chambers-import.md](chambers-import.md),
+[aplio-import.md](aplio-import.md).
 
 ## Verification log
 

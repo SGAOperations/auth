@@ -157,7 +157,10 @@ jobs:
           DIRECT_URL: "postgresql://placeholder"
       - run: npx vitest run --project unit
 
-  test:
+  # The Primary Admin transfer suites (vitest project db-transfer). They assume
+  # no committed Primary Admin, so they reset the test branch first and run
+  # before the sharded db job, which resets its own shard branches.
+  db-transfer:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     concurrency:
@@ -166,6 +169,55 @@ jobs:
     env:
       TEST_DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
       TEST_DIRECT_URL: ${{ secrets.NEON_TEST_DIRECT_URL }}
+      SGAUTH_ENV: local
+      BETTER_AUTH_SECRET: ci-only-not-a-secret-0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+        env:
+          DIRECT_URL: "postgresql://placeholder"
+      - name: Reset Neon test branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+        run: npx neonctl branches reset test --parent --project-id "$NEON_PROJECT_ID"
+      - run: npx vitest run --project db-transfer
+
+  test:
+    needs: db-transfer
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    # One Neon branch (ci-shard-N) and one concurrency group per shard, so the
+    # four shards run at the same time and only queue behind the same shard of
+    # an earlier run.
+    concurrency:
+      group: neon-ci-shard-${{ matrix.shard }}
+      cancel-in-progress: false
+    env:
+      # Secret names cannot be built from a variable, so each shard maps to its
+      # own pair of secrets explicitly. An unset secret yields an empty string,
+      # which the credentials check below reports.
+      TEST_DATABASE_URL: >-
+        ${{ (matrix.shard == 1 && secrets.NEON_TEST_DATABASE_URL_1)
+        || (matrix.shard == 2 && secrets.NEON_TEST_DATABASE_URL_2)
+        || (matrix.shard == 3 && secrets.NEON_TEST_DATABASE_URL_3)
+        || (matrix.shard == 4 && secrets.NEON_TEST_DATABASE_URL_4)
+        || '' }}
+      TEST_DIRECT_URL: >-
+        ${{ (matrix.shard == 1 && secrets.NEON_TEST_DIRECT_URL_1)
+        || (matrix.shard == 2 && secrets.NEON_TEST_DIRECT_URL_2)
+        || (matrix.shard == 3 && secrets.NEON_TEST_DIRECT_URL_3)
+        || (matrix.shard == 4 && secrets.NEON_TEST_DIRECT_URL_4)
+        || '' }}
       SGAUTH_ENV: local
       BETTER_AUTH_SECRET: ci-only-not-a-secret-0123456789abcdef
     steps:
@@ -200,5 +252,73 @@ jobs:
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
-        run: npx neonctl branches reset test --parent --project-id "$NEON_PROJECT_ID"
-      - run: npx vitest run --project db
+        run: npx neonctl branches reset ci-shard-${{ matrix.shard }} --parent --project-id "$NEON_PROJECT_ID"
+      - run: npx vitest run --project db --shard=${{ matrix.shard }}/4
+
+  # Playwright SSO suite against SGAuth and two SDK product stubs on
+  # *.sga.localhost. It uses a scratch Postgres service, like the migrations
+  # job, so it runs on fork PRs and never queues behind the Neon test branch.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      SGAUTH_ENV: local
+      BETTER_AUTH_SECRET: ci-only-not-a-secret-0123456789abcdef
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Cache prisma engines
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/prisma
+          key: prisma-engines-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      # The stubs' server-side SDK calls resolve these names; Chromium resolves
+      # *.localhost natively.
+      - name: Map the e2e hostnames to loopback
+        run: echo "127.0.0.1 auth.sga.localhost a.sga.localhost b.sga.localhost" | sudo tee -a /etc/hosts
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npx playwright install --with-deps --only-shell chromium
+      - name: Cache Next build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+            e2e/product-stub/.next/cache
+          key: e2e-next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'e2e/product-stub/**') }}
+          restore-keys: |
+            e2e-next-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - run: npm run e2e:build
+      - run: npx playwright test
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

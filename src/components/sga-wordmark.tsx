@@ -11,10 +11,7 @@ export function SgaWordmark({ className }: { className?: string }) {
     >
       {/* Decorative: the text beside it names the product. */}
       <Image src="/sgauth-logo.svg" alt="" width={28} height={28} priority />
-      <span>
-        <span className="font-semibold text-brand">SGA</span>{" "}
-        <span className="text-muted-foreground">Account</span>
-      </span>
+      <span className="font-semibold">SGAuth</span>
     </span>
   );
 }

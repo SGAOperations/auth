@@ -20,7 +20,7 @@ Every personal field in `prisma/schema.prisma`. "Admins" means SGAuth admins, th
 | `image`                                                                            | Unused, always null                            | None                          | n/a                                   |
 | `status`, `deactivatedAt`, `deletedAt`                                             | Account lifecycle                              | Admins                        | Kept (the row survives the tombstone) |
 | `isAdmin`, `isPrimaryAdmin`                                                        | Authorization                                  | Admins; products (admin flag) | Kept                                  |
-| `lastLoginAt`                                                                      | Inactivity retention                           | Admins                        | Kept                                  |
+| `lastLoginAt`, `inactivityNoticeSentAt`                                            | Inactivity retention                           | Admins                        | Kept                                  |
 | `legacyEmail`                                                                      | Marks an imported non-northeastern.edu address | Admins                        | Kept                                  |
 | `emailVerified`, `passwordChangedAt`, `twoFactorEnabled`, `createdAt`, `updatedAt` | Account security state and timestamps          | Admins                        | Kept                                  |
 
@@ -63,6 +63,8 @@ The thresholds live in `src/lib/retention/policy.ts`. The rules, as of #90:
 - Sessions are purged at expiry or 90 days after creation.
 - IP address and user agent are nulled on audit rows at 90 days.
 - Expired verifications and unlock tokens are purged.
+
+Each tombstone writes one `USER_DELETED` audit row whose `reason` is `admin`, `deactivated_30d`, `inactive_12mo` or `unverified_7d`. The runbook is [retention.md](runbooks/retention.md).
 
 ## Tombstone end state
 

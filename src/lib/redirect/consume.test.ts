@@ -47,12 +47,12 @@ describe("isResolvedRedirect", () => {
     expect(await isResolvedRedirect(target)).toBe(true);
   });
 
-  it("accepts the absolute /account fallback consumeRedirect returns", async () => {
+  it("accepts the absolute home fallback consumeRedirect returns", async () => {
     cookieStore.get.mockReturnValue(undefined);
 
     const target = await consumeRedirect();
 
-    expect(target).toBe(`${SGAUTH}/account`);
+    expect(target).toBe(`${SGAUTH}/`);
     expect(await isResolvedRedirect(target)).toBe(true);
   });
 
@@ -61,6 +61,7 @@ describe("isResolvedRedirect", () => {
     "//evil.com",
     "javascript:alert(1)",
     // Resolves to an absolute URL, so it is not itself a resolved value.
+    "/",
     "/account",
     // Normalization changes it, so it is not a value consumeRedirect returned.
     `${PRODUCT}/purchases/42#top`,

@@ -15,7 +15,9 @@ import {
   buildCookieOptions,
   deviceCookieName,
 } from "@/lib/auth/cookies";
-import { mailer } from "@/lib/email/server";
+import { EMAIL_OTP_DISABLED_PATHS } from "@/lib/auth/email-otp";
+import { capStore, mailer } from "@/lib/email/server";
+import { rateLimiter } from "@/lib/rate-limit/server";
 import { setPasswordService } from "@/lib/set-password/server";
 
 const settings = toAuthSettings(env);
@@ -37,30 +39,56 @@ assertSecureCookieConfig({
   advanced,
 });
 
-export const auth = betterAuth({
-  ...buildAuthOptions({
-    prisma,
-    baseURL: settings.baseURL,
-    // secrets[0] signs; secret only decrypts pre-rotation data
-    secret: settings.legacySecret,
-    secrets: settings.secrets,
-    trustedOrigins: getTrustedOrigins,
-    advanced,
-    analytics,
-    lockout: {
+const options = buildAuthOptions({
+  prisma,
+  baseURL: settings.baseURL,
+  // secrets[0] signs; secret only decrypts pre-rotation data
+  secret: settings.legacySecret,
+  secrets: settings.secrets,
+  trustedOrigins: getTrustedOrigins,
+  advanced,
+  analytics,
+  lockout: {
+    mailer,
+    deviceCookie: {
+      name: deviceCookieName(settings.cookies),
+      secure: settings.cookies.secure,
+    },
+    // `after` keeps the Vercel function alive until the task settles, so the
+    // counter write, the lock and its emails finish after the response.
+    defer: (task) => after(task),
+  },
+  // The shared limiter, so change-password uses the Upstash backend and its
+  // namespace.
+  rateLimiter,
+  logger,
+  onPasswordlessSignUp: (user) =>
+    setPasswordService.requestForUser(user, "sign_up"),
+});
+
+const emailOtp = settings.emailOtp.enabled
+  ? {
+      prisma,
+      settings: settings.emailOtp,
+      rateLimiter,
+      capStore,
       mailer,
       deviceCookie: {
         name: deviceCookieName(settings.cookies),
         secure: settings.cookies.secure,
       },
-      // `after` keeps the Vercel function alive until the task settles, so the
-      // counter write, the lock and its emails finish after the response.
-      defer: (task) => after(task),
-    },
-    logger,
-    onPasswordlessSignUp: (user) =>
-      setPasswordService.requestForUser(user, "sign_up"),
-  }),
+      logger,
+    }
+  : null;
+
+export const auth = betterAuth({
+  ...options,
+  // Off means absent: with the flag off the plugin is not registered, so its
+  // routes answer 404. On, every route but sign-in is shut over HTTP.
+  disabledPaths: [
+    ...options.disabledPaths,
+    ...(emailOtp ? EMAIL_OTP_DISABLED_PATHS : []),
+  ],
   // Better Auth's own lines go through the structured, redacting logger. An
   // error-level line that carries an Error is also sent to error tracking:
   // Better Auth turns most internal failures into a handled 500, so
@@ -86,10 +114,12 @@ export const auth = betterAuth({
   rateLimit: { enabled: false },
   plugins: buildAuthPlugins({
     signupAllowlist: settings.signupAllowlist,
+    passkey: settings.passkey,
     prisma,
     issuer: settings.baseURL,
     secret: settings.secret,
     sgauthEnv: settings.sgauthEnv,
     mailer,
+    emailOtp,
   }),
 });

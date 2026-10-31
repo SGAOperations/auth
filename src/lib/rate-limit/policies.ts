@@ -17,6 +17,17 @@ export const POLICIES = {
     { id: "sign-in:ip:1m", limit: 10, windowSeconds: 60, by: "ip" },
     { id: "sign-in:ip:1h", limit: 50, windowSeconds: 3600, by: "ip" },
   ],
+  // Failed WebAuthn ceremonies share no counter with the password lockout
+  // (AUTH-T64): a passkey attempt never reaches /sign-in/email.
+  passkeySignIn: [
+    { id: "passkey-sign-in:ip:1m", limit: 10, windowSeconds: 60, by: "ip" },
+    { id: "passkey-sign-in:ip:1h", limit: 50, windowSeconds: 3600, by: "ip" },
+  ],
+  // The login page's conditional UI asks for options on every view, and each
+  // call writes a Verification row.
+  passkeyOptions: [
+    { id: "passkey-options:ip:1m", limit: 30, windowSeconds: 60, by: "ip" },
+  ],
   signUp: [{ id: "sign-up:ip:1h", limit: 5, windowSeconds: 3600, by: "ip" }],
   passwordReset: [
     { id: "reset:ip:10m", limit: 3, windowSeconds: 600, by: "ip" },
@@ -43,8 +54,23 @@ export const POLICIES = {
     { id: "token-link:ip:10m", limit: 20, windowSeconds: 600, by: "ip" },
   ],
   reauth: [{ id: "reauth:user:1m", limit: 5, windowSeconds: 60, by: "user" }],
+  // Checked in the Better Auth `before` hook (src/lib/auth/password-change.ts),
+  // not by matchAuthRoute: the user id is known only after the session lookup.
+  // Above the 5-failure lockout on purpose, so the lock trips first on guessing.
+  changePassword: [
+    {
+      id: "change-password:user:10m",
+      limit: 10,
+      windowSeconds: 600,
+      by: "user",
+    },
+  ],
   adminMutation: [
     { id: "admin:user:1m", limit: 100, windowSeconds: 60, by: "user" },
+  ],
+  // GET /api/sgauth/admin/audit/export: each call streams up to 50,000 rows.
+  adminExport: [
+    { id: "admin-export:user:10m", limit: 10, windowSeconds: 600, by: "user" },
   ],
   // The email step and the expired-link form. Per-email buckets count whether
   // or not the account exists, so a 429 is identical either way.
@@ -65,6 +91,35 @@ export const POLICIES = {
   setPasswordInvite: [
     { id: "invite:user:1d", limit: 3, windowSeconds: 86400, by: "user" },
   ],
+  // Emailed sign-in codes (docs/runbooks/email-otp.md). Checked in the Better
+  // Auth before hook (src/lib/auth/email-otp.ts), not by matchAuthRoute: the
+  // server actions call auth.api in process, past the HTTP wrapper. The
+  // per-email buckets count whether or not the account exists, so a 429 is
+  // identical either way.
+  emailOtpSend: [
+    {
+      id: "email-otp-send:email:15m",
+      limit: 3,
+      windowSeconds: 900,
+      by: "email",
+    },
+    {
+      id: "email-otp-send:email:1d",
+      limit: 6,
+      windowSeconds: 86400,
+      by: "email",
+    },
+    { id: "email-otp-send:ip:1h", limit: 10, windowSeconds: 3600, by: "ip" },
+  ],
+  emailOtpSignIn: [
+    {
+      id: "email-otp-sign-in:email:15m",
+      limit: 10,
+      windowSeconds: 900,
+      by: "email",
+    },
+    { id: "email-otp-sign-in:ip:1h", limit: 20, windowSeconds: 3600, by: "ip" },
+  ],
 } as const satisfies Record<string, readonly Rule[]>;
 
 export type PolicyName = keyof typeof POLICIES;
@@ -81,8 +136,12 @@ export function matchAuthRoute(
 ): PolicyName | null {
   const verb = method.toUpperCase();
   if (path === "/token") return "token";
+  if (path === "/passkey/generate-authenticate-options")
+    return "passkeyOptions";
   if (verb !== "POST") return null;
   switch (path) {
+    case "/passkey/verify-authentication":
+      return "passkeySignIn";
     case "/sign-in/email":
     // The second factor shares the sign-in IP budget, on top of the plugin's
     // own per-challenge and per-account caps.

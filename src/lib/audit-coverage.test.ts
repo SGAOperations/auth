@@ -8,6 +8,7 @@ import { APP_ROUTE_AUDIT, AUTH_ENDPOINT_AUDIT } from "@/lib/audit-routes";
 import { buildAuthOptions } from "@/lib/auth/options";
 import { testLockout } from "@/test/lockout-options";
 import { buildAuthPlugins } from "@/lib/auth/plugins";
+import { createMemoryCapStore } from "@/lib/email/caps";
 
 const FIX =
   "add an audit() call and list it in src/lib/audit-routes.ts, or classify it as exempt with a reason";
@@ -63,11 +64,28 @@ function authEndpoints() {
         domains: new Set(["northeastern.edu"]),
         emails: new Set(),
       },
+      passkey: {
+        rpID: "localhost",
+        rpName: "Test",
+        origin: "http://localhost:3000",
+      },
       prisma,
       issuer: "http://localhost:3000",
       secret: "s".repeat(32),
       sgauthEnv: "local",
       mailer: testLockout().mailer,
+      // On, so the table covers every endpoint the flag can add.
+      emailOtp: {
+        prisma,
+        settings: { dailyCap: 100 },
+        rateLimiter: {
+          check: async () => ({ allowed: true, retryAfterSeconds: 0 }),
+        },
+        capStore: createMemoryCapStore(),
+        mailer: testLockout().mailer,
+        deviceCookie: testLockout().deviceCookie,
+        logger: { info() {}, warn() {}, error() {} },
+      },
     }),
   });
   return Object.values(auth.api).flatMap((endpoint) => {

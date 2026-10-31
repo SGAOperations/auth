@@ -1,6 +1,6 @@
 # Runbook: sync the curated position list
 
-The curated SGA position list lives in `prisma/seed/positions.json` (82
+The curated SGA position list lives in `prisma/seed/positions.json` (83
 positions). `npm run positions:sync` reconciles it with the `Position` table.
 This is the only supported way to load it into production.
 
@@ -61,11 +61,11 @@ Then one line per position that is not already in sync, then the counts:
 + create vp-finance "Vice President of Finance" [Operational Affairs]
 ~ update senator name "Senator (old)" -> "Senator"
 ! skip   old-key (retired by an admin; not recreated)
-82 curated: 1 create, 1 update, 79 unchanged, 1 skipped
+83 curated: 1 create, 1 update, 80 unchanged, 1 skipped
 ```
 
 When nothing differs, it prints
-`82 curated positions already in sync; nothing to do.`
+`83 curated positions already in sync; nothing to do.`
 
 - `+ create`: the key has never existed. It is created with no holders.
 - `~ update`: the active row's name or category differs from the JSON. **Applying
@@ -101,3 +101,24 @@ apply runs in one transaction, so a failure part-way leaves nothing written.
   Product roles such as `aplio-admin` and admin-created positions are ignored,
   and are not mentioned in the output.
 - Change a key. Keys are immutable.
+
+## Retiring or splitting a curated position
+
+Removing an entry from `positions.json` does not retire it: the sync ignores
+keys that are not in the JSON, so the row stays live. Keys cannot be renamed
+either. To replace a key (for example, to split one position into two):
+
+1. Merge the pull request that adds the replacement keys and removes the old
+   one, then run the sync (see Procedure) so the new keys exist.
+2. Move every holder of the old position with
+   `PATCH /api/sgauth/admin/users/[id]/positions` and
+   `{ "assign": [<new id>], "unassign": [<old id>] }`. It is one audited
+   transaction, and the unassign runs first, so the 50-position limit is never
+   hit.
+3. Soft-delete the old position with `DELETE /api/sgauth/admin/positions/[id]`
+   and `{ "confirmKey": "<old key>" }`. The response reports `holderCount`; a
+   non-zero count means a holder was missed, and the `POSITION_DELETED` audit
+   row lists their ids.
+
+A Chambers import mapping that still names a retired key stops with
+`? unknown position key`. Update the mapping before the next import.

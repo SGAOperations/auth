@@ -13,6 +13,7 @@ import {
   type AuditCall,
   type AuditDb,
   type AuditEventType,
+  type OTP_LOGIN_FAILED_REASONS,
 } from "@/lib/audit";
 
 // The part of Better Auth's hook context these adapters read. Declared here so
@@ -45,18 +46,27 @@ export interface HookSession {
 }
 
 const bodyWithEmail = z.looseObject({ email: z.string() });
-const changePasswordBody = z.looseObject({
-  revokeOtherSessions: z.boolean().optional(),
-});
 export const errorBody = z.looseObject({ code: z.string() });
 const userBody = z.looseObject({ user: z.looseObject({ id: z.string() }) });
+const registeredPasskey = z.looseObject({
+  id: z.string().min(1),
+  userId: z.string().min(1),
+});
+const passkeyIdBody = z.looseObject({ id: z.string().min(1) });
 const loginFailedReason = AUDIT_CATALOG.LOGIN_FAILED.metadata.shape.reason;
 
 export const LOGIN_METHODS: Record<
   string,
-  "password" | "email_verification" | "totp" | "backup_code"
+  | "password"
+  | "email_verification"
+  | "totp"
+  | "backup_code"
+  | "email_otp"
+  | "passkey"
 > = {
   "/sign-in/email": "password",
+  "/sign-in/email-otp": "email_otp",
+  "/passkey/verify-authentication": "passkey",
   "/verify-email": "email_verification",
   "/two-factor/verify-totp": "totp",
   "/two-factor/verify-backup-code": "backup_code",
@@ -126,24 +136,6 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
     });
   }
 
-  async function afterChangePassword(ctx: HookContext) {
-    const session = ctx.context.session ?? ctx.context.newSession;
-    if (!session) return;
-    const body = changePasswordBody.safeParse(ctx.body);
-    await emit(ctx, {
-      type: "PASSWORD_CHANGED",
-      actorType: "USER",
-      actorUserId: session.user.id,
-      targetType: "USER",
-      targetId: session.user.id,
-      metadata: {
-        revokedOtherSessions: body.success
-          ? body.data.revokeOtherSessions === true
-          : false,
-      },
-    });
-  }
-
   async function afterRevokeSessions(
     ctx: HookContext,
     scope: "all" | "others",
@@ -208,6 +200,34 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
     });
   }
 
+  // Both ids come from the endpoint's own response: the row it just wrote.
+  async function afterVerifyRegistration(ctx: HookContext) {
+    const passkey = registeredPasskey.safeParse(ctx.context.returned);
+    if (!passkey.success) return;
+    await emit(ctx, {
+      type: "PASSKEY_ADDED",
+      actorType: "USER",
+      actorUserId: passkey.data.userId,
+      targetType: "USER",
+      targetId: passkey.data.userId,
+      metadata: { passkeyId: passkey.data.id },
+    });
+  }
+
+  async function afterDeletePasskey(ctx: HookContext) {
+    const body = passkeyIdBody.safeParse(ctx.body);
+    const session = ctx.context.session;
+    if (!body.success || !session) return;
+    await emit(ctx, {
+      type: "PASSKEY_REMOVED",
+      actorType: "USER",
+      actorUserId: session.user.id,
+      targetType: "USER",
+      targetId: session.user.id,
+      metadata: { passkeyId: body.data.id },
+    });
+  }
+
   /**
    * Whether a new session is a login. Rotations are not: enrolling, disabling
    * and changing a password all replace the session of a signed-in user. Nor is
@@ -257,15 +277,18 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
               ? ctx.context.runInBackgroundOrAwait(task)
               : task);
           }
-          case "/change-password":
-            if (isAPIError(ctx.context.returned)) return;
-            return await afterChangePassword(ctx);
           case "/revoke-sessions":
             if (isAPIError(ctx.context.returned)) return;
             return await afterRevokeSessions(ctx, "all");
           case "/revoke-other-sessions":
             if (isAPIError(ctx.context.returned)) return;
             return await afterRevokeSessions(ctx, "others");
+          case "/passkey/verify-registration":
+            if (isAPIError(ctx.context.returned)) return;
+            return await afterVerifyRegistration(ctx);
+          case "/passkey/delete-passkey":
+            if (isAPIError(ctx.context.returned)) return;
+            return await afterDeletePasskey(ctx);
         }
       } catch {
         ctx.context.logger.error("Failed to prepare audit event", {
@@ -297,6 +320,25 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
         metadata: { reason: "ACCOUNT_LOCKED" },
         targetType: "USER",
         targetId: userId,
+      });
+    },
+
+    /**
+     * An emailed-code sign-in that failed: a wrong code, or a refusal by the
+     * eligibility rules. An unknown address has no target, as at the password
+     * step. Like `signInRefused`, the before hook that refuses calls it itself,
+     * because a throwing before hook skips Better Auth's after hooks.
+     */
+    async emailOtpFailed(
+      ctx: HookContext,
+      userId: string | null,
+      reason: (typeof OTP_LOGIN_FAILED_REASONS)[number],
+    ) {
+      await emit(ctx, {
+        type: "LOGIN_FAILED",
+        actorType: "SYSTEM",
+        metadata: { method: "email_otp", reason },
+        ...(userId ? { targetType: "USER" as const, targetId: userId } : {}),
       });
     },
 
@@ -362,6 +404,47 @@ export function createAuthAuditHooks(prisma: PrismaClient) {
         },
         { db, headers },
       );
+    },
+
+    /**
+     * A successful password change. Writes through the success transaction and
+     * throws, so a failed audit write rolls back the revocation and the stamp.
+     * The event is written here only: `afterEndpoint` has no change-password
+     * case.
+     */
+    async passwordChanged(
+      db: AuditDb,
+      userId: string,
+      { revokedOtherSessions }: { revokedOtherSessions: boolean },
+      headers?: Headers,
+    ) {
+      await audit(
+        {
+          type: "PASSWORD_CHANGED",
+          actorType: "USER",
+          actorUserId: userId,
+          targetType: "USER",
+          targetId: userId,
+          metadata: { revokedOtherSessions },
+        },
+        { db, headers },
+      );
+    },
+
+    /** A wrong current password, or a refusal while locked. */
+    async passwordChangeFailed(
+      ctx: HookContext,
+      userId: string,
+      reason: "INVALID_CURRENT_PASSWORD" | "ACCOUNT_LOCKED",
+    ) {
+      await emit(ctx, {
+        type: "PASSWORD_CHANGE_FAILED",
+        actorType: "USER",
+        actorUserId: userId,
+        targetType: "USER",
+        targetId: userId,
+        metadata: { reason },
+      });
     },
 
     /** A wrong password or code, or a refusal while locked. */
