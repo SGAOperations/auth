@@ -119,6 +119,17 @@ export function fieldMessages(
   return messages;
 }
 
+const SUBMIT_ERROR_KEY = "submit";
+
+/** The message of a failure that names no form field, if the form has one. */
+export function submitErrorMessage(
+  errors: FieldErrors<ProductFormValues>,
+): string | undefined {
+  return (errors as Record<string, { message?: string } | undefined>)[
+    SUBMIT_ERROR_KEY
+  ]?.message;
+}
+
 /** Validates the payload the server would see, so both sides agree. */
 export function productFormResolver(
   mode: ProductFormMode,
@@ -133,6 +144,18 @@ export function productFormResolver(
       if (isFormField(key) && !errors[key]) {
         errors[key] = { type: "validation", message: issue.message };
       }
+    }
+    // react-hook-form submits when `errors` is empty, whatever `values` holds,
+    // so an issue that names no form field must still block the submit. The
+    // `root` key does not: handleSubmit unsets it before that check.
+    if (Object.keys(errors).length === 0) {
+      Object.assign(errors, {
+        [SUBMIT_ERROR_KEY]: {
+          type: "validation",
+          message:
+            parsed.error.issues[0]?.message ?? "Check the form and retry.",
+        },
+      });
     }
     return { values: {}, errors };
   };

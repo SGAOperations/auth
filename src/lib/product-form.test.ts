@@ -4,6 +4,7 @@ import {
   fieldMessages,
   productFormResolver,
   productToFormValues,
+  submitErrorMessage,
   suggestProductSlug,
   toProductPayload,
   type ProductFormValues,
@@ -117,6 +118,18 @@ describe("productFormResolver", () => {
       { fields: {}, shouldUseNativeValidation: false },
     );
     expect(result.errors).toEqual({});
+  });
+
+  it("blocks the submit with a form-level error when no issue names a form field", async () => {
+    // The strict schemas report an unknown key with an empty path.
+    const stray = { ...valid, stray: true } as ProductFormValues;
+    const result = await productFormResolver("create")(stray, undefined, {
+      fields: {},
+      shouldUseNativeValidation: false,
+    });
+    expect(result.values).toEqual({});
+    expect(Object.keys(result.errors)).not.toEqual([]);
+    expect(submitErrorMessage(result.errors)).toBeTruthy();
   });
 
   it("does not require a slug in update mode", async () => {
