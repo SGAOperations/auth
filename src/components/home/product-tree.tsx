@@ -4,8 +4,9 @@ import { useSyncExternalStore } from "react";
 import { useMotionPreference } from "@/hooks/use-motion-preference";
 import { TREE_WIDTH, type TreeLayout, type TreeStrand } from "@/lib/home/tree";
 
-// One glowing branch per tile, growing out of the backdrop's primary left ray
-// and ending on the tile's left edge. The SVG starts at the ray (`--ray-gap`
+// One glowing branch per tile, all rooted on the backdrop's primary left ray at
+// the top of the tree (fading in over the first 24px) and ending on the tile's
+// left edge. The SVG starts at the ray (`--ray-gap`
 // left of the tile column) and is stretched to span it, hence
 // `preserveAspectRatio="none"` and non-scaling strokes. The swaying is SMIL `d`
 // morphing between two curves that share their end points, so the ray root and
@@ -87,7 +88,7 @@ export function ProductTree({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute top-0 forced-colors:hidden print:hidden"
+      className="pointer-events-none absolute top-0 [mask-image:linear-gradient(to_bottom,transparent,black_24px)] forced-colors:hidden print:hidden"
       style={{
         left: "calc(-1 * var(--ray-gap))",
         width: `calc(var(--ray-gap) + ${TREE_WIDTH}px)`,

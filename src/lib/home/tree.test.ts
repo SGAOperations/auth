@@ -57,10 +57,11 @@ describe("treeLayout", () => {
     }
   });
 
-  it("starts at or below the top of the tree", () => {
-    for (const strand of treeLayout(7).strands) {
-      for (const path of [strand.rest, strand.peak]) {
-        expect(points(path).at(0)?.[1]).toBeGreaterThanOrEqual(0);
+  it("roots every branch at the top of the tree", () => {
+    for (const count of [1, 4, 7]) {
+      for (const strand of treeLayout(count).strands) {
+        expect(points(strand.rest).at(0)).toEqual([0, 0]);
+        expect(points(strand.peak).at(0)).toEqual([0, 0]);
       }
     }
   });

@@ -33,7 +33,8 @@ const focusRing =
 // The 56px tile: the product's icon when it has a usable one, otherwise its
 // letter. An icon that fails to load leaves a transparent tile with a
 // crossed-out picture, and no letter. It is decorative: the button's text is
-// the accessible name.
+// the accessible name. The icon fills the tile (`size-full object-contain`), so
+// a bare-glyph icon file brings its own margin; a full-bleed icon needs none.
 function ProductTileMark({
   tone,
   letter,
