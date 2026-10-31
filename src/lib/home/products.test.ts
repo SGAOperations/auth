@@ -105,16 +105,28 @@ describe("toHomeProducts", () => {
 });
 
 describe("toHomeProducts iconSrc", () => {
-  it("is the path of an icon on the own origin", () => {
+  it("is the absolute href of an icon on the own origin", () => {
     expect(iconSrcFor(`${OWN_ORIGIN}/vaultz-logo.svg`)).toBe(
-      "/vaultz-logo.svg",
+      `${OWN_ORIGIN}/vaultz-logo.svg`,
     );
   });
 
   it("keeps the query string", () => {
     expect(iconSrcFor(`${OWN_ORIGIN}/vaultz-logo.svg?v=2`)).toBe(
-      "/vaultz-logo.svg?v=2",
+      `${OWN_ORIGIN}/vaultz-logo.svg?v=2`,
     );
+  });
+
+  it("never returns a protocol-relative value", () => {
+    const inputs = [
+      `${OWN_ORIGIN}/\\evil.example/x.svg`,
+      `${OWN_ORIGIN}//evil.example/x.svg`,
+    ];
+    for (const input of inputs) {
+      const result = iconSrcFor(input);
+      expect(result === null || result.startsWith(`${OWN_ORIGIN}/`)).toBe(true);
+      expect(result?.startsWith("//") ?? false).toBe(false);
+    }
   });
 
   it("is null when there is no icon", () => {

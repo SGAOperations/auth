@@ -25,7 +25,7 @@ export interface HomeProduct {
   href: string;
   tone: TileTone;
   letter: string;
-  /** A same-origin path to the product's icon, or null for the letter. */
+  /** An absolute same-origin URL of the product's icon, or null for the letter. */
   iconSrc: string | null;
   leadership: ResourceGroup[] | null;
   guidePath: string | null;
@@ -37,9 +37,11 @@ function tileFor(slug: string): { tone: TileTone; letter: string } | null {
 }
 
 /**
- * The icon's path and query when it is on `ownOrigin`, otherwise null. The CSP
+ * The icon's absolute href when it is on `ownOrigin`, otherwise null. The CSP
  * allows images from this origin only, so any other or malformed value falls
- * back to the letter and the client never receives a foreign URL.
+ * back to the letter and the client never receives a foreign URL. It returns
+ * the absolute href, not the path, because a normalised path can begin with
+ * `//` and a protocol-relative `src` would load from another host.
  */
 export function sameOriginIconSrc(
   iconUrl: string | null,
@@ -48,7 +50,7 @@ export function sameOriginIconSrc(
   if (!iconUrl) return null;
   try {
     const url = new URL(iconUrl);
-    return url.origin === ownOrigin ? url.pathname + url.search : null;
+    return url.origin === ownOrigin ? url.href : null;
   } catch {
     return null;
   }
