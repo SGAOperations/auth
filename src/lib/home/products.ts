@@ -25,6 +25,8 @@ export interface HomeProduct {
   href: string;
   tone: TileTone;
   letter: string;
+  /** An absolute same-origin URL of the product's icon, or null for the letter. */
+  iconSrc: string | null;
   leadership: ResourceGroup[] | null;
   guidePath: string | null;
 }
@@ -34,9 +36,34 @@ function tileFor(slug: string): { tone: TileTone; letter: string } | null {
   return Object.hasOwn(PRODUCT_TILES, slug) ? PRODUCT_TILES[slug] : null;
 }
 
+/**
+ * The icon's `ownOrigin` + path + query when it is on `ownOrigin`, otherwise
+ * null. The CSP allows images from this origin only, so any other or malformed
+ * value falls back to the letter. Credentials and fragment are dropped, and the
+ * origin prefix stops a leading `//` becoming a protocol-relative `src`.
+ */
+export function sameOriginIconSrc(
+  iconUrl: string | null,
+  ownOrigin: string,
+): string | null {
+  if (!iconUrl) return null;
+  try {
+    const url = new URL(iconUrl);
+    // Rebuilt from parts, not `url.href`, so a username or password in the
+    // admin-set value never reaches the page. The origin prefix also keeps a
+    // leading `//` in the path from becoming protocol-relative.
+    return url.origin === ownOrigin
+      ? ownOrigin + url.pathname + url.search
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function toHomeProducts(
   tools: readonly ToolProduct[],
   viewer: { isLeadership: boolean },
+  ownOrigin: string,
 ): HomeProduct[] {
   return tools
     .filter((tool) => tool.slug !== SELF_PRODUCT_SLUG)
@@ -50,6 +77,7 @@ export function toHomeProducts(
         href: toolHref(tool.baseUrl),
         tone: tile?.tone ?? "neutral",
         letter: tile?.letter ?? toolLetter(tool.name),
+        iconSrc: sameOriginIconSrc(tool.iconUrl, ownOrigin),
         leadership: guide ? guide.groups : null,
         guidePath: guide ? guide.path : null,
       };
