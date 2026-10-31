@@ -25,6 +25,8 @@ export interface HomeProduct {
   href: string;
   tone: TileTone;
   letter: string;
+  /** A same-origin path to the product's icon, or null for the letter. */
+  iconSrc: string | null;
   leadership: ResourceGroup[] | null;
   guidePath: string | null;
 }
@@ -34,9 +36,28 @@ function tileFor(slug: string): { tone: TileTone; letter: string } | null {
   return Object.hasOwn(PRODUCT_TILES, slug) ? PRODUCT_TILES[slug] : null;
 }
 
+/**
+ * The icon's path and query when it is on `ownOrigin`, otherwise null. The CSP
+ * allows images from this origin only, so any other or malformed value falls
+ * back to the letter and the client never receives a foreign URL.
+ */
+export function sameOriginIconSrc(
+  iconUrl: string | null,
+  ownOrigin: string,
+): string | null {
+  if (!iconUrl) return null;
+  try {
+    const url = new URL(iconUrl);
+    return url.origin === ownOrigin ? url.pathname + url.search : null;
+  } catch {
+    return null;
+  }
+}
+
 export function toHomeProducts(
   tools: readonly ToolProduct[],
   viewer: { isLeadership: boolean },
+  ownOrigin: string,
 ): HomeProduct[] {
   return tools
     .filter((tool) => tool.slug !== SELF_PRODUCT_SLUG)
@@ -50,6 +71,7 @@ export function toHomeProducts(
         href: toolHref(tool.baseUrl),
         tone: tile?.tone ?? "neutral",
         letter: tile?.letter ?? toolLetter(tool.name),
+        iconSrc: sameOriginIconSrc(tool.iconUrl, ownOrigin),
         leadership: guide ? guide.groups : null,
         guidePath: guide ? guide.path : null,
       };
