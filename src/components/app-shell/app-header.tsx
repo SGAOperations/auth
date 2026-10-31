@@ -28,7 +28,7 @@ export function AppHeader({
             Account
           </Link>
           <Link href="/org-chart" className={navLinkClass}>
-            Org chart
+            Org Chart
           </Link>
           {showAdmin && (
             <Link href="/admin" className={navLinkClass}>
