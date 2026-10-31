@@ -70,6 +70,8 @@ describe("POLICIES", () => {
       ["email-otp-send:ip:1h", 10, 3600, "ip"],
       ["email-otp-sign-in:email:15m", 10, 900, "email"],
       ["email-otp-sign-in:ip:1h", 20, 3600, "ip"],
+      ["slack-link:user:10m", 20, 600, "user"],
+      ["product-api:product:1m", 600, 60, "product"],
     ]);
   });
 

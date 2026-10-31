@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "@/components/account/profile-form";
 import { SessionsCard } from "@/components/account/sessions-card";
+import { SlackCard } from "@/components/account/slack-card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -14,13 +15,22 @@ import {
 } from "@/components/ui/card";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
+import { slackResultMessage } from "@/lib/slack/result";
+import { getOwnSlackIdentity, slackOpenIdConfig } from "@/lib/slack/service";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Your account" };
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser("/account");
-  const overview = await loadAccountOverview(user.id);
+  const [overview, slackIdentity] = await Promise.all([
+    loadAccountOverview(user.id),
+    getOwnSlackIdentity(user.id),
+  ]);
   if (!overview) redirect("/login");
   const { profile, positions } = overview;
 
@@ -81,6 +91,12 @@ export default async function AccountPage() {
           )}
         </CardContent>
       </Card>
+
+      <SlackCard
+        identity={slackIdentity}
+        canConnect={slackOpenIdConfig() !== null}
+        result={slackResultMessage((await searchParams).slack)}
+      />
 
       <SessionsCard />
 

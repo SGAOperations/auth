@@ -34,7 +34,12 @@ export type RetentionReport = {
   dryRun: boolean;
   tombstoned: { deactivated: number; inactive: number; unverified: number };
   notices: { sent: number; capped: number; failed: number };
-  purged: { sessions: number; verifications: number; unlockTokens: number };
+  purged: {
+    sessions: number;
+    verifications: number;
+    unlockTokens: number;
+    slackLinkTokens: number;
+  };
   anonymizedAuditRows: number;
   /** Admins and the Primary Admin past a threshold: for manual review. */
   exempt: { userId: string; rule: "deactivated" | "inactive" }[];
@@ -86,7 +91,12 @@ export async function runRetention({
     dryRun,
     tombstoned: { deactivated: 0, inactive: 0, unverified: 0 },
     notices: { sent: 0, capped: 0, failed: 0 },
-    purged: { sessions: 0, verifications: 0, unlockTokens: 0 },
+    purged: {
+      sessions: 0,
+      verifications: 0,
+      unlockTokens: 0,
+      slackLinkTokens: 0,
+    },
     anonymizedAuditRows: 0,
     exempt: [],
     deferred: { tombstones: 0, notices: 0 },
@@ -328,11 +338,15 @@ export async function runRetention({
     };
     const verifications = { expiresAt: { lt: now } };
     const unlockTokens = { expiresAt: { lt: now } };
+    const slackLinkTokens = { expiresAt: { lt: now } };
     if (dryRun) {
       report.purged = {
         sessions: await db.session.count({ where: sessions }),
         verifications: await db.verification.count({ where: verifications }),
         unlockTokens: await db.unlockToken.count({ where: unlockTokens }),
+        slackLinkTokens: await db.slackLinkToken.count({
+          where: slackLinkTokens,
+        }),
       };
       return;
     }
@@ -344,6 +358,9 @@ export async function runRetention({
     ).count;
     report.purged.unlockTokens = (
       await db.unlockToken.deleteMany({ where: unlockTokens })
+    ).count;
+    report.purged.slackLinkTokens = (
+      await db.slackLinkToken.deleteMany({ where: slackLinkTokens })
     ).count;
   });
 

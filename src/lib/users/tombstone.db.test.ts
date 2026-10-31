@@ -42,6 +42,14 @@ async function richUser() {
       },
     }),
     prisma.accountLock.create({ data: { userId: user.id } }),
+    prisma.slackIdentity.create({
+      data: {
+        userId: user.id,
+        slackTeamId: "T0TOMB",
+        slackUserId: `U${randomBytes(6).toString("hex").toUpperCase()}`,
+        linkedVia: "IMPORT",
+      },
+    }),
     prisma.verification.createMany({
       data: [
         {
@@ -113,6 +121,7 @@ describe("tombstoneUser", () => {
     expect(await prisma.unlockToken.count({ where })).toBe(0);
     expect(await prisma.accountLock.count({ where })).toBe(0);
     expect(await prisma.userPosition.count({ where })).toBe(0);
+    expect(await prisma.slackIdentity.count({ where })).toBe(0);
     expect(
       await prisma.verification.count({
         where: { OR: [{ value: user.id }, { identifier: user.email }] },

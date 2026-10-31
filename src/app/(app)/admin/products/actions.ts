@@ -8,6 +8,11 @@ import { getCurrentUser, type CurrentUser } from "@/lib/auth/current-user";
 import { can } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import * as service from "@/lib/product-admin";
+import {
+  createProductApiKey as createKey,
+  productApiKeyNameSchema,
+  revokeProductApiKey as revokeKey,
+} from "@/lib/product-api-keys";
 import { invalidateProductCache } from "@/lib/products";
 import { limitRequest } from "@/lib/rate-limit/server";
 
@@ -178,4 +183,106 @@ export async function deleteProduct(
   if (!result.ok) return result;
   // Outside the try: redirect() works by throwing.
   redirect(LIST_PATH);
+}
+
+export type ProductApiKeyActionResult =
+  | { ok: true; key?: string }
+  | { ok: false; code: "TOO_MANY_KEYS" | "INVALID_NAME"; message?: string }
+  | ProductActionFailure;
+
+/**
+ * Creates a product API key (#312). The key is in the result once and is never
+ * readable again: only its hash is stored, and the audit row holds the prefix.
+ */
+export async function createProductApiKey(
+  productId: unknown,
+  name: unknown,
+): Promise<ProductApiKeyActionResult> {
+  const authorized = await authorizeProductAdmin();
+  if ("failure" in authorized) return authorized.failure;
+  const { actor } = authorized;
+
+  const parsedId = idSchema.safeParse(productId);
+  if (!parsedId.success) return { ok: false, code: "NOT_FOUND" };
+  const parsedName = productApiKeyNameSchema.safeParse(name);
+  if (!parsedName.success) {
+    return {
+      ok: false,
+      code: "INVALID_NAME",
+      message: parsedName.error.issues[0]?.message,
+    };
+  }
+
+  const result = await withAuditTransaction(prisma, async (tx) => {
+    const product = await tx.product.findUnique({
+      where: { id: parsedId.data },
+      select: { id: true, slug: true },
+    });
+    if (!product) return { ok: false, code: "NOT_FOUND" } as const;
+    const created = await createKey(tx, {
+      productId: product.id,
+      name: parsedName.data,
+      createdById: actor.id,
+    });
+    if (!created.ok) return created;
+    await audit({
+      type: "PRODUCT_API_KEY_CREATED",
+      actorType: "USER",
+      actorUserId: actor.id,
+      targetType: "PRODUCT",
+      targetId: product.id,
+      metadata: {
+        slug: product.slug,
+        keyId: created.id,
+        prefix: created.prefix,
+      },
+    });
+    return { ok: true, key: created.key } as const;
+  });
+  if (result.ok) revalidatePath(`${LIST_PATH}/${parsedId.data}`);
+  return result;
+}
+
+/** Revokes a product API key. Takes effect on the product's next request. */
+export async function revokeProductApiKey(
+  productId: unknown,
+  keyId: unknown,
+): Promise<ProductApiKeyActionResult> {
+  const authorized = await authorizeProductAdmin();
+  if ("failure" in authorized) return authorized.failure;
+  const { actor } = authorized;
+
+  const parsedProduct = idSchema.safeParse(productId);
+  const parsedKey = idSchema.safeParse(keyId);
+  if (!parsedProduct.success || !parsedKey.success) {
+    return { ok: false, code: "NOT_FOUND" };
+  }
+
+  const result = await withAuditTransaction(prisma, async (tx) => {
+    const product = await tx.product.findUnique({
+      where: { id: parsedProduct.data },
+      select: { id: true, slug: true },
+    });
+    if (!product) return { ok: false, code: "NOT_FOUND" } as const;
+    const revoked = await revokeKey(tx, {
+      productId: product.id,
+      keyId: parsedKey.data,
+    });
+    if (!revoked) return { ok: false, code: "NOT_FOUND" } as const;
+    await audit({
+      type: "PRODUCT_API_KEY_REVOKED",
+      actorType: "USER",
+      actorUserId: actor.id,
+      targetType: "PRODUCT",
+      targetId: product.id,
+      metadata: {
+        slug: product.slug,
+        keyId: revoked.id,
+        prefix: revoked.prefix,
+      },
+    });
+    return { ok: true } as const;
+  });
+  if (result.ok) revalidatePath(`${LIST_PATH}/${parsedProduct.data}`);
+  return result;
 }

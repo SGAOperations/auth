@@ -60,11 +60,18 @@ export default async function UserDetailPage({
   if (!user) notFound();
 
   const deleted = user.status === "DELETED";
-  const [timeline, sessions, options, session] = await Promise.all([
+  const [timeline, sessions, options, session, slack] = await Promise.all([
     listUserAudit(prisma, id, cursor),
     deleted ? [] : listUserSessions(prisma, id, now),
     deleted ? [] : listActivePositions(prisma),
     getSession(),
+    // Read-only here: only the user links or unlinks their Slack account.
+    deleted
+      ? null
+      : prisma.slackIdentity.findUnique({
+          where: { userId: id },
+          select: { slackUserId: true },
+        }),
   ]);
 
   const positionIds = [
@@ -128,6 +135,12 @@ export default async function UserDetailPage({
           <p className="text-sm text-muted-foreground">
             Created {formatDate(user.createdAt)} · Last sign-in{" "}
             {user.lastLoginAt ? formatRelative(user.lastLoginAt, now) : "never"}
+            {" · "}Slack{" "}
+            {slack ? (
+              <span className="font-mono">{slack.slackUserId}</span>
+            ) : (
+              "not linked"
+            )}
           </p>
         </>
       )}

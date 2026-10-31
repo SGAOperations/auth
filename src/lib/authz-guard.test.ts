@@ -45,6 +45,12 @@ const EXEMPT: Record<string, string> = {
     "Preview-environment password gate; it acts on no user and runs before any sign-in",
   "src/app/api/provision/aplio/users/route.ts":
     "Machine route called by Aplio's server during the dual-write window; requires the APLIO_DUAL_WRITE_SECRET bearer, has no cookie, and acts on the account the body names, never on a caller",
+  "src/app/api/products/slack/link-tokens/route.ts":
+    "Machine route called by a product's server; requires a product API key, has no cookie, and issues a link token that links nothing until a signed-in user confirms it as themselves",
+  "src/app/api/products/slack/lookup/route.ts":
+    "Machine route called by a product's server; requires a product API key, has no cookie, and only reads",
+  "src/app/(app)/account/slack/actions.ts":
+    "Links or unlinks only the caller's own Slack account: the target is the session user, never an input, and a link token names a Slack account, not an SGAuth user",
   "src/app/api/jobs/alerts/route.ts":
     "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
   "src/app/api/jobs/pa-transfer/route.ts":

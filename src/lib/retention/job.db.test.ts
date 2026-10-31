@@ -505,6 +505,7 @@ describe("runRetention", () => {
         sessions: 0,
         verifications: 0,
         unlockTokens: 0,
+        slackLinkTokens: 0,
       });
       expect(again.anonymizedAuditRows).toBe(0);
       expect(again.errors).toBe(0);

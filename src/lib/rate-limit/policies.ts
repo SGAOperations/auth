@@ -3,7 +3,7 @@ import "server-only";
 // Pure: no env, no I/O. Rule ids are used verbatim in Redis keys, so renaming
 // one resets its counters. Tune limits here and nowhere else.
 
-export type RuleKey = "ip" | "email" | "session" | "user";
+export type RuleKey = "ip" | "email" | "session" | "user" | "product";
 
 export interface Rule {
   id: string;
@@ -119,6 +119,20 @@ export const POLICIES = {
       by: "email",
     },
     { id: "email-otp-sign-in:ip:1h", limit: 20, windowSeconds: 3600, by: "ip" },
+  ],
+  // Confirming a Slack link, Connect Slack and unlinking, per user (#313).
+  slackLink: [
+    { id: "slack-link:user:10m", limit: 20, windowSeconds: 600, by: "user" },
+  ],
+  // /api/products/*, per product (#312). Chambers asks once per Slack command
+  // and once per alert batch; this is far above that and stops a runaway loop.
+  productApi: [
+    {
+      id: "product-api:product:1m",
+      limit: 600,
+      windowSeconds: 60,
+      by: "product",
+    },
   ],
 } as const satisfies Record<string, readonly Rule[]>;
 

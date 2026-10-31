@@ -61,6 +61,8 @@ model User {
   positions                      UserPosition[]         @relation("UserPositionHolder")
   positionsAssigned              UserPosition[]         @relation("UserPositionAssignedBy")
   productsCreated                Product[]
+  productApiKeysCreated          ProductApiKey[]
+  slackIdentity                  SlackIdentity?
   primaryAdminTransfersFrom      PrimaryAdminTransfer[] @relation("PrimaryAdminTransferFrom")
   primaryAdminTransfersTo        PrimaryAdminTransfer[] @relation("PrimaryAdminTransferTo")
   primaryAdminTransfersCancelled PrimaryAdminTransfer[] @relation("PrimaryAdminTransferCancelledBy")
@@ -323,8 +325,70 @@ model Product {
   createdBy             User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  apiKeys               ProductApiKey[]
+  slackIdentities       SlackIdentity[]
+  slackLinkTokens       SlackLinkToken[]
 
   @@index([isActive, sortOrder])
+}
+
+/// A product's server-to-server credential (src/lib/product-api-keys.ts). The
+/// key is `sgak_<prefix>_<secret>`; only its SHA-256 is stored, and `prefix`
+/// finds the row. Revoking stamps `revokedAt`; rows are never reused.
+model ProductApiKey {
+  id          String    @id @default(uuid(7))
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
+  prefix      String    @unique
+  /// lower-case hex SHA-256 of the whole key
+  keyHash     String
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  @@index([productId])
+}
+
+enum SlackLinkSource {
+  SLACK_COMMAND
+  SLACK_OPENID
+  IMPORT
+}
+
+/// The Slack account a user has proved is theirs (src/lib/slack/identity.ts).
+/// One per user, and one user per Slack account.
+model SlackIdentity {
+  id          String          @id @default(uuid(7))
+  userId      String          @unique
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slackTeamId String
+  slackUserId String
+  linkedVia   SlackLinkSource
+  /// the product whose link token was used; null for Sign in with Slack and imports
+  productId   String?
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  linkedAt    DateTime        @default(now())
+
+  @@unique([slackTeamId, slackUserId])
+}
+
+/// A single-use link a product DMs to a Slack user. Only the SHA-256 of the
+/// token is stored. Carries no SGAuth user: whoever opens it signed in claims it.
+model SlackLinkToken {
+  id          String    @id @default(uuid(7))
+  tokenHash   String    @unique
+  slackTeamId String
+  slackUserId String
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
 }
 
 /// At most one transfer may be PENDING_ACCEPTANCE or COOLING, enforced by the
