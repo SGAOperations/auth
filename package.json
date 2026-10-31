@@ -25,6 +25,7 @@
     "validate-export": "tsx scripts/validate-export.ts",
     "import:users": "tsx scripts/import-users.ts",
     "import:aplio": "tsx scripts/import-aplio-users.ts",
+    "import:slack-links": "tsx scripts/import-slack-links.ts",
     "reconcile:aplio": "tsx scripts/reconcile-aplio.ts",
     "email:preview": "tsx scripts/email-preview.ts",
     "jwks:rotate": "tsx scripts/jwks-rotate.ts",

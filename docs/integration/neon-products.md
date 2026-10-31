@@ -315,6 +315,10 @@ Follow these steps in order. Each is additive until the last.
 
 After step 8, SGAuth is the only credential store. The product keeps no password column.
 
+## Slack and server-to-server calls
+
+A product whose Slack app needs to know who a Slack user is asks SGAuth, with a product API key, instead of keeping its own Slack links. See [slack.md](slack.md).
+
 ## Troubleshooting
 
 | Symptom                                                                                                                                         | Likely cause                                                                                                                                                                                                                                                                                             | Fix                                                                                                                                                                 |
@@ -334,6 +338,7 @@ After step 8, SGAuth is the only credential store. The product keeps no password
 - [SESSION-ENDPOINT.md](../SESSION-ENDPOINT.md) and [LOGOUT.md](../LOGOUT.md): what the SDK calls.
 - The [SDK README](https://github.com/SGAOperations/auth-sdk#readme) and the [API reference](https://sgaoperations.github.io/auth-sdk/).
 - [Supabase-backed products](supabase-products.md) (#93).
+- [Slack identity and product API keys](slack.md) (#312, #313).
 - [The design summary](../sgauth-design/SGAuth-design-summary.md).
 
 Validated by: VaultZ integration (VAULTZ-V01 to V08): pending.

@@ -40,6 +40,7 @@ const ids: Identifiers = {
   email: "student@northeastern.edu",
   session: "session-token-value",
   user: "0192f0a0-0000-7000-8000-000000000001",
+  product: "0192f0a0-0000-7000-8000-000000000002",
 };
 
 const tightest = (policy: PolicyName): Rule =>
@@ -223,13 +224,14 @@ describe("namespacing and hashing", () => {
     for (const policy of Object.keys(POLICIES) as PolicyName[]) {
       await limiter.check(policy, ids);
     }
-    expect(keys.length).toBe(25);
+    expect(keys.length).toBe(27);
     for (const key of keys) {
       expect(key).not.toContain("student@northeastern.edu");
       expect(key).not.toContain("session-token-value");
     }
     expect(keys).toContain(ids.ip);
     expect(keys).toContain(ids.user);
+    expect(keys).toContain(ids.product);
   });
 });
 

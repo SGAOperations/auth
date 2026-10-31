@@ -35,6 +35,8 @@ export const AUDIT_EVENT_TYPES = [
   "PRODUCT_CREATED",
   "PRODUCT_UPDATED",
   "PRODUCT_DELETED",
+  "PRODUCT_API_KEY_CREATED",
+  "PRODUCT_API_KEY_REVOKED",
   "PA_TRANSFER_INITIATED",
   "PA_TRANSFER_ACCEPTED",
   "PA_TRANSFER_CANCELLED",
@@ -53,6 +55,8 @@ export const AUDIT_EVENT_TYPES = [
   "REAUTH_FAILED",
   "PASSKEY_ADDED",
   "PASSKEY_REMOVED",
+  "SLACK_LINKED",
+  "SLACK_UNLINKED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
   "AUDIT_EXPORTED",
@@ -141,6 +145,11 @@ export type ProductAuditField = (typeof PRODUCT_AUDIT_FIELDS)[number];
 // Slugs and field names are not PII, and the slug keeps the history readable
 // after a delete. Never put values here: an update records field names only.
 const productSlugMetadata = z.strictObject({ slug: z.string().min(2).max(64) });
+
+const productApiKeyMetadata = productSlugMetadata.extend({
+  keyId: z.uuid(),
+  prefix: z.string().regex(/^[a-z0-9]{12}$/),
+});
 
 const hasChange = (changes: Record<string, unknown>) =>
   Object.keys(changes).length > 0;
@@ -361,6 +370,15 @@ export const AUDIT_CATALOG = {
     }),
   },
   PRODUCT_DELETED: { targetType: "PRODUCT", metadata: productSlugMetadata },
+  // A product API key (#312). The key id and its public prefix, never the key.
+  PRODUCT_API_KEY_CREATED: {
+    targetType: "PRODUCT",
+    metadata: productApiKeyMetadata,
+  },
+  PRODUCT_API_KEY_REVOKED: {
+    targetType: "PRODUCT",
+    metadata: productApiKeyMetadata,
+  },
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,
   // `via` says which door the cancel came through. The transfer row already
@@ -450,6 +468,28 @@ export const AUDIT_CATALOG = {
     targetType: "USER",
     metadata: z.strictObject({ passkeyId: z.string().min(1) }),
   },
+  // A Slack account linked to the target (#313). The Slack user id ties the
+  // person to their Slack account, so the tombstone scrubs it
+  // (AUDIT_PII_METADATA_FIELDS). `productSlug` is the product whose link token
+  // was used; `replaced` says an earlier link was overwritten.
+  SLACK_LINKED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      via: z.enum(["slack_command", "slack_openid"]),
+      slackTeamId: z.string().min(1).max(32),
+      slackUserId: z.string().min(1).max(32),
+      productSlug: z.string().min(2).max(64).optional(),
+      replaced: z.boolean(),
+    }),
+  },
+  // The user removed their own Slack link from the account page.
+  SLACK_UNLINKED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      slackTeamId: z.string().min(1).max(32),
+      slackUserId: z.string().min(1).max(32),
+    }),
+  },
   // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
   // and one per admin CSV import.
   // Counts and checksums only: no address, name, position key or hash. A later
@@ -480,6 +520,16 @@ export const AUDIT_CATALOG = {
         legacyEmails: count,
         aplioAdmins: count,
       }),
+      // scripts/import-slack-links.ts (#315). Counts only, no Slack ids.
+      z.strictObject({
+        source: z.literal("slack_links"),
+        sourceSha256: sha256Hex,
+        slackTeamId: z.string().min(1).max(32),
+        linked: count,
+        unchanged: count,
+        conflicts: count,
+        missingUsers: count,
+      }),
       z.strictObject({
         source: z.literal("csv"),
         rows: count,
@@ -507,6 +557,8 @@ export const AUDIT_CATALOG = {
 export const AUDIT_PII_METADATA_FIELDS = {
   EMAIL_CHANGE_REQUESTED: ["fromEmail", "toEmail"],
   EMAIL_CHANGED: ["fromEmail", "toEmail"],
+  SLACK_LINKED: ["slackUserId"],
+  SLACK_UNLINKED: ["slackUserId"],
 } as const satisfies Partial<Record<AuditEventType, readonly string[]>>;
 
 export type AuditMetadata<T extends AuditEventType> = z.input<

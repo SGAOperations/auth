@@ -35,15 +35,18 @@ Every personal field in `prisma/schema.prisma`. "Admins" means SGAuth admins, th
 | `AccountLock.lastFailedIp`                  | Lockout diagnostics                                                      | Server only                     | Until tombstone (see Known gaps)           |
 | `UnlockToken.tokenHash`                     | Emailed unlock link; the raw token is never stored                       | Server only                     | Purged when expired                        |
 | `Verification.identifier`, `value`          | Email verification and reset tokens                                      | Server only                     | Purged when expired                        |
+| `SlackLinkToken.tokenHash`, `slackUserId`   | Link a Slack account from a product's DM; the raw token is never stored  | Server only                     | Purged when expired                        |
+| `ProductApiKey.keyHash`                     | A product's server-to-server key; the key itself is never stored         | Server only                     | Kept until the product is deleted          |
 
 ### Positions, transfers and audit
 
-| Model and field                                          | Purpose                                  | Who can read it  | Retention                                         |
-| -------------------------------------------------------- | ---------------------------------------- | ---------------- | ------------------------------------------------- |
-| `UserPosition`                                           | SGA positions a user holds               | Admins; products | Removed at tombstone                              |
-| `AuditEvent.type`, `actorUserId`, `targetId`, `metadata` | Audit trail of security-relevant actions | Admins           | Kept; the catalog defines what metadata may carry |
-| `AuditEvent.ip`, `userAgent`                             | Context for the audit trail              | Admins           | Nulled at 90 days, and at tombstone               |
-| `PrimaryAdminTransfer`                                   | Primary Admin hand-over state            | Admins           | Kept                                              |
+| Model and field                                          | Purpose                                  | Who can read it                       | Retention                                         |
+| -------------------------------------------------------- | ---------------------------------------- | ------------------------------------- | ------------------------------------------------- |
+| `UserPosition`                                           | SGA positions a user holds               | Admins; products                      | Removed at tombstone                              |
+| `SlackIdentity.slackTeamId`, `slackUserId`               | The Slack account a user linked          | The user; admins; products with a key | Removed at unlink and at tombstone                |
+| `AuditEvent.type`, `actorUserId`, `targetId`, `metadata` | Audit trail of security-relevant actions | Admins                                | Kept; the catalog defines what metadata may carry |
+| `AuditEvent.ip`, `userAgent`                             | Context for the audit trail              | Admins                                | Nulled at 90 days, and at tombstone               |
+| `PrimaryAdminTransfer`                                   | Primary Admin hand-over state            | Admins                                | Kept                                              |
 
 ## Not collected
 

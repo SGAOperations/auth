@@ -93,6 +93,8 @@ export async function tombstoneUser(
     await tx.emailChangeRequest.deleteMany({ where: { userId } });
     await tx.accountLock.deleteMany({ where: { userId } });
     await tx.userPosition.deleteMany({ where: { userId } });
+    // The Slack account the user linked (#313) identifies them.
+    await tx.slackIdentity.deleteMany({ where: { userId } });
     // Set-password and reset tokens carry the user id as their value, and
     // email-keyed rows carry the old address.
     await tx.verification.deleteMany({

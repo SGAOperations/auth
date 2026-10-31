@@ -61,6 +61,15 @@ export const serverShape = z.object({
   // the endpoint answers 404. The offset is required so the instant is exact.
   APLIO_DUAL_WRITE_SECRET: z.string().min(32).optional(),
   APLIO_READ_CUTOVER_AT: z.iso.datetime({ offset: true }).optional(),
+  // SGAuth's own Slack app, for Connect Slack on the account page (#314), and
+  // the one workspace whose accounts may be linked. Unset hides the button;
+  // products can still link through their slash commands (#313).
+  SLACK_CLIENT_ID: z.string().min(1).optional(),
+  SLACK_CLIENT_SECRET: z.string().min(1).optional(),
+  SLACK_TEAM_ID: z
+    .string()
+    .regex(/^T[A-Z0-9]{2,20}$/)
+    .optional(),
   SEED_PRIMARY_ADMIN_EMAIL: z
     .string()
     .trim()
@@ -131,6 +140,7 @@ const SERVICE_GROUPS = [
   ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
   ["POSTHOG_KEY", "POSTHOG_HOST"],
   ["APLIO_DUAL_WRITE_SECRET", "APLIO_READ_CUTOVER_AT"],
+  ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_TEAM_ID"],
   // Not a service: the local seed's Primary Admin credentials.
   ["SEED_PRIMARY_ADMIN_EMAIL", "SEED_PRIMARY_ADMIN_PASSWORD"],
 ] as const;
