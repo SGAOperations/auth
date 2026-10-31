@@ -9,6 +9,7 @@ import {
   toProductPayload,
   type ProductFormValues,
 } from "@/lib/product-form";
+import { productUpdateSchema } from "@/lib/product-input";
 
 const valid: ProductFormValues = {
   ...PRODUCT_FORM_DEFAULTS,
@@ -68,6 +69,13 @@ describe("toProductPayload", () => {
   it("drops the slug in update mode", () => {
     expect(toProductPayload(valid, "update")).not.toHaveProperty("slug");
   });
+
+  it("never includes id, even when the values carry one", () => {
+    const withId = { ...valid, id: "p1" } as ProductFormValues;
+    for (const mode of ["create", "update"] as const) {
+      expect(toProductPayload(withId, mode)).not.toHaveProperty("id");
+    }
+  });
 });
 
 describe("productToFormValues", () => {
@@ -79,6 +87,25 @@ describe("productToFormValues", () => {
     });
     expect(values.iconUrl).toBe("");
     expect(values.loginRedirectPath).toBe("");
+  });
+
+  it("drops keys that are not form fields, such as the row id", () => {
+    const values = productToFormValues({
+      ...valid,
+      iconUrl: null,
+      id: "p1",
+    } as never);
+    expect(values).not.toHaveProperty("id");
+  });
+
+  it("yields an update payload the strict update schema accepts", () => {
+    const row = { ...valid, iconUrl: null, loginRedirectPath: null, id: "p1" };
+    const payload = toProductPayload(
+      productToFormValues(row as never),
+      "update",
+    );
+    expect(payload).not.toHaveProperty("id");
+    expect(productUpdateSchema.safeParse(payload).success).toBe(true);
   });
 });
 
@@ -120,18 +147,15 @@ describe("productFormResolver", () => {
     expect(result.errors).toEqual({});
   });
 
-  it("blocks the submit with a form-level error when no issue names a form field", async () => {
-    // Defensive: no typed form value reaches this, since every schema issue
-    // path maps to a form field. A stray key stands in, as the strict schemas
-    // report it with an empty path.
-    const stray = { ...valid, stray: true } as ProductFormValues;
-    const result = await productFormResolver("create")(stray, undefined, {
-      fields: {},
-      shouldUseNativeValidation: false,
-    });
-    expect(result.values).toEqual({});
-    expect(Object.keys(result.errors)).not.toEqual([]);
-    expect(submitErrorMessage(result.errors)).toBeTruthy();
+  it("ignores a key that is not a form field instead of rejecting it", async () => {
+    const stray = { ...valid, id: "p1" } as ProductFormValues;
+    for (const mode of ["create", "update"] as const) {
+      const result = await productFormResolver(mode)(stray, undefined, {
+        fields: {},
+        shouldUseNativeValidation: false,
+      });
+      expect(result.errors).toEqual({});
+    }
   });
 
   it("does not require a slug in update mode", async () => {
@@ -141,6 +165,17 @@ describe("productFormResolver", () => {
       { fields: {}, shouldUseNativeValidation: false },
     );
     expect(result.errors).toEqual({});
+  });
+});
+
+describe("submitErrorMessage", () => {
+  it("reads the form-level message, if any", () => {
+    expect(submitErrorMessage({})).toBeUndefined();
+    expect(
+      submitErrorMessage({
+        submit: { type: "validation", message: "Check the form and retry." },
+      } as never),
+    ).toBe("Check the form and retry.");
   });
 });
 

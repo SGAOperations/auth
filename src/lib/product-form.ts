@@ -67,19 +67,25 @@ export function toProductPayload(
   values: ProductFormValues,
   mode: ProductFormMode,
 ): ProductPayload {
-  const { slug, iconUrl, loginRedirectPath, visibleToPositionKeys, ...rest } =
-    values;
+  // Named, not spread: a key that is not a form field (the row's `id`) must
+  // never reach the strict server schemas.
   return {
-    ...(mode === "create" ? { slug } : {}),
-    ...rest,
+    ...(mode === "create" ? { slug: values.slug } : {}),
+    name: values.name,
+    description: values.description,
+    baseUrl: values.baseUrl,
+    isActive: values.isActive,
+    sortOrder: values.sortOrder,
+    visibility: values.visibility,
     visibleToPositionKeys:
-      values.visibility === "POSITIONS" ? visibleToPositionKeys : [],
-    iconUrl: iconUrl === "" ? null : iconUrl,
-    loginRedirectPath: loginRedirectPath === "" ? null : loginRedirectPath,
+      values.visibility === "POSITIONS" ? values.visibleToPositionKeys : [],
+    iconUrl: values.iconUrl === "" ? null : values.iconUrl,
+    loginRedirectPath:
+      values.loginRedirectPath === "" ? null : values.loginRedirectPath,
   };
 }
 
-/** The saved row as form values. */
+/** The saved row as form values. Keys that are not form fields are dropped. */
 export function productToFormValues(product: {
   slug: string;
   name: string;
@@ -93,8 +99,15 @@ export function productToFormValues(product: {
   loginRedirectPath: string | null;
 }): ProductFormValues {
   return {
-    ...product,
+    slug: product.slug,
+    name: product.name,
+    description: product.description,
+    baseUrl: product.baseUrl,
     iconUrl: product.iconUrl ?? "",
+    isActive: product.isActive,
+    sortOrder: product.sortOrder,
+    visibility: product.visibility,
+    visibleToPositionKeys: product.visibleToPositionKeys,
     loginRedirectPath: product.loginRedirectPath ?? "",
   };
 }
