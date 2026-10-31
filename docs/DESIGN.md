@@ -50,10 +50,13 @@ The body font is Geist through `--font-sans: var(--font-geist-sans)`.
 
 Defined in `globals.css`. Rays are not coupled to any content column.
 
-| Variable     | Value                                                  | Meaning                            |
-| ------------ | ------------------------------------------------------ | ---------------------------------- |
-| `--ray-half` | `34rem`                                                | Half the distance between the rays |
-| `--ray-x`    | `0.5rem`; at `>= 70rem`, `calc(50% - var(--ray-half))` | Distance of each ray from its edge |
+| Variable     | Value                                                                                           | Meaning                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `--ray-half` | `34rem`                                                                                         | Half the distance between the rays                                |
+| `--ray-x`    | `0.5rem`; at `>= 70rem`, `calc(50% - var(--ray-half))`                                          | Distance of each ray from its edge                                |
+| `--ray-gap`  | `0.5rem`; `>= 40rem` `1rem`; `>= 64rem` `calc((100vw - 64rem) / 2 + 1rem)`; `>= 70rem` `3.5rem` | Distance from the primary ray to the home tile column's left edge |
+
+`--ray-gap` is where the home product branches start, so it must track the `(app)` `main` padding (`px-4`, `sm:px-6`) and `max-w-5xl`, or the branches detach from the ray. Between `64rem` and `70rem` it uses `100vw`, so a classic scrollbar can shift it by a few px.
 
 The rays sit outside the widest content (`(app)` `main` is `max-w-5xl`, a 32rem half). `--ray-x` uses `50%` of the fixed containing block, not `vw`, so a classic scrollbar does not misalign the rays.
 
@@ -61,7 +64,7 @@ The rays sit outside the widest content (`(app)` `main` is `max-w-5xl`, a 32rem 
 
 `/` is the landing page after sign-in. `ProductExplorer` shows the products the user may open, exactly as `loadAccountOverview(...).tools` returns them (the visibility gate from #290). It adds no query and no check. SGAuth's own registry row gets no tile.
 
-- **Tiles and lines.** Thick, glowing, waving lines run down the left, one ending at each tile's left edge, plus three free lines that fade out top and bottom. The geometry is `src/lib/home/tree.ts`. The tile list's Tailwind spacing (`pt-10 gap-5 pl-[5.5rem]`) must equal `PAD_Y`, `ROW_GAP` and `TREE_WIDTH` there, or the lines miss the tiles.
+- **Tiles and lines.** Each tile has one short, glowing, gently swaying branch that grows out of the primary left backdrop ray (tangent to it) and ends on the tile's left edge. There are no free lines and no strands of their own: the ray is the trunk. The geometry is `src/lib/home/tree.ts`. The tile list's Tailwind spacing (`pt-10 gap-5 pl-[5.5rem]`) must equal `PAD_Y`, `ROW_GAP` and `TREE_WIDTH` there, or the branches miss the tiles. The branch SVG starts at the ray (`--ray-gap` left of the tile column) and stretches horizontally to the tile.
 - **Waving.** SMIL `d` morphing between a `rest` and a `peak` curve that share every node and both end points, so the tile ends stay fixed while the rest sways. `tree.test.ts` pins that the two curves have the same command sequence.
 - **Tile tone.** Each product's tone token and letter are in `PRODUCT_TILES` (`src/lib/home/products.ts`). An unknown slug gets `neutral` and the first letter of its name.
 - **Selection.** A group of toggle buttons (`aria-pressed`), not ARIA tabs. Nothing is selected at first. Selecting a tile greys out the others (hover or focus restores them); selecting it again clears the selection. Below `md` the panel sits under the tiles and scrolls into view without moving focus.
