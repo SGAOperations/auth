@@ -53,6 +53,58 @@ export function managerChain<T extends ManagerNode>(
   return chain;
 }
 
+export type OrgTreeNode<T extends ManagerNode> = {
+  node: T;
+  reports: OrgTreeNode<T>[];
+};
+
+/**
+ * Nest `nodes` under their managers. A root is a node with no manager or whose
+ * manager is missing from `nodes` (deleted). Roots with at least one report
+ * form `roots`; a root with none, and any node only reachable through an
+ * existing loop (the database trigger forbids one), go to `unlinked`. Siblings
+ * keep the input order, and every node appears exactly once.
+ */
+export function buildOrgTree<T extends ManagerNode>(
+  nodes: readonly T[],
+): { roots: OrgTreeNode<T>[]; unlinked: T[] } {
+  const treeById = new Map<string, OrgTreeNode<T>>(
+    nodes.map((node) => [node.id, { node, reports: [] }]),
+  );
+  const topLevel: OrgTreeNode<T>[] = [];
+  for (const entry of treeById.values()) {
+    const manager = entry.node.managerPositionId
+      ? treeById.get(entry.node.managerPositionId)
+      : undefined;
+    if (manager && manager !== entry) {
+      manager.reports.push(entry);
+    } else if (!manager) {
+      topLevel.push(entry);
+    }
+  }
+
+  const reached = new Set<string>();
+  const pending = [...topLevel];
+  while (pending.length > 0) {
+    const entry = pending.pop();
+    if (entry === undefined) break;
+    if (reached.has(entry.node.id)) continue;
+    reached.add(entry.node.id);
+    pending.push(...entry.reports);
+  }
+
+  const roots = topLevel.filter((entry) => entry.reports.length > 0);
+  const loneRootIds = new Set(
+    topLevel
+      .filter((entry) => entry.reports.length === 0)
+      .map((entry) => entry.node.id),
+  );
+  const unlinked = nodes.filter(
+    (node) => loneRootIds.has(node.id) || !reached.has(node.id),
+  );
+  return { roots, unlinked };
+}
+
 /** Every direct and indirect report of `positionId`. */
 export function descendantsOf(
   nodes: readonly ManagerNode[],
