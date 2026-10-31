@@ -145,9 +145,7 @@ export function productFormResolver(
         errors[key] = { type: "validation", message: issue.message };
       }
     }
-    // react-hook-form submits when `errors` is empty, whatever `values` holds,
-    // so an issue that names no form field must still block the submit. The
-    // `root` key does not: handleSubmit unsets it before that check.
+    // handleSubmit unsets "root" before its empty check, so use a separate key
     if (Object.keys(errors).length === 0) {
       Object.assign(errors, {
         [SUBMIT_ERROR_KEY]: {

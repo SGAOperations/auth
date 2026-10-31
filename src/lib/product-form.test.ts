@@ -121,7 +121,9 @@ describe("productFormResolver", () => {
   });
 
   it("blocks the submit with a form-level error when no issue names a form field", async () => {
-    // The strict schemas report an unknown key with an empty path.
+    // Defensive: no typed form value reaches this, since every schema issue
+    // path maps to a form field. A stray key stands in, as the strict schemas
+    // report it with an empty path.
     const stray = { ...valid, stray: true } as ProductFormValues;
     const result = await productFormResolver("create")(stray, undefined, {
       fields: {},
