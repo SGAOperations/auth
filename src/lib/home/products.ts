@@ -50,7 +50,12 @@ export function sameOriginIconSrc(
   if (!iconUrl) return null;
   try {
     const url = new URL(iconUrl);
-    return url.origin === ownOrigin ? url.href : null;
+    // Rebuilt from parts, not `url.href`, so a username or password in the
+    // admin-set value never reaches the page. The origin prefix also keeps a
+    // leading `//` in the path from becoming protocol-relative.
+    return url.origin === ownOrigin
+      ? ownOrigin + url.pathname + url.search
+      : null;
   } catch {
     return null;
   }

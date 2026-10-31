@@ -133,6 +133,15 @@ describe("toHomeProducts iconSrc", () => {
     expect(iconSrcFor(null)).toBeNull();
   });
 
+  it("drops credentials from an own-origin icon URL", () => {
+    const result = iconSrcFor(
+      "https://user:pw@auth.northeasternsga.com/vaultz-logo.svg",
+    );
+    expect(result).toBe(`${OWN_ORIGIN}/vaultz-logo.svg`);
+    expect(result).not.toContain("@");
+    expect(result).not.toContain("pw");
+  });
+
   it("is null for a foreign origin", () => {
     expect(iconSrcFor("https://cdn.example.com/vaultz-logo.svg")).toBeNull();
   });
