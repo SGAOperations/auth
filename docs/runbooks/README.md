@@ -20,7 +20,8 @@ events it produces, so you can confirm the result in the audit log.
 Other runbooks: [neon-upgrade.md](neon-upgrade.md), [on-call.md](on-call.md),
 [positions-sync.md](positions-sync.md), [legacy-bcrypt.md](legacy-bcrypt.md),
 [chambers-export.md](chambers-export.md), [chambers-import.md](chambers-import.md),
-[aplio-import.md](aplio-import.md), [slack-link-import.md](slack-link-import.md).
+[aplio-import.md](aplio-import.md), [senateportal-import.md](senateportal-import.md),
+[slack-link-import.md](slack-link-import.md).
 
 ## Verification log
 

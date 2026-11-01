@@ -57,6 +57,8 @@ docs/sgauth-design/out/tmp/
 chambers-export*.json
 # Aplio user export (AUTH-T88): never commit
 aplio-export*.json
+# SenatePortal user export (AUTH-T89): never commit
+senateportal-export*.json
 !docs/runbooks/chambers-export.sample.json
 
 # Chambers import inputs (AUTH-T86): local operator files, never commit

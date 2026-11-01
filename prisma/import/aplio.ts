@@ -33,7 +33,8 @@ import {
 // Arguments
 // ---------------------------------------------------------------------------
 
-function stampedDir(prefix: string, now: Date): string {
+/** The default output directory: `.temp/<prefix>/<UTC stamp>`. */
+export function stampedDir(prefix: string, now: Date): string {
   const stamp = now
     .toISOString()
     .replace(/[-:]/g, "")
@@ -43,7 +44,7 @@ function stampedDir(prefix: string, now: Date): string {
 }
 
 /** Splits argv into value flags and bare flags, rejecting anything else. */
-function parseFlags(
+export function parseFlags(
   argv: string[],
   valueFlags: readonly string[],
   bareFlags: readonly string[],
@@ -165,7 +166,10 @@ export async function loadAplioSource(
 
 type UserReader = Pick<Prisma.TransactionClient, "user">;
 
-function liveEmails(rows: AplioRow[]): string[] {
+/** The fields the state read needs: the SenatePortal import shares it. */
+type StateRow = Pick<AplioRow, "email" | "deletedAt">;
+
+function liveEmails(rows: StateRow[]): string[] {
   return [
     ...new Set(
       rows.filter((row) => row.deletedAt === null).map((row) => row.email),
@@ -176,7 +180,7 @@ function liveEmails(rows: AplioRow[]): string[] {
 /** Existing users at the live rows' addresses, by lower-cased email. */
 export async function readAplioState(
   db: UserReader,
-  rows: AplioRow[],
+  rows: StateRow[],
 ): Promise<AplioState> {
   const users = await db.user.findMany({
     where: { email: { in: liveEmails(rows) } },

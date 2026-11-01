@@ -520,6 +520,16 @@ export const AUDIT_CATALOG = {
         legacyEmails: count,
         aplioAdmins: count,
       }),
+      // scripts/import-senateportal-users.ts (#101). Grants no positions.
+      z.strictObject({
+        source: z.literal("senateportal"),
+        sourceSha256: sha256Hex,
+        created: count,
+        merged: count,
+        duplicateInSource: count,
+        skipped: count,
+        legacyEmails: count,
+      }),
       // scripts/import-slack-links.ts (#315). Counts only, no Slack ids.
       z.strictObject({
         source: z.literal("slack_links"),
