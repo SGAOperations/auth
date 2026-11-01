@@ -219,6 +219,7 @@ describe.skipIf(!url)("scanner-safe verify-email link", () => {
     const failing = handlerFor({
       api: {
         verifyEmail: vi.fn().mockRejectedValueOnce(new Error("boom")),
+        getSession: async () => null,
       },
     });
 
@@ -232,6 +233,32 @@ describe.skipIf(!url)("scanner-safe verify-email link", () => {
 
     expect(result(await handle(post(token)))).toBe("done");
     expect((await reload(user.id)).emailVerified).toBe(true);
+  });
+
+  it("verifies someone else's link without signing the browser in to it", async () => {
+    const victim = await signUpWithToken();
+    const signedIn = await handle(post(victim.token));
+    const cookie = signedIn.headers
+      .getSetCookie()
+      .map((entry) => entry.split(";")[0])
+      .join("; ");
+    const victimSessions = await prisma.session.count({
+      where: { userId: victim.user.id },
+    });
+
+    const attacker = await signUpWithToken();
+    const response = await handle(
+      post(attacker.token, { origin: BASE_URL, cookie }),
+    );
+    expect(result(response)).toBe("done");
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect((await reload(attacker.user.id)).emailVerified).toBe(true);
+    expect(
+      await prisma.session.count({ where: { userId: attacker.user.id } }),
+    ).toBe(0);
+    expect(
+      await prisma.session.count({ where: { userId: victim.user.id } }),
+    ).toBe(victimSessions);
   });
 
   it("rejects a cross-origin POST without a claim", async () => {

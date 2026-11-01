@@ -29,9 +29,11 @@ export const POLICIES = {
     { id: "passkey-options:ip:1m", limit: 30, windowSeconds: 60, by: "ip" },
   ],
   signUp: [{ id: "sign-up:ip:1h", limit: 5, windowSeconds: 3600, by: "ip" }],
+  // Reset mail is exempt from the per-recipient email caps (BT8), so the
+  // per-address bucket is what bounds it: 3 an hour to any one inbox.
   passwordReset: [
     { id: "reset:ip:10m", limit: 3, windowSeconds: 600, by: "ip" },
-    { id: "reset:email:10m", limit: 3, windowSeconds: 600, by: "email" },
+    { id: "reset:email:1h", limit: 3, windowSeconds: 3600, by: "email" },
   ],
   verificationResend: [
     { id: "verify:email:1h", limit: 3, windowSeconds: 3600, by: "email" },
@@ -119,6 +121,12 @@ export const POLICIES = {
       by: "email",
     },
     { id: "email-otp-sign-in:ip:1h", limit: 20, windowSeconds: 3600, by: "ip" },
+  ],
+  // POST /api/csp-report: unauthenticated, so capped per IP to bound the log
+  // lines one client can write (BT28). A page with a real violation sends a
+  // handful of reports per view.
+  cspReport: [
+    { id: "csp-report:ip:1m", limit: 30, windowSeconds: 60, by: "ip" },
   ],
 } as const satisfies Record<string, readonly Rule[]>;
 

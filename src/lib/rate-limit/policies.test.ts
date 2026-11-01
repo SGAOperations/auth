@@ -52,7 +52,7 @@ describe("POLICIES", () => {
       ["passkey-options:ip:1m", 30, 60, "ip"],
       ["sign-up:ip:1h", 5, 3600, "ip"],
       ["reset:ip:10m", 3, 600, "ip"],
-      ["reset:email:10m", 3, 600, "email"],
+      ["reset:email:1h", 3, 3600, "email"],
       ["verify:email:1h", 3, 3600, "email"],
       ["token:session:1m", 60, 60, "session"],
       ["session-lookup:session:1m", 120, 60, "session"],
@@ -70,6 +70,7 @@ describe("POLICIES", () => {
       ["email-otp-send:ip:1h", 10, 3600, "ip"],
       ["email-otp-sign-in:email:15m", 10, 900, "email"],
       ["email-otp-sign-in:ip:1h", 20, 3600, "ip"],
+      ["csp-report:ip:1m", 30, 60, "ip"],
     ]);
   });
 

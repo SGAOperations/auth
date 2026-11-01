@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth/known-device";
 import { checkSignIn, recordSuccessfulSignIn } from "@/lib/auth/lockout";
 import type { createLockoutHooks } from "@/lib/auth/lockout-hooks";
+import { revokeResetTokens } from "@/lib/auth/password-reset";
 import { AUTH_ERROR_CODES } from "@/lib/auth/policy";
 import type { Mailer } from "@/lib/email/mailer";
 import {
@@ -180,6 +181,8 @@ export function createPasswordChangeHooks({
       await tx.session.deleteMany({
         where: { userId, id: { not: session.session.id } },
       });
+      // A reset link mailed before the change must not undo it.
+      await revokeResetTokens(tx, userId);
       const updated = await tx.user.update({
         where: { id: userId },
         data: { passwordChangedAt: at },

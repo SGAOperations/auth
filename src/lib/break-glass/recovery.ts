@@ -194,6 +194,13 @@ export function planRecovery(
     warnings.push("there is no current Primary Admin");
   }
   actions.push({ kind: "promote", userId: target.id, email: target.email });
+  // The new authority starts from a fresh sign-in, as at bootstrap.
+  actions.push({
+    kind: "sign_out",
+    userId: target.id,
+    email: target.email,
+    sessions: state.targetSessions,
+  });
   if (primaryAdmin) {
     actions.push({
       kind: "sign_out",

@@ -110,6 +110,24 @@ describe("email change templates", () => {
   });
 });
 
+describe("security-notice", () => {
+  it.each([
+    ["mfa-enabled", "Two-factor authentication was turned on"],
+    ["mfa-disabled", "Two-factor authentication was turned off"],
+    ["passkey-added", "A passkey was added"],
+    ["passkey-removed", "A passkey was removed"],
+  ] as const)("renders %s", (event, heading) => {
+    const { subject, text } = renderTemplate("security-notice", {
+      name: "Avery",
+      event,
+      occurredAt: new Date("2026-10-26T12:00:00Z"),
+    });
+    expect(subject).toContain("SGA account");
+    expect(text).toContain(heading);
+    expect(text).toContain("If this wasn't you");
+  });
+});
+
 describe("sign-in-code", () => {
   const sample = SAMPLES.find((s) => s.id === "sign-in-code");
 
@@ -154,13 +172,20 @@ describe("schemas", () => {
     expect(prepared.ok).toBe(false);
   });
 
-  it("rejects a 101-character name", () => {
-    const prepared = prepareTemplate("verify-email", {
-      name: "n".repeat(101),
+  it.each([
+    ["a 101-character name", "n".repeat(101)],
+    ["a name with a line break", "Ada\r\nBcc: x@example.com"],
+    ["a blank name", "   "],
+  ])("greets without the name for %s", (_label, badName) => {
+    const prepared = prepareTemplate("reset-password", {
+      name: badName,
       url,
       expiresInMinutes: 60,
     });
-    expect(prepared).toEqual({ ok: false, paths: ["name"] });
+    if (!prepared.ok) throw new Error("reset mail did not parse");
+    expect(prepared.content.text).toContain("Hi,");
+    expect(prepared.content.text).not.toContain("Bcc:");
+    expect(prepared.content.subject).not.toContain("\n");
   });
 
   it("rejects a name with a line break", () => {

@@ -30,6 +30,17 @@ function goToLogin() {
   window.location.replace("/login");
 }
 
+async function errorField(response: Response): Promise<unknown> {
+  try {
+    const body: unknown = await response.json();
+    return typeof body === "object" && body !== null
+      ? (body as { error?: unknown }).error
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function fetchSessions(): Promise<LoadState> {
   try {
     const response = await fetch("/api/sgauth/sessions", {
@@ -73,9 +84,18 @@ export function SessionsCard() {
       const response = await fetch(`/api/sgauth/sessions/${session.id}`, {
         method: "DELETE",
       });
-      const outcome = revokeOutcome(response.status);
+      const outcome = revokeOutcome(
+        response.status,
+        response.status === 403 ? await errorField(response) : undefined,
+      );
       if (outcome === "signed-out") {
         goToLogin();
+        return;
+      }
+      if (outcome === "reauth") {
+        toast.error(
+          "For your security, sign out and sign in again, then retry.",
+        );
         return;
       }
       if (outcome === "failed") {

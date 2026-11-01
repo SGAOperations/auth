@@ -99,7 +99,7 @@ describe("planRecovery: refusals", () => {
 });
 
 describe("planRecovery: transfer", () => {
-  it("clears the old Primary Admin first, then promotes, then signs out", () => {
+  it("clears the old Primary Admin first, then promotes, then signs both out", () => {
     const plan = planRecovery(state(), transfer);
     expect(plan.mode).toBe("transfer");
     expect(plan.actions).toEqual([
@@ -110,6 +110,12 @@ describe("planRecovery: transfer", () => {
         revokeAdmin: false,
       },
       { kind: "promote", userId: "u-new", email: "new@northeastern.edu" },
+      {
+        kind: "sign_out",
+        userId: "u-new",
+        email: "new@northeastern.edu",
+        sessions: 1,
+      },
       { kind: "sign_out", userId: "u-old", email: oldPa.email, sessions: 3 },
     ]);
     expect(plan.warnings).toEqual([]);
@@ -150,6 +156,12 @@ describe("planRecovery: transfer", () => {
     );
     expect(plan.actions).toEqual([
       { kind: "promote", userId: "u-new", email: "new@northeastern.edu" },
+      {
+        kind: "sign_out",
+        userId: "u-new",
+        email: "new@northeastern.edu",
+        sessions: 1,
+      },
     ]);
     expect(plan.warnings).toHaveLength(4);
     expect(plan.warnings.join("\n")).toMatch(/no current Primary Admin/);
@@ -196,6 +208,7 @@ describe("formatRecoveryPlan", () => {
         "! cancel in-flight transfer t1 (COOLING)",
         "- clear Primary Admin from old@northeastern.edu (stays admin)",
         "+ make new@northeastern.edu admin and Primary Admin",
+        "x sign out new@northeastern.edu (1 session)",
         "x sign out old@northeastern.edu (3 sessions)",
         "warning: new@northeastern.edu has no MFA; they must enrol TOTP before any admin action",
       ].join("\n"),
@@ -203,10 +216,13 @@ describe("formatRecoveryPlan", () => {
   });
 
   it("says admin revoked and singular session", () => {
-    const plan = planRecovery(state({ primaryAdminSessions: 1 }), {
-      ...transfer,
-      demotePrevious: true,
-    });
+    const plan = planRecovery(
+      state({ primaryAdminSessions: 1, targetSessions: 2 }),
+      {
+        ...transfer,
+        demotePrevious: true,
+      },
+    );
     const text = formatRecoveryPlan(plan);
     expect(text).toContain("(admin revoked)");
     expect(text).toContain("(1 session)");

@@ -11,6 +11,7 @@ import {
   applyAccountUnlock,
   applyDeviceFailure,
   applyDeviceSuccess,
+  isDeviceSpent,
   isLocked,
   lockDurationMs,
   type AccountLockState,
@@ -242,5 +243,48 @@ describe("device failures", () => {
       at(1000),
     );
     expect(ok.failedCount).toBe(0);
+  });
+});
+
+describe("spent devices", () => {
+  const lockedAt = (until: Date): DeviceLockState => ({
+    failedCount: 0,
+    windowStartedAt: START,
+    lockedUntil: until,
+  });
+
+  it("is not spent before it has ever locked", () => {
+    expect(
+      isDeviceSpent(
+        { failedCount: 4, windowStartedAt: START, lockedUntil: null },
+        at(MIN),
+      ),
+    ).toBe(false);
+  });
+
+  it("is not spent while its own lock is in force, and spent once it ends", () => {
+    const device = lockedAt(at(DEVICE_LOCK_MS));
+    expect(isDeviceSpent(device, at(DEVICE_LOCK_MS - 1))).toBe(false);
+    expect(isDeviceSpent(device, at(DEVICE_LOCK_MS + 1))).toBe(true);
+    // Stays spent with no login, however long it waits.
+    expect(isDeviceSpent(device, at(30 * 24 * HOUR))).toBe(true);
+  });
+
+  it("a login after the lock ends restores the exemption", () => {
+    const after = at(DEVICE_LOCK_MS + MIN);
+    const restored = applyDeviceSuccess(lockedAt(at(DEVICE_LOCK_MS)), after);
+    expect(restored).toEqual({
+      failedCount: 0,
+      windowStartedAt: after,
+      lockedUntil: null,
+    });
+    expect(isDeviceSpent(restored, after)).toBe(false);
+  });
+
+  it("a success never clears an active device lock", () => {
+    const until = at(DEVICE_LOCK_MS);
+    expect(applyDeviceSuccess(lockedAt(until), at(MIN)).lockedUntil).toEqual(
+      until,
+    );
   });
 });

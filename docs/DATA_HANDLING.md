@@ -30,6 +30,7 @@ Every personal field in `prisma/schema.prisma`. "Admins" means SGAuth admins, th
 | ------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------- | ------------------------------------------ |
 | `Account.password`                          | scrypt hash, or an imported bcrypt hash that is re-hashed on first login | Server only                     | Removed at tombstone                       |
 | `TwoFactor.secret`, `TwoFactor.backupCodes` | TOTP second factor                                                       | Server only                     | Removed at tombstone                       |
+| `Passkey.name`, `credentialID`, `publicKey` | Passkey sign-in; the name is chosen by the user                          | The user (passkey list)         | Removed at tombstone                       |
 | `Session.token`, `ipAddress`, `userAgent`   | Keep the user signed in; show active sessions                            | The user; admins (session list) | Purged at expiry or 90 days after creation |
 | `KnownDevice.userAgent`, `tokenHash`        | Recognize a remembered device                                            | Server only                     | Until tombstone (see Known gaps)           |
 | `AccountLock.lastFailedIp`                  | Lockout diagnostics                                                      | Server only                     | Until tombstone (see Known gaps)           |
@@ -68,7 +69,7 @@ Each tombstone writes one `USER_DELETED` audit row whose `reason` is `admin`, `d
 
 ## Tombstone end state
 
-A tombstone sets the user's status to `DELETED` and scrubs the personal fields: name, email, password, two-factor settings, sessions, known devices, lock record and positions. IP and user agent are removed from the user's audit history. The `User` row and its id are kept, so foreign keys in products and in audit history stay valid and products can show "Deleted user". The same email can sign up again later as a new account with a new id.
+A tombstone sets the user's status to `DELETED` and scrubs the personal fields: name, email, password, two-factor settings, passkeys, sessions, known devices, lock record and positions. IP and user agent are removed from the user's audit history. The `User` row and its id are kept, so foreign keys in products and in audit history stay valid and products can show "Deleted user". The same email can sign up again later as a new account with a new id.
 
 ## Known gaps
 

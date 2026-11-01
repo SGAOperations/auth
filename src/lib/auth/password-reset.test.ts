@@ -5,6 +5,7 @@ import {
   createSendResetPassword,
   isResetTokenUsable,
   resetTokenStoredIdentifier,
+  revokeResetTokens,
 } from "@/lib/auth/password-reset";
 import { createCapturingMailer } from "@/test/capturing-mailer";
 
@@ -127,13 +128,22 @@ describe("createOnPasswordReset", () => {
           calls.push("stamp");
         }),
       },
+      knownDevice: {
+        deleteMany: vi.fn(async () => {
+          calls.push("devices");
+        }),
+      },
+      $executeRaw: vi.fn(async () => {
+        calls.push("reset-links");
+        return 0;
+      }),
     };
     const afterReset = vi.fn(async () => {
       calls.push("after");
     });
     const mailer = createCapturingMailer();
     const run = createOnPasswordReset({
-      // The two delegates are the only parts of the client this reads.
+      // The only parts of the client this reads.
       prisma: prisma as never,
       mailer,
       afterReset,
@@ -142,11 +152,20 @@ describe("createOnPasswordReset", () => {
     return { calls, prisma, afterReset, mailer, run };
   }
 
-  it("revokes sessions, stamps the change, runs the hooks, then sends the notice", async () => {
+  it("revokes sessions, reset links and devices, stamps the change, runs the hooks, then sends the notice", async () => {
     const { calls, prisma, mailer, run } = setup();
     await run({ user });
-    expect(calls).toEqual(["sessions", "stamp", "after"]);
+    expect(calls).toEqual([
+      "sessions",
+      "reset-links",
+      "devices",
+      "stamp",
+      "after",
+    ]);
     expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "u1" },
+    });
+    expect(prisma.knownDevice.deleteMany).toHaveBeenCalledWith({
       where: { userId: "u1" },
     });
     expect(prisma.user.update).toHaveBeenCalledWith({
@@ -189,6 +208,31 @@ describe("createOnPasswordReset", () => {
       errorName: "Error",
     });
     error.mockRestore();
+  });
+});
+
+describe("revokeResetTokens", () => {
+  it("deletes only the user's rows shaped like a hashed reset identifier", async () => {
+    const executeRaw = vi.fn(async () => 2);
+    await expect(
+      revokeResetTokens({ $executeRaw: executeRaw } as never, "u1"),
+    ).resolves.toBe(2);
+    const [strings, ...values] = executeRaw.mock.calls[0] as unknown as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    expect(values).toEqual(["u1"]);
+    const sql = strings.join("?");
+    expect(sql).toContain('DELETE FROM "Verification"');
+    expect(sql).toContain("'^[A-Za-z0-9_-]{43}$'");
+  });
+
+  it("matches a stored reset identifier and none of the other prefixed rows", () => {
+    const shape = /^[A-Za-z0-9_-]{43}$/;
+    expect(shape.test(resetTokenStoredIdentifier("tok"))).toBe(true);
+    expect(shape.test(`set-password:${"a".repeat(64)}`)).toBe(false);
+    expect(shape.test(`2fa-${"a".repeat(20)}`)).toBe(false);
+    expect(shape.test(`trust-device-${"a".repeat(32)}`)).toBe(false);
   });
 });
 

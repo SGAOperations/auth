@@ -125,6 +125,57 @@ describe.skipIf(!url)("lockout service against the database", () => {
     expect(check).toMatchObject({ outcome: "refuse", scope: "device" });
   });
 
+  it("falls a spent device through to the account until it logs in again", async () => {
+    const user = await createUser();
+    const raw = await rememberDevice(prisma, {
+      userId: user.id,
+      raw: null,
+      userAgent: null,
+      now: NOW,
+    });
+    const device = await prisma.knownDevice.findFirstOrThrow({
+      where: { userId: user.id },
+    });
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) {
+      await failure(user.id, NOW, device.id);
+    }
+
+    // The device lock is over: its failures now count on the account.
+    const after = at(DEVICE_LOCK_MS + 1000);
+    const spent = await checkSignIn(prisma, {
+      email: user.email,
+      deviceRaw: raw,
+      now: after,
+    });
+    expect(spent).toEqual({
+      outcome: "proceed",
+      userId: user.id,
+      deviceId: null,
+    });
+    for (let i = 0; i < FAILURE_THRESHOLD; i++) await failure(user.id, after);
+    expect(
+      await checkSignIn(prisma, {
+        email: user.email,
+        deviceRaw: raw,
+        now: at(DEVICE_LOCK_MS + 2000),
+      }),
+    ).toMatchObject({ outcome: "refuse", scope: "account" });
+
+    // A completed login from the device restores its exemption.
+    await recordSuccessfulSignIn(prisma, {
+      userId: user.id,
+      deviceId: device.id,
+      now: at(DEVICE_LOCK_MS + 3000),
+    });
+    expect(
+      await checkSignIn(prisma, {
+        email: user.email,
+        deviceRaw: raw,
+        now: at(DEVICE_LOCK_MS + 4000),
+      }),
+    ).toEqual({ outcome: "proceed", userId: user.id, deviceId: device.id });
+  });
+
   it("lets a known device in while the account is locked, and no one else", async () => {
     const user = await createUser();
     const raw = await rememberDevice(prisma, {

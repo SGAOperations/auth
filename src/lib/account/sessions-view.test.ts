@@ -58,4 +58,10 @@ describe("revokeOutcome", () => {
   ] as const)("maps %i to %s", (status, outcome) => {
     expect(revokeOutcome(status)).toBe(outcome);
   });
+
+  it("maps a 403 that asks for re-authentication to reauth", () => {
+    expect(revokeOutcome(403, "REAUTH_REQUIRED")).toBe("reauth");
+    expect(revokeOutcome(403, "invalid_origin")).toBe("failed");
+    expect(revokeOutcome(500, "REAUTH_REQUIRED")).toBe("failed");
+  });
 });

@@ -34,6 +34,17 @@ async function richUser() {
     prisma.knownDevice.create({
       data: { userId: user.id, tokenHash: hexHash() },
     }),
+    prisma.passkey.create({
+      data: {
+        userId: user.id,
+        name: "Sam's laptop",
+        publicKey: "pk",
+        credentialID: `cred-${hexHash()}`,
+        counter: 0,
+        deviceType: "singleDevice",
+        backedUp: false,
+      },
+    }),
     prisma.unlockToken.create({
       data: {
         userId: user.id,
@@ -110,6 +121,7 @@ describe("tombstoneUser", () => {
     expect(await prisma.account.count({ where })).toBe(0);
     expect(await prisma.twoFactor.count({ where })).toBe(0);
     expect(await prisma.knownDevice.count({ where })).toBe(0);
+    expect(await prisma.passkey.count({ where })).toBe(0);
     expect(await prisma.unlockToken.count({ where })).toBe(0);
     expect(await prisma.accountLock.count({ where })).toBe(0);
     expect(await prisma.userPosition.count({ where })).toBe(0);

@@ -87,6 +87,8 @@ export async function tombstoneUser(
     await tx.session.deleteMany({ where: { userId } });
     await tx.account.deleteMany({ where: { userId } });
     await tx.twoFactor.deleteMany({ where: { userId } });
+    // Credential id, public key and the user-chosen name.
+    await tx.passkey.deleteMany({ where: { userId } });
     await tx.knownDevice.deleteMany({ where: { userId } });
     await tx.unlockToken.deleteMany({ where: { userId } });
     // A pending request holds an address that is not the user's own yet.
