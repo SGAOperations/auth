@@ -25,6 +25,9 @@ const EXEMPT_PATHS = new Set([
   "/api/jobs/retention",
   // Bearer-protected by APLIO_DUAL_WRITE_SECRET, called by Aplio's server.
   "/api/provision/aplio/users",
+  // Bearer-protected by a product API key (#312), called by products' servers.
+  "/api/products/slack/link-tokens",
+  "/api/products/slack/lookup",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ]);
