@@ -127,11 +127,32 @@ export function invalidInputResponse(error?: z.ZodError): Response {
   return apiError(400, "INVALID_INPUT", INVALID_INPUT_MESSAGE, { issues });
 }
 
-/** A body that is not JSON, or does not match `schema`, is 400 INVALID_INPUT. */
+/** True when the request declares a JSON body: `application/json`, any parameters. */
+function declaresJson(request: Request): boolean {
+  const type = request.headers.get("content-type") ?? "";
+  return type.split(";")[0].trim().toLowerCase() === "application/json";
+}
+
+/**
+ * A request that does not declare `Content-Type: application/json` is 415
+ * UNSUPPORTED_MEDIA_TYPE, before the body is read. A cross-site page can send
+ * `text/plain` JSON with no CORS preflight; requiring the JSON type forces one
+ * (BT5). A body that is not JSON, or does not match `schema`, is 400
+ * INVALID_INPUT.
+ */
 export async function readJson<S extends z.ZodType>(
   request: Request,
   schema: S,
 ): Promise<{ data: z.output<S> } | { response: Response }> {
+  if (!declaresJson(request)) {
+    return {
+      response: apiError(
+        415,
+        "UNSUPPORTED_MEDIA_TYPE",
+        "Send the request body as application/json.",
+      ),
+    };
+  }
   let body: unknown;
   try {
     body = await request.json();

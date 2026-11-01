@@ -63,7 +63,11 @@ const SELF_PROTECTED: ReadonlySet<UserAction> = new Set([
   "initiateTransfer",
 ]);
 
-/** Only the transfer flow or break-glass may do these to the Primary Admin. */
+/**
+ * No other admin may do these to the Primary Admin (BT13: no signing them out
+ * in a loop, clearing their lock or renaming them). Only the transfer flow or
+ * break-glass changes the role itself.
+ */
 const PA_PROTECTED: ReadonlySet<UserAction> = new Set([
   "grantAdmin",
   "revokeAdmin",
@@ -72,12 +76,31 @@ const PA_PROTECTED: ReadonlySet<UserAction> = new Set([
   "delete",
   "resetMfa",
   "changeEmail",
+  "revokeSessions",
+  "unlock",
+  "updateProfile",
+  "resendInvite",
 ]);
 
-/** On an admin target, only the Primary Admin may do these. */
+/** The PA_PROTECTED actions the Primary Admin may still do to themselves. */
+const PA_SELF_SERVICE: ReadonlySet<UserAction> = new Set([
+  "changeEmail",
+  "revokeSessions",
+  "unlock",
+  "updateProfile",
+  "resendInvite",
+]);
+
+/**
+ * On an admin target, only the Primary Admin may do these. `revokeAdmin` is
+ * here because revoke, then reset MFA and change the email of the now
+ * non-admin, is an admin-on-admin takeover (BT4). Every admin a revoke can
+ * succeed on is an admin target, so only the Primary Admin revokes admin.
+ */
 const PA_ONLY_ON_ADMINS: ReadonlySet<UserAction> = new Set([
   "changeEmail",
   "resetMfa",
+  "revokeAdmin",
 ]);
 
 function isGlobalAction(action: AuthzAction): action is GlobalAction {
@@ -139,8 +162,9 @@ export function can(
   }
 
   if (target.isPrimaryAdmin && PA_PROTECTED.has(action)) {
-    // The Primary Admin changes their own email; their MFA reset is break-glass only.
-    if (!(self && action === "changeEmail")) {
+    // The Primary Admin manages their own email, sessions, lock, profile and
+    // invite; their MFA reset is break-glass only.
+    if (!(self && PA_SELF_SERVICE.has(action))) {
       return deny("PRIMARY_ADMIN_PROTECTED");
     }
   }

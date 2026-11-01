@@ -584,6 +584,27 @@ describe("product lifecycle metadata", () => {
       { slug: "vaultz", fields: ["visibility", "visibleToPositionKeys"] },
     ],
     ["PRODUCT_DELETED", { slug: "vaultz" }],
+    [
+      "PRODUCT_CREATED",
+      {
+        slug: "vaultz",
+        after: {
+          baseUrl: "https://vaultz.northeasternsga.com",
+          isActive: true,
+          loginRedirectPath: null,
+        },
+      },
+    ],
+    [
+      "PRODUCT_UPDATED",
+      {
+        slug: "vaultz",
+        fields: ["baseUrl", "name"],
+        before: { baseUrl: "https://a.northeasternsga.com" },
+        after: { baseUrl: "https://b.northeasternsga.com" },
+      },
+    ],
+    ["PRODUCT_DELETED", { slug: "vaultz", before: { isActive: false } }],
   ])("accepts %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).not.toThrow();
   });
@@ -597,6 +618,17 @@ describe("product lifecycle metadata", () => {
     ["PRODUCT_UPDATED", { slug: "vaultz" }],
     ["PRODUCT_DELETED", {}],
     ["PRODUCT_DELETED", { slug: "vaultz", extra: 1 }],
+    // Values are kept for the routing fields only.
+    ["PRODUCT_CREATED", { slug: "vaultz", after: { name: "Vaultz" } }],
+    [
+      "PRODUCT_UPDATED",
+      {
+        slug: "vaultz",
+        fields: ["baseUrl", "isActive"],
+        before: { baseUrl: "https://a.northeasternsga.com" },
+        after: { baseUrl: "https://b.northeasternsga.com", isActive: true },
+      },
+    ],
   ])("rejects %s %j", (type, metadata) => {
     expect(() => parseAuditEvent(event(type, metadata))).toThrow(ZodError);
   });

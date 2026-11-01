@@ -38,9 +38,12 @@ import {
   withAuditContext,
   withAuditTransaction,
 } from "@/lib/audit";
-import { can, type UserAction } from "@/lib/authz";
+import { can, type AuthzDenialReason, type UserAction } from "@/lib/authz";
 import type { Mailer, SendResult } from "@/lib/email/mailer";
-import type { TransferNotice } from "@/lib/jobs/pa-transfer";
+import {
+  lockInFlightTransferTo,
+  type TransferNotice,
+} from "@/lib/jobs/pa-transfer";
 import { logger } from "@/lib/log";
 import type { AdminInviteResult } from "@/lib/set-password/service";
 import { tombstoneUser } from "@/lib/users/tombstone";
@@ -110,6 +113,46 @@ class Abort extends Error {
     super(code);
     this.name = "Abort";
   }
+}
+
+/** Thrown inside the transaction when the locked re-check denies; a 403 outside. */
+class Denied extends Error {
+  constructor(readonly reason: AuthzDenialReason) {
+    super(reason);
+    this.name = "Denied";
+  }
+}
+
+/**
+ * Locks the actor and target rows and re-runs `can()` on what they hold now
+ * (BT26). Without it, an admin grant that commits between the first `can()`
+ * and the write would let a non-Primary Admin act on someone who is now an
+ * admin. Any in-flight transfer to the target is locked first, the order the
+ * job takes (see lockInFlightTransferTo); the user rows go in id order, as in
+ * break-glass recovery, so two admin requests cannot deadlock each other.
+ * Returns the target as locked, for the action to run on.
+ */
+async function lockAndRecheck(
+  tx: Prisma.TransactionClient,
+  actorId: string,
+  authz: UserAction,
+  targetId: string,
+): Promise<UserTarget> {
+  await lockInFlightTransferTo(tx, targetId);
+  const ids = [...new Set([actorId, targetId])];
+  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`;
+  const [actor, target] = await Promise.all([
+    tx.user.findUnique({
+      where: { id: actorId },
+      select: { id: true, isAdmin: true, isPrimaryAdmin: true, status: true },
+    }),
+    loadTarget(tx, targetId),
+  ]);
+  if (!target || target.status === "DELETED") throw new Abort("USER_DELETED");
+  if (!actor) throw new Denied("ACTOR_INACTIVE");
+  const decision = can(actor, authz, target);
+  if (!decision.allowed) throw new Denied(decision.reason);
+  return target;
 }
 
 const isUniqueViolation = (err: unknown) =>
@@ -212,6 +255,7 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
       );
     } catch (err) {
       if (err instanceof Abort) return userError(err.code);
+      if (err instanceof Denied) return denied(err.reason);
       throw err;
     }
 
@@ -231,6 +275,23 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
         .catch(() => "failed" as const);
     }
     return apiJson(body, { status });
+  }
+
+  /** `commit` for a per-target action: `run` gets the target as re-checked under lock. */
+  function commitOnTarget(
+    request: Request,
+    actor: AdminActor,
+    authz: UserAction,
+    targetId: string,
+    run: (
+      tx: Prisma.TransactionClient,
+      now: Date,
+      target: UserTarget,
+    ) => Promise<RunOutcome>,
+  ): Promise<Response> {
+    return commit(request, actor, async (tx, now) =>
+      run(tx, now, await lockAndRecheck(tx, actor.id, authz, targetId)),
+    );
   }
 
   const list = guarded("list", async (request) => {
@@ -353,25 +414,31 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
       return apiJson({ user: await getUser(prisma, target.id) });
     }
 
-    return commit(request, actor, async (tx) => {
-      const changed = await tx.user.updateMany({
-        where: { id: target.id, status: { not: "DELETED" } },
-        data: {
-          ...(fields.includes("name") ? { name: body.name } : {}),
-          ...(fields.includes("preferredName")
-            ? { preferredName: body.preferredName }
-            : {}),
-        },
-      });
-      if (changed.count === 0) return { fail: "USER_DELETED" };
-      await audit({
-        type: "USER_UPDATED",
-        targetType: "USER",
-        targetId: target.id,
-        metadata: { fields },
-      });
-      return { userId: target.id };
-    });
+    return commitOnTarget(
+      request,
+      actor,
+      "updateProfile",
+      target.id,
+      async (tx) => {
+        const changed = await tx.user.updateMany({
+          where: { id: target.id, status: { not: "DELETED" } },
+          data: {
+            ...(fields.includes("name") ? { name: body.name } : {}),
+            ...(fields.includes("preferredName")
+              ? { preferredName: body.preferredName }
+              : {}),
+          },
+        });
+        if (changed.count === 0) return { fail: "USER_DELETED" };
+        await audit({
+          type: "USER_UPDATED",
+          targetType: "USER",
+          targetId: target.id,
+          metadata: { fields },
+        });
+        return { userId: target.id };
+      },
+    );
   });
 
   // The tombstone opens its own anonymization transaction, so it does not go
@@ -409,8 +476,13 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
     // Already validated by `resolve`, so the parse cannot fail.
     const spec: MutationSpec =
       ACTION_SPECS[actionParam.parse((await ctx.params).action)];
-    return commit(request, actor, (tx, now) =>
-      spec.run({ tx, actor, target, body: undefined, now }, deps),
+    return commitOnTarget(
+      request,
+      actor,
+      spec.authz,
+      target.id,
+      (tx, now, locked) =>
+        spec.run({ tx, actor, target: locked, body: undefined, now }, deps),
     );
   });
 

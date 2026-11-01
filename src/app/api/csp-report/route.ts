@@ -1,3 +1,6 @@
+import { clientIp } from "@/lib/client-ip";
+import { tooManyRequestsHeaders } from "@/lib/rate-limit/limiter";
+import { checkRateLimit } from "@/lib/rate-limit/server";
 import { parseCspReports } from "@/lib/security/csp-report";
 
 export const runtime = "nodejs";
@@ -32,12 +35,23 @@ async function readBounded(request: Request): Promise<string | null> {
 
 // Unauthenticated on purpose: browsers send reports without credentials and
 // no reliable Origin. This is the sanctioned exception to the Origin rule in
-// docs/ENGINEERING.md section 3. The only effect is a redacted log line.
+// docs/ENGINEERING.md section 3. The only effect is a redacted log line, and
+// the per-IP limit and the caps in csp-report.ts bound how many (BT28).
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   const mediaType = contentType.split(";")[0].trim().toLowerCase();
   if (!ACCEPTED_TYPES.includes(mediaType)) {
     return new Response(null, { status: 415 });
+  }
+
+  const rate = await checkRateLimit("cspReport", {
+    ip: clientIp(request.headers),
+  });
+  if (!rate.allowed) {
+    return new Response(null, {
+      status: 429,
+      headers: tooManyRequestsHeaders(rate.retryAfterSeconds),
+    });
   }
 
   const declared = Number(request.headers.get("content-length"));

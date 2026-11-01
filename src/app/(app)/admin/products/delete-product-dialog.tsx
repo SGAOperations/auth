@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useReauth } from "@/components/reauth-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,7 @@ const FAILURE_COPY: Record<string, string> = {
   NOT_FOUND: "This product no longer exists.",
   RATE_LIMITED: "Too many changes. Try again in a minute.",
   FORBIDDEN: "You don't have permission to do that.",
+  REAUTH_REQUIRED: "Confirm it's you to delete a product.",
 };
 
 export function DeleteProductDialog({
@@ -30,6 +32,7 @@ export function DeleteProductDialog({
 }: {
   product: { id: string; name: string; slug: string; isActive: boolean };
 }) {
+  const reauth = useReauth();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +51,12 @@ export function DeleteProductDialog({
     setError(null);
     try {
       // On success the action redirects to the list, so a result is a failure.
-      const result = await deleteProduct(product.id, typed);
+      let result = await deleteProduct(product.id, typed);
+      // Deleting needs a fresh sign-in: prompt once, then retry once.
+      if (!result.ok && result.code === "REAUTH_REQUIRED") {
+        if (!(await reauth.prompt())) return;
+        result = await deleteProduct(product.id, typed);
+      }
       if (!result.ok) {
         setError(
           FAILURE_COPY[result.code] ?? "Something went wrong. Try again.",

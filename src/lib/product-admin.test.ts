@@ -7,6 +7,7 @@ import { Prisma } from "@/generated/prisma/client";
 import {
   ProductError,
   changedProductFields,
+  routingValues,
   toProductError,
 } from "@/lib/product-admin";
 
@@ -21,6 +22,23 @@ const before = {
   visibleToPositionKeys: ["vp-finance", "president"],
   loginRedirectPath: null,
 };
+
+describe("routingValues", () => {
+  it("returns the three routing fields and nothing else", () => {
+    expect(routingValues(before)).toEqual({
+      baseUrl: "https://test-tool.northeasternsga.com",
+      isActive: true,
+      loginRedirectPath: null,
+    });
+  });
+
+  it("limits the result to the fields named, ignoring non-routing ones", () => {
+    expect(routingValues(before, ["isActive", "name"])).toEqual({
+      isActive: true,
+    });
+    expect(routingValues(before, [])).toEqual({});
+  });
+});
 
 describe("changedProductFields", () => {
   it("ignores keys that are absent from the patch", () => {

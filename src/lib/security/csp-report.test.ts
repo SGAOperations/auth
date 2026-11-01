@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { parseCspReports, redactUrl } from "./csp-report";
+import {
+  MAX_LOGGED_LENGTH,
+  MAX_REPORTS_PER_REQUEST,
+  parseCspReports,
+  redactUrl,
+} from "./csp-report";
 
 describe("parseCspReports", () => {
   it("normalises the legacy csp-report body", () => {
@@ -59,6 +64,52 @@ describe("parseCspReports", () => {
         lineNumber: undefined,
       },
     ]);
+  });
+
+  it("returns at most MAX_REPORTS_PER_REQUEST violations (BT28)", () => {
+    const entry = {
+      type: "csp-violation",
+      body: { effectiveDirective: "img-src" },
+    };
+    const result = parseCspReports(Array(300).fill(entry));
+    expect(result).toHaveLength(MAX_REPORTS_PER_REQUEST);
+    expect(MAX_REPORTS_PER_REQUEST).toBe(5);
+  });
+
+  it("cuts every logged string to MAX_LOGGED_LENGTH (BT28)", () => {
+    const long = "x".repeat(5000);
+    const [legacy] =
+      parseCspReports({
+        "csp-report": {
+          "document-uri": `https://a.test/${long}`,
+          "blocked-uri": long,
+          "effective-directive": long,
+          disposition: long,
+          "source-file": `https://a.test/${long}`,
+        },
+      }) ?? [];
+    const [reporting] =
+      parseCspReports([
+        {
+          type: "csp-violation",
+          body: {
+            documentURL: `https://a.test/${long}`,
+            blockedURL: long,
+            effectiveDirective: long,
+            disposition: long,
+            sourceFile: `https://a.test/${long}`,
+          },
+        },
+      ]) ?? [];
+    for (const violation of [legacy, reporting]) {
+      expect(violation).toBeDefined();
+      for (const value of Object.values(violation ?? {})) {
+        if (typeof value === "string") {
+          expect(value.length).toBeLessThanOrEqual(MAX_LOGGED_LENGTH);
+        }
+      }
+    }
+    expect(MAX_LOGGED_LENGTH).toBe(100);
   });
 
   it("accepts an empty reports array", () => {
