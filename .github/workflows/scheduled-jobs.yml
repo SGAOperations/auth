@@ -50,6 +50,14 @@ jobs:
   call:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The bearer secrets live in GitHub Environments, not repository secrets:
+    # CRON_SECRET_PRODUCTION in `cron-production`, CRON_SECRET_DEV and
+    # VERCEL_AUTOMATION_BYPASS_SECRET_DEV in `cron-dev`. Only the default
+    # branch may deploy to either, so a workflow on any other pushed branch
+    # cannot read them. Schedules have no inputs and resolve to production,
+    # matching the step below. The names avoid "production"/"preview", which
+    # Vercel's GitHub deployments already use (names are case-insensitive).
+    environment: ${{ inputs.environment == 'dev' && 'cron-dev' || 'cron-production' }}
     steps:
       - name: Resolve job and target
         id: target

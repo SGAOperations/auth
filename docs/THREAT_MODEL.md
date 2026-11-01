@@ -44,7 +44,8 @@ Trust boundaries:
 - `#38 (AUTH-T26)` cookie attributes: `Secure`, `HttpOnly`, `SameSite=Lax`, and no `__Host-` prefix, because browsers reject `__Host-` with a `Domain` attribute. Cookie values are signed, so another user's session cannot be forged.
 - `#80 (AUTH-T68)` DNS inventory, dangling-record removal and the no-wildcard subdomain policy ([SUBDOMAIN-POLICY.md](SUBDOMAIN-POLICY.md)).
 - `#68 (AUTH-T56)` product registry at runtime: no wildcard trusted origin and no `*.vercel.app`.
-- `#77 (AUTH-T65)` Origin enforcement on every mutation.
+- `#77 (AUTH-T65)` Origin enforcement on every mutation. Since the black-team review (BT5, BT6), `/api/sgauth/*` mutations accept SGAuth's own origin only, never a product's; the admin API requires `Content-Type: application/json`; and the guard checks the percent-decoded path. A compromised product subdomain can no longer drive the admin API through a signed-in admin's browser.
+- Admin-on-admin limits (BT4, BT13, BT26): only the Primary Admin revokes admin, no other admin may revoke the Primary Admin's sessions, unlock, rename or re-invite them, and the admin user endpoints re-run `can()` on locked rows inside the write transaction ([ADMIN-API.md](ADMIN-API.md#who-may-act-on-whom)).
 - `#115 (AUTH-T104)` spike observing real cookie behaviour and tossing in three browsers. The spike has run; its go/no-go sign-off by the SGAuth lead is still a launch item (PL-02).
 - `#213` refuses requests carrying duplicate session cookies, so a planted host-only or path copy beside the victim's resolves to signed out rather than to either session ([SESSION-COOKIE.md](SESSION-COOKIE.md#duplicate-session-cookies)).
 - `#78 (AUTH-T66)` HSTS without `includeSubDomains`, so SGAuth does not force HTTPS-only on hosts it has not inventoried.
@@ -240,13 +241,17 @@ Trust boundaries:
 - Per-environment secrets, with dev kept separate from production (`#46 (AUTH-T34)`, [ENVIRONMENTS.md](ENVIRONMENTS.md)).
 - `#86 (AUTH-T74)` log redaction.
 - `#81 (AUTH-T69)` rotation procedures.
-- Secrets scoped to the CI test job (`#17 (AUTH-T06)`).
+- Secrets scoped to the CI test job (`#17 (AUTH-T06)`). Neon and cron secrets live only in GitHub Environments: branch-restricted for pushes and schedules, approval-gated for pull requests, because any secret a `pull_request` workflow can name is reachable by that PR's code (#322, BT2 and BT9).
+- Role passwords reset on every non-production Neon branch after it is created, so a child branch's credentials never open its parent ([rotate-secrets.md](runbooks/rotate-secrets.md), #322 BT3).
+- Branch previews run attacker-controllable code by design, so they get their own Neon `preview` branch with the `runtime` role only and never run migrations (#322, BT7).
 - `server-only` modules and no `NEXT_PUBLIC_` secrets ([ENGINEERING.md](ENGINEERING.md) §3).
 
 **Residual risk**
 
 - The runtime role can still read and write every user row, password hashes included.
 - A Neon restore rewinds role-password rotations ([neon-restore.md](runbooks/neon-restore.md)).
+- `Session.token` is stored in plaintext, Better Auth 1.7.7's only mode; hashing through adapter hooks would break token lookup, `/list-sessions` and revoke-by-token. A database read alone does not yield a cookie: signing one also needs `BETTER_AUTH_SECRET`, which lives only in Vercel per environment. Sessions expire after 30 days idle and 90 days absolute, and reset, unlock and email change revoke them. Reset, set-password, unlock, email-change and transfer-cancel tokens are hashed. Revisit when Better Auth supports hashed session storage (#322, BT11).
+- Production `DIRECT_URL` is present at function runtime until migrations move to an environment-gated Actions job ([ENVIRONMENTS.md](ENVIRONMENTS.md), #322 BT21).
 
 **Disposition:** Owned, Infrastructure owner.
 
@@ -269,19 +274,19 @@ These are handled elsewhere. This table points to the owner of each, so this doc
 
 Every residual risk above appears once. Owners are roles; the people who hold them are in [Role holders](#role-holders).
 
-| ID    | Threat | Residual risk                                                                                            | Disposition                  | Owner                                                | Review trigger                            |
-| ----- | ------ | -------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------- | ----------------------------------------- |
-| RR-01 | TM-01  | A compromised or lost subdomain receives the cookie and can toss one                                     | Accepted, red-team C1        | SGAuth lead                                          | New subdomain; quarterly subdomain review |
-| RR-02 | TM-02  | A stolen cookie works until revoked or expired; no device binding                                        | Owned                        | SGAuth lead                                          | Any session-handling change               |
-| RR-03 | TM-03  | Revocation and position changes lag up to 10 minutes in products                                         | Accepted, red-team C3        | SGAuth lead                                          | JWT TTL change                            |
-| RR-04 | TM-03  | Cross-project replay: any SGAuth token is accepted by every trusting Supabase project; weak RLS          | Owned                        | Product owner                                        | New Supabase product; key rotation        |
-| RR-05 | TM-04  | Admin collusion; no `ADMIN_GRANTED` alert, so review is manual                                           | Owned                        | Primary Admin                                        | Each semester                             |
-| RR-06 | TM-04  | Any admin can strip the Primary Admin's positions                                                        | Accepted, red-team C5        | Primary Admin                                        | Admin-matrix change                       |
-| RR-07 | TM-05  | An attacker with the PA password, TOTP and mailbox can suppress the cancel; a restore rewinds a transfer | Owned                        | Primary Admin                                        | Each PA transfer; Neon restore            |
-| RR-08 | TM-06  | Database credentials bypass audit and email by direct SQL                                                | Accepted, red-team C9        | Primary Admin and the break-glass credential holders | Credential holder change                  |
-| RR-09 | TM-07  | Lookalike domains outside SGA's control; DMARC is `quarantine`                                           | Owned                        | SGAuth lead                                          | After a clean DMARC report period         |
-| RR-10 | TM-08  | Low-and-slow stuffing; only lockout protects while Redis is down; campus NAT collisions                  | Accepted, red-team A4 and A5 | SGAuth lead                                          | Fail-open alert; rate-limit policy change |
-| RR-11 | TM-09  | The runtime role reads and writes every user row; a restore rewinds role-password rotations              | Owned                        | Infrastructure owner                                 | Role or secret rotation; Neon restore     |
+| ID    | Threat | Residual risk                                                                                                              | Disposition                  | Owner                                                | Review trigger                            |
+| ----- | ------ | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------- | ----------------------------------------- |
+| RR-01 | TM-01  | A compromised or lost subdomain receives the cookie and can toss one                                                       | Accepted, red-team C1        | SGAuth lead                                          | New subdomain; quarterly subdomain review |
+| RR-02 | TM-02  | A stolen cookie works until revoked or expired; no device binding                                                          | Owned                        | SGAuth lead                                          | Any session-handling change               |
+| RR-03 | TM-03  | Revocation and position changes lag up to 10 minutes in products                                                           | Accepted, red-team C3        | SGAuth lead                                          | JWT TTL change                            |
+| RR-04 | TM-03  | Cross-project replay: any SGAuth token is accepted by every trusting Supabase project; weak RLS                            | Owned                        | Product owner                                        | New Supabase product; key rotation        |
+| RR-05 | TM-04  | Admin collusion; admin grants and revokes alert within the hour, but review of the reason is manual                        | Owned                        | Primary Admin                                        | Each semester                             |
+| RR-06 | TM-04  | Any admin can strip the Primary Admin's positions                                                                          | Accepted, red-team C5        | Primary Admin                                        | Admin-matrix change                       |
+| RR-07 | TM-05  | An attacker with the PA password, TOTP and mailbox can suppress the cancel; a restore rewinds a transfer                   | Owned                        | Primary Admin                                        | Each PA transfer; Neon restore            |
+| RR-08 | TM-06  | Database credentials bypass audit and email by direct SQL                                                                  | Accepted, red-team C9        | Primary Admin and the break-glass credential holders | Credential holder change                  |
+| RR-09 | TM-07  | Lookalike domains outside SGA's control; DMARC is `quarantine`                                                             | Owned                        | SGAuth lead                                          | After a clean DMARC report period         |
+| RR-10 | TM-08  | Low-and-slow stuffing; only lockout protects while Redis is down; campus NAT collisions                                    | Accepted, red-team A4 and A5 | SGAuth lead                                          | Fail-open alert; rate-limit policy change |
+| RR-11 | TM-09  | The runtime role reads and writes every user row; session tokens are stored raw; a restore rewinds role-password rotations | Owned                        | Infrastructure owner                                 | Role or secret rotation; Neon restore     |
 
 ### Role holders
 

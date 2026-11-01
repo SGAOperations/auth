@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/index.js";
 import { env } from "../src/lib/env";
 import { SeedRefusedError, assertSeedAllowed } from "./seed/guard.js";
+import { guardEnv } from "../scripts/prisma-guard.mjs";
 import { productCreateSchema } from "../src/lib/product-input";
 import {
   PrimaryAdminSeedError,
@@ -90,8 +91,14 @@ const DEV_PRODUCTS = [
 ];
 
 async function main(): Promise<void> {
-  // Before any client exists: a refused run makes no connection.
-  assertSeedAllowed(env.SGAUTH_ENV);
+  // Before any client exists: a refused run makes no connection. DIRECT_URL
+  // and SGAUTH_PROTECTED_DB_HOSTS are tooling variables outside the app's env
+  // schema, read by scripts/prisma-guard.mjs.
+  assertSeedAllowed({
+    sgauthEnv: env.SGAUTH_ENV,
+    databaseUrl: env.DATABASE_URL,
+    ...guardEnv(),
+  });
 
   // Connect to whatever database is specified by DATABASE_URL
   const pool = new pg.Pool({ connectionString: env.DATABASE_URL });

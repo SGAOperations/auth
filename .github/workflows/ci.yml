@@ -10,6 +10,11 @@ on:
       - main
       - dev
 
+# No job writes to the repository, comments or deploys. A job that needs more
+# grants it in its own permissions block.
+permissions:
+  contents: read
+
 jobs:
   typecheck:
     runs-on: ubuntu-latest
@@ -59,7 +64,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/neon-quota-monitor.test.mjs scripts/sso-stub.test.mjs scripts/sso-stub-deploy.test.mjs scripts/prisma-guard.test.mjs
+      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/neon-quota-monitor.test.mjs scripts/sso-stub.test.mjs scripts/sso-stub-deploy.test.mjs scripts/prisma-guard.test.mjs scripts/vercel-build.test.mjs
 
   audit:
     runs-on: ubuntu-latest
@@ -160,9 +165,20 @@ jobs:
   # The Primary Admin transfer suites (vitest project db-transfer). They assume
   # no committed Primary Admin, so they reset the test branch first and run
   # before the sharded db job, which resets its own shard branches.
+  #
+  # The Neon secrets (NEON_API_KEY and the NEON_TEST_* URLs) live in GitHub
+  # Environments, not in repository secrets. On pull_request this file comes
+  # from the PR itself, so nothing in it can keep the secrets away from the PR's
+  # code; the Environment is the boundary. Pushes to dev and main use
+  # `neon-ci`, which only dev and main may deploy to. Pull requests use
+  # `neon-ci-pr`, which needs an approval first: approve only after checking
+  # that the PR does not change .github/ or the test harness to read a secret.
+  # A PR that edits the expression below to pick `neon-ci` is refused by that
+  # Environment's branch rule. See CONTRIBUTING.md "Neon secrets".
   db-transfer:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    environment: ${{ github.event_name == 'pull_request' && 'neon-ci-pr' || 'neon-ci' }}
     concurrency:
       group: neon-test-branch
       cancel-in-progress: false
@@ -192,6 +208,8 @@ jobs:
     needs: db-transfer
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Same Environment rule as db-transfer above.
+    environment: ${{ github.event_name == 'pull_request' && 'neon-ci-pr' || 'neon-ci' }}
     strategy:
       fail-fast: false
       matrix:
@@ -229,7 +247,7 @@ jobs:
           missing=0
           for name in NEON_API_KEY NEON_PROJECT_ID TEST_DATABASE_URL TEST_DIRECT_URL; do
             if [ -z "${!name}" ]; then
-              echo "::error::$name is not set. The test job needs the Neon secrets described in CONTRIBUTING.md (fork PRs do not receive them)."
+              echo "::error::$name is not set. The test job needs the Neon secrets in the neon-ci / neon-ci-pr Environments described in CONTRIBUTING.md (fork and Dependabot PRs do not receive them)."
               missing=1
             fi
           done
