@@ -1,6 +1,7 @@
 -- #330: which Slack channel the holders of a product role join.
 --
--- Table, index and foreign keys generated from prisma/schema.prisma. The two
+-- Table, index and foreign keys written by hand to match Prisma's output for
+-- prisma/schema.prisma, and verified by the CI migrations drift check. The two
 -- CHECKs at the end are hand-written: Prisma cannot express them. Expand-only:
 -- one new table, nothing existing changes, so the code deployed while this runs
 -- keeps working (docs/MIGRATIONS.md).

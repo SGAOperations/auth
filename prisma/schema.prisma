@@ -266,9 +266,9 @@ model Position {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  reports  Position[]         @relation("PositionManager")
-  holders  UserPosition[]
-  retired  RetiredPositionKey?
+  reports              Position[]            @relation("PositionManager")
+  holders              UserPosition[]
+  retired              RetiredPositionKey?
   slackChannelMappings SlackChannelMapping[]
 
   @@index([deletedAt])

@@ -63,6 +63,10 @@ function toView(row: MappingRow): ChannelMappingView {
 /**
  * Maps a product role to a Slack channel. `createdById` is the session user,
  * passed in by the caller; the rest of `input` is untrusted and validated.
+ *
+ * When `db` is an interactive transaction, the `exists` outcome (a P2002) has
+ * aborted the Postgres transaction: it is unusable afterwards, so the caller
+ * must return or roll back rather than keep writing on it.
  */
 export async function addChannelMapping(
   db: Db,
