@@ -63,6 +63,7 @@ model User {
   productsCreated                Product[]
   productApiKeysCreated          ProductApiKey[]
   slackIdentity                  SlackIdentity?
+  slackChannelMappingsCreated    SlackChannelMapping[]  @relation("SlackChannelMappingCreatedBy")
   primaryAdminTransfersFrom      PrimaryAdminTransfer[] @relation("PrimaryAdminTransferFrom")
   primaryAdminTransfersTo        PrimaryAdminTransfer[] @relation("PrimaryAdminTransferTo")
   primaryAdminTransfersCancelled PrimaryAdminTransfer[] @relation("PrimaryAdminTransferCancelledBy")
@@ -268,6 +269,7 @@ model Position {
   reports  Position[]         @relation("PositionManager")
   holders  UserPosition[]
   retired  RetiredPositionKey?
+  slackChannelMappings SlackChannelMapping[]
 
   @@index([deletedAt])
   @@index([managerPositionId])
@@ -373,6 +375,26 @@ model SlackIdentity {
   linkedAt    DateTime        @default(now())
 
   @@unique([slackTeamId, slackUserId])
+}
+
+/// A Slack channel the holders of a product role join (src/lib/slack/channel-mappings.ts).
+/// Keyed on the position row, not its key: a retired key can be reused after 365
+/// days, and a mapping by key would hand the old channels to the new role.
+/// Rows are immutable; a change is a remove followed by an add. The
+/// slack_channel_mapping migration adds the CHECKs
+/// `SlackChannelMapping_slackTeamId_check` and
+/// `SlackChannelMapping_slackChannelId_check`, which Prisma cannot express.
+model SlackChannelMapping {
+  id             String   @id @default(uuid(7))
+  positionId     String
+  position       Position @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  slackTeamId    String
+  slackChannelId String
+  createdById    String
+  createdBy      User     @relation("SlackChannelMappingCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt      DateTime @default(now())
+
+  @@unique([positionId, slackTeamId, slackChannelId])
 }
 
 /// A single-use link a product DMs to a Slack user. Only the SHA-256 of the
