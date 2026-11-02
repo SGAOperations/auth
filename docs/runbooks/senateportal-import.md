@@ -58,20 +58,25 @@ The export is an array of rows. Every field is required:
 ## Taking the export
 
 The SenatePortal team runs this in their Supabase project's SQL editor and saves the
-result as `senateportal-export-<date>.json`:
+result as `senateportal-export-<date>.json`. The file must start with `[{"id":`:
 
 ```sql
-select coalesce(json_agg(json_build_object(
-  'id',        u."userId",
-  'email',     u.email,
-  'firstName', u."firstName",
-  'lastName',  u."lastName",
-  'deletedAt', to_char(u."deletedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-) order by u."createdAt"), '[]'::json)
+select
+  u."userId"    as "id",
+  u.email       as "email",
+  u."firstName" as "firstName",
+  u."lastName"  as "lastName",
+  to_char(u."deletedAt", 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "deletedAt"
 from public."User" u
 join auth.users a on a.id::text = u."supabaseAuthId"
-where a.email_confirmed_at is not null;
+where a.email_confirmed_at is not null
+order by u."createdAt";
 ```
+
+Save the result with **Copy as JSON** (or **Export → JSON**), which gives a flat
+array of rows. Do not wrap the query in `json_agg`: the editor wraps that single
+result in another array, and the import then reports every field of `[0]` as
+missing.
 
 - **Only confirmed addresses.** SenatePortal creates its `User` row at signup, before
   Supabase confirms the address. The join leaves out every row whose owner never
