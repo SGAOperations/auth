@@ -17,6 +17,7 @@ function product(
     name: slug,
     description: "",
     baseUrl: `https://${slug}.northeasternsga.com`,
+    iconUrl: null,
     isActive: true,
     visibility: "EVERYONE",
     visibleToPositionKeys: [],

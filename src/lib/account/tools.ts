@@ -13,6 +13,7 @@ export interface ToolProduct {
   name: string;
   description: string;
   baseUrl: string;
+  iconUrl: string | null;
   isActive: boolean;
   visibility: ProductVisibility;
   visibleToPositionKeys: readonly string[];

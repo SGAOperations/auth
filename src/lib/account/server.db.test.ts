@@ -133,6 +133,19 @@ describe("account overview", () => {
     }
   });
 
+  it("returns a product's iconUrl", async () => {
+    const slug = `${prefix}-icon`;
+    const iconUrl = `https://${slug}.northeasternsga.com/icon.svg`;
+    await prisma.product.create({
+      data: product("icon", { visibility: "EVERYONE", iconUrl }),
+    });
+    const user = await createUser();
+    const overview = await loadAccountOverview(user.id);
+    expect(overview?.tools.find((tool) => tool.slug === slug)?.iconUrl).toBe(
+      iconUrl,
+    );
+  });
+
   it("returns the profile fields", async () => {
     const user = await createUser({ preferredName: "Sam" });
     expect((await loadAccountOverview(user.id))?.profile).toEqual({

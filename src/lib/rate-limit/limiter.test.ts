@@ -40,6 +40,7 @@ const ids: Identifiers = {
   email: "student@northeastern.edu",
   session: "session-token-value",
   user: "0192f0a0-0000-7000-8000-000000000001",
+  product: "0192f0a0-0000-7000-8000-000000000002",
 };
 
 // The lowest limit; of equal limits, the longest window, which binds longest.
@@ -234,6 +235,7 @@ describe("namespacing and hashing", () => {
     }
     expect(keys).toContain(ids.ip);
     expect(keys).toContain(ids.user);
+    expect(keys).toContain(ids.product);
   });
 });
 

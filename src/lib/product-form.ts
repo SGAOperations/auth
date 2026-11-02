@@ -67,19 +67,25 @@ export function toProductPayload(
   values: ProductFormValues,
   mode: ProductFormMode,
 ): ProductPayload {
-  const { slug, iconUrl, loginRedirectPath, visibleToPositionKeys, ...rest } =
-    values;
+  // Named, not spread: a key that is not a form field (the row's `id`) must
+  // never reach the strict server schemas.
   return {
-    ...(mode === "create" ? { slug } : {}),
-    ...rest,
+    ...(mode === "create" ? { slug: values.slug } : {}),
+    name: values.name,
+    description: values.description,
+    baseUrl: values.baseUrl,
+    isActive: values.isActive,
+    sortOrder: values.sortOrder,
+    visibility: values.visibility,
     visibleToPositionKeys:
-      values.visibility === "POSITIONS" ? visibleToPositionKeys : [],
-    iconUrl: iconUrl === "" ? null : iconUrl,
-    loginRedirectPath: loginRedirectPath === "" ? null : loginRedirectPath,
+      values.visibility === "POSITIONS" ? values.visibleToPositionKeys : [],
+    iconUrl: values.iconUrl === "" ? null : values.iconUrl,
+    loginRedirectPath:
+      values.loginRedirectPath === "" ? null : values.loginRedirectPath,
   };
 }
 
-/** The saved row as form values. */
+/** The saved row as form values. Keys that are not form fields are dropped. */
 export function productToFormValues(product: {
   slug: string;
   name: string;
@@ -93,8 +99,15 @@ export function productToFormValues(product: {
   loginRedirectPath: string | null;
 }): ProductFormValues {
   return {
-    ...product,
+    slug: product.slug,
+    name: product.name,
+    description: product.description,
+    baseUrl: product.baseUrl,
     iconUrl: product.iconUrl ?? "",
+    isActive: product.isActive,
+    sortOrder: product.sortOrder,
+    visibility: product.visibility,
+    visibleToPositionKeys: product.visibleToPositionKeys,
     loginRedirectPath: product.loginRedirectPath ?? "",
   };
 }
@@ -119,6 +132,17 @@ export function fieldMessages(
   return messages;
 }
 
+const SUBMIT_ERROR_KEY = "submit";
+
+/** The message of a failure that names no form field, if the form has one. */
+export function submitErrorMessage(
+  errors: FieldErrors<ProductFormValues>,
+): string | undefined {
+  return (errors as Record<string, { message?: string } | undefined>)[
+    SUBMIT_ERROR_KEY
+  ]?.message;
+}
+
 /** Validates the payload the server would see, so both sides agree. */
 export function productFormResolver(
   mode: ProductFormMode,
@@ -133,6 +157,16 @@ export function productFormResolver(
       if (isFormField(key) && !errors[key]) {
         errors[key] = { type: "validation", message: issue.message };
       }
+    }
+    // handleSubmit unsets "root" before its empty check, so use a separate key
+    if (Object.keys(errors).length === 0) {
+      Object.assign(errors, {
+        [SUBMIT_ERROR_KEY]: {
+          type: "validation",
+          message:
+            parsed.error.issues[0]?.message ?? "Check the form and retry.",
+        },
+      });
     }
     return { values: {}, errors };
   };

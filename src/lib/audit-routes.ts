@@ -195,7 +195,30 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
   // transaction as the product write.
   "src/app/(app)/admin/products/actions.ts": {
     kind: "audited",
-    events: ["PRODUCT_CREATED", "PRODUCT_UPDATED", "PRODUCT_DELETED"],
+    events: [
+      "PRODUCT_CREATED",
+      "PRODUCT_UPDATED",
+      "PRODUCT_DELETED",
+      "PRODUCT_API_KEY_CREATED",
+      "PRODUCT_API_KEY_REVOKED",
+    ],
+  },
+  // Slack linking on the account page (#313, #314). The service writes each
+  // row in the same transaction as the link or unlink.
+  "src/app/(app)/account/slack/actions.ts": {
+    kind: "audited",
+    events: ["SLACK_LINKED", "SLACK_UNLINKED"],
+    emittedIn: ["src/lib/slack/service.ts"],
+  },
+  // Called by products' servers with an API key (#313).
+  "src/app/api/products/slack/link-tokens/route.ts": {
+    kind: "exempt",
+    reason:
+      "issues a single-use link token and links nothing; SLACK_LINKED is written when the signed-in user confirms it",
+  },
+  "src/app/api/products/slack/lookup/route.ts": {
+    kind: "exempt",
+    reason: "a POST only to keep ids out of URLs; reads and changes nothing",
   },
   // Admin user pages (AUTH-T48). Each action calls the admin user handlers
   // in-process, which write their own audit rows; revoking one session writes

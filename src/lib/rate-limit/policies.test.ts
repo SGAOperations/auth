@@ -71,6 +71,8 @@ describe("POLICIES", () => {
       ["email-otp-sign-in:email:15m", 10, 900, "email"],
       ["email-otp-sign-in:ip:1h", 20, 3600, "ip"],
       ["csp-report:ip:1m", 30, 60, "ip"],
+      ["slack-link:user:10m", 20, 600, "user"],
+      ["product-api:product:1m", 600, 60, "product"],
     ]);
   });
 

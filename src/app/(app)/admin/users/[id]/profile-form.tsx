@@ -19,13 +19,11 @@ const NAME_MAX = 100;
 
 export function ProfileForm({
   userId,
-  email,
   name,
   preferredName,
   disabledReason,
 }: {
   userId: string;
-  email: string;
   name: string;
   preferredName: string | null;
   /** Why editing is off, or null when the admin may edit. */
@@ -97,13 +95,6 @@ export function ProfileForm({
                 setValues({ ...values, preferredName: event.target.value })
               }
             />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="profile-email">Email</Label>
-            <Input id="profile-email" value={email} readOnly disabled />
-            <p className="text-xs text-muted-foreground">
-              Email changes aren&apos;t available here yet.
-            </p>
           </div>
           <DisabledReason
             reason={

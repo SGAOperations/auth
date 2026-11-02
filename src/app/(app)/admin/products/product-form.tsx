@@ -33,6 +33,7 @@ import {
   fieldMessages,
   productFormResolver,
   productToFormValues,
+  submitErrorMessage,
   suggestProductSlug,
   toProductPayload,
   type ProductFormMode,
@@ -116,6 +117,7 @@ export function ProductForm({
       : PRODUCT_FORM_DEFAULTS,
   });
   const { isSubmitting } = form.formState;
+  const submitError = submitErrorMessage(form.formState.errors);
 
   const known = useMemo(
     () => new Set(positions.map((position) => position.key)),
@@ -528,6 +530,12 @@ export function ProductForm({
             </FormItem>
           )}
         />
+
+        {submitError ? (
+          <p role="alert" className="text-sm text-destructive">
+            {submitError}
+          </p>
+        ) : null}
 
         <div>
           <Button type="submit" disabled={isSubmitting}>

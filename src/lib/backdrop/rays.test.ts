@@ -15,6 +15,14 @@ describe("RAYS", () => {
     const always = RAYS.filter((ray) => !ray.wideOnly);
     expect(always.map((ray) => ray.id)).toEqual(["primary"]);
   });
+
+  // The home product tree roots its branches on `--ray-x`, so `--ray-gap` in
+  // globals.css assumes the always-on primary ray is centred exactly there.
+  it("centres the always-on primary ray on --ray-x", () => {
+    const primary = RAYS.find((ray) => ray.id === "primary");
+    expect(primary?.offsetRem).toBe(0);
+    expect(primary?.wideOnly).toBe(false);
+  });
 });
 
 describe("wavePath", () => {

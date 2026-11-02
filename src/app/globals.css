@@ -122,6 +122,12 @@
    */
   --ray-half: 34rem;
   --ray-x: 0.5rem;
+  /*
+   * Distance from --ray-x to the home tile column's left edge, where the
+   * product branches start and end. It tracks the (app) main padding (px-4,
+   * sm:px-6) and max-w-5xl: change either and the branches leave the ray.
+   */
+  --ray-gap: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -132,9 +138,22 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+@media (width >= 40rem) {
+  :root {
+    --ray-gap: 1rem;
+  }
+}
+
+@media (width >= 64rem) {
+  :root {
+    --ray-gap: calc((100vw - 64rem) / 2 + 1rem);
+  }
+}
+
 @media (width >= 70rem) {
   :root {
     --ray-x: calc(50% - var(--ray-half));
+    --ray-gap: 3.5rem;
   }
 }
 

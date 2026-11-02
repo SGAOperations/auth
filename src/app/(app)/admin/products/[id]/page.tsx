@@ -11,6 +11,9 @@ import {
 import { requireAdmin } from "@/lib/auth/guards";
 import { AUDIT_TIME_ZONE } from "@/lib/audit-log";
 import { getProductForAdmin, listPositionOptions } from "@/lib/product-admin";
+import { listProductApiKeys } from "@/lib/product-api-keys";
+import { prisma } from "@/lib/prisma";
+import { ApiKeysCard } from "../api-keys-card";
 import { DeleteProductDialog } from "../delete-product-dialog";
 import { ProductForm, type ProductFormProduct } from "../product-form";
 
@@ -35,6 +38,7 @@ export default async function EditProductPage({
     listPositionOptions(),
   ]);
   if (!product) notFound();
+  const apiKeys = await listProductApiKeys(prisma, product.id);
 
   // Only the fields the form needs cross to the client; the row also carries
   // createdById and timestamps.
@@ -70,6 +74,17 @@ export default async function EditProductPage({
         </p>
       </div>
       <ProductForm mode="update" product={formProduct} positions={positions} />
+      <ApiKeysCard
+        productId={product.id}
+        keys={apiKeys.map((key) => ({
+          id: key.id,
+          name: key.name,
+          prefix: key.prefix,
+          createdAt: dateFormat.format(key.createdAt),
+          lastUsedAt: key.lastUsedAt ? dateFormat.format(key.lastUsedAt) : null,
+          revokedAt: key.revokedAt ? dateFormat.format(key.revokedAt) : null,
+        }))}
+      />
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Danger zone</CardTitle>

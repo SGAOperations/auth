@@ -25,7 +25,8 @@ interface Deps {
  * not ACTIVE. Positions are the active ones only; a soft-deleted position
  * grants no visibility, and a soft-deleted leadership position confers no
  * leadership. Products are read per request, so an admin's edit shows
- * immediately. `iconUrl` is not selected: the CSP would block it.
+ * immediately. `iconUrl` is selected as stored; the home page renders it only
+ * when it is on this origin, because the CSP allows no other image host.
  */
 export async function loadAccountOverview(
   userId: string,
@@ -59,6 +60,7 @@ export async function loadAccountOverview(
       name: true,
       description: true,
       baseUrl: true,
+      iconUrl: true,
       isActive: true,
       visibility: true,
       visibleToPositionKeys: true,

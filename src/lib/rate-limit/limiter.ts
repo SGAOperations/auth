@@ -70,7 +70,7 @@ function sha256Hex(value: string): string {
 }
 
 // Raw emails and session tokens never reach the backend. IPs are kept as is,
-// and a user id is a UUID rather than PII.
+// and a user or product id is a UUID rather than PII.
 function identifierFor(by: RuleKey, raw: string): string {
   switch (by) {
     case "email":
@@ -79,6 +79,7 @@ function identifierFor(by: RuleKey, raw: string): string {
       return sha256Hex(raw);
     case "ip":
     case "user":
+    case "product":
       return raw;
   }
 }

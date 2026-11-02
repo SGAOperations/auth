@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { POST as postUserEmail } from "@/app/api/sgauth/admin/users/[id]/email/route";
 import { PATCH as patchUserPositions } from "@/app/api/sgauth/admin/users/[id]/positions/route";
 import { requireAdmin } from "@/lib/admin-api";
 import type { ActionResult } from "@/lib/admin/action-result";
@@ -47,7 +48,7 @@ const notFound: ActionResult = { ok: false, code: "NOT_FOUND" };
 /** A request to the in-process handler, carrying what the guards read. */
 async function internalRequest(
   path: string,
-  method: "PATCH" | "POST",
+  method: "PATCH" | "POST" | "DELETE",
   body?: unknown,
 ): Promise<NextRequest> {
   const incoming = await headers();
@@ -162,6 +163,30 @@ export async function unassignPosition(
   );
 }
 
+const newEmailInput = z.string().trim().toLowerCase().pipe(z.email().max(254));
+
+/** Starts a verified email change; the address stays until the new mailbox confirms. */
+export async function requestEmailChange(
+  id: unknown,
+  newEmail: unknown,
+): Promise<ActionResult> {
+  const parsedId = userId.safeParse(id);
+  if (!parsedId.success) return notFound;
+  const parsed = newEmailInput.safeParse(newEmail);
+  if (!parsed.success) return invalid;
+  const request = await internalRequest(
+    `/api/sgauth/admin/users/${parsedId.data}/email`,
+    "POST",
+    { newEmail: parsed.data },
+  );
+  return settle(
+    parsedId.data,
+    await postUserEmail(request, {
+      params: Promise.resolve({ id: parsedId.data }),
+    }),
+  );
+}
+
 export async function grantAdmin(id: unknown): Promise<ActionResult> {
   return runUserAction(id, "grant-admin");
 }
@@ -189,6 +214,22 @@ export async function resendInvite(id: unknown): Promise<ActionResult> {
 /** "Force re-login": ends every session of the user. */
 export async function forceRelogin(id: unknown): Promise<ActionResult> {
   return runUserAction(id, "revoke-sessions");
+}
+
+/** Tombstones the user: the endpoint scrubs personal data and keeps the id. */
+export async function deleteUser(id: unknown): Promise<ActionResult> {
+  const parsed = userId.safeParse(id);
+  if (!parsed.success) return notFound;
+  const request = await internalRequest(
+    `/api/sgauth/admin/users/${parsed.data}`,
+    "DELETE",
+  );
+  return settle(
+    parsed.data,
+    await liveAdminUserHandlers.remove(request, {
+      params: Promise.resolve({ id: parsed.data }),
+    }),
+  );
 }
 
 export async function revokeUserSession(

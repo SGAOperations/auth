@@ -6,6 +6,8 @@ import { LinkTile } from "@/components/home/resource-list";
 import { buttonVariants } from "@/components/ui/button";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
+import { toAuthSettings } from "@/lib/auth/settings";
+import { env } from "@/lib/env";
 import { toHomeProducts } from "@/lib/home/products";
 import { SGA_LINKS } from "@/lib/home/resources";
 import { displayName } from "@/lib/user-display";
@@ -22,7 +24,11 @@ export default async function HomePage() {
   const { profile, isLeadership } = overview;
   // Leadership content is attached here, on the server, so a non-leader's page
   // never carries it.
-  const products = toHomeProducts(overview.tools, overview);
+  const products = toHomeProducts(
+    overview.tools,
+    overview,
+    new URL(toAuthSettings(env).baseURL).origin,
+  );
 
   return (
     <div className="flex flex-col gap-10">
