@@ -77,6 +77,31 @@ export function listActivePositions(
   });
 }
 
+export interface PendingEmailChange {
+  newEmail: string;
+  expiresAt: string;
+}
+
+/** The user's open email change request, if any: not used, not cancelled, not expired. */
+export async function getPendingEmailChange(
+  db: Pick<PrismaClient, "emailChangeRequest">,
+  userId: string,
+  now: Date,
+): Promise<PendingEmailChange | null> {
+  const row = await db.emailChangeRequest.findFirst({
+    where: {
+      userId,
+      consumedAt: null,
+      cancelledAt: null,
+      expiresAt: { gt: now },
+    },
+    select: { newEmail: true, expiresAt: true },
+  });
+  return row
+    ? { newEmail: row.newEmail, expiresAt: row.expiresAt.toISOString() }
+    : null;
+}
+
 type TimelineDb = Pick<
   Prisma.TransactionClient,
   "auditEvent" | "user" | "position" | "product"

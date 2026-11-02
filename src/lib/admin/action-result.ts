@@ -10,6 +10,9 @@ export const FAILURE_CODES = [
   "VALIDATION",
   "POSITION_LIMIT",
   "POSITION_DELETED",
+  "EMAIL_UNCHANGED",
+  "EMAIL_UNAVAILABLE",
+  "EMAIL_SEND_LIMITED",
   "RATE_LIMITED",
   "CONFLICT",
   "UNEXPECTED",
@@ -22,6 +25,8 @@ export type ActionResult =
       ok: true;
       /** What happened to an email the action sends, when it sends one. */
       email?: string;
+      /** When a pending verification (an email change) lapses, as an ISO time. */
+      expiresAt?: string;
     }
   | {
       ok: false;

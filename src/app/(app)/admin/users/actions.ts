@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { POST as postUserEmail } from "@/app/api/sgauth/admin/users/[id]/email/route";
 import { PATCH as patchUserPositions } from "@/app/api/sgauth/admin/users/[id]/positions/route";
 import { requireAdmin } from "@/lib/admin-api";
 import type { ActionResult } from "@/lib/admin/action-result";
@@ -157,6 +158,30 @@ export async function unassignPosition(
   return settle(
     parsedId.data,
     await patchUserPositions(request, {
+      params: Promise.resolve({ id: parsedId.data }),
+    }),
+  );
+}
+
+const newEmailInput = z.string().trim().toLowerCase().pipe(z.email().max(254));
+
+/** Starts a verified email change; the address stays until the new mailbox confirms. */
+export async function requestEmailChange(
+  id: unknown,
+  newEmail: unknown,
+): Promise<ActionResult> {
+  const parsedId = userId.safeParse(id);
+  if (!parsedId.success) return notFound;
+  const parsed = newEmailInput.safeParse(newEmail);
+  if (!parsed.success) return invalid;
+  const request = await internalRequest(
+    `/api/sgauth/admin/users/${parsedId.data}/email`,
+    "POST",
+    { newEmail: parsed.data },
+  );
+  return settle(
+    parsedId.data,
+    await postUserEmail(request, {
       params: Promise.resolve({ id: parsedId.data }),
     }),
   );

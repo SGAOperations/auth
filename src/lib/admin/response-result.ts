@@ -13,6 +13,9 @@ const CODE_FAILURES: Record<string, FailureCode> = {
   POSITION_NOT_FOUND: "NOT_FOUND",
   USER_NOT_FOUND: "NOT_FOUND",
   UNKNOWN_ACTION: "NOT_FOUND",
+  EMAIL_UNCHANGED: "EMAIL_UNCHANGED",
+  EMAIL_UNAVAILABLE: "EMAIL_UNAVAILABLE",
+  EMAIL_SEND_LIMITED: "EMAIL_SEND_LIMITED",
   INVALID_INPUT: "VALIDATION",
   INVITE_LIMIT: "RATE_LIMITED",
   RATE_LIMITED: "RATE_LIMITED",
@@ -56,9 +59,13 @@ export async function resultFromResponse(
 ): Promise<ActionResult> {
   const body = await readBody(response);
   if (response.ok) {
-    return typeof body?.email === "string"
-      ? { ok: true, email: body.email }
-      : { ok: true };
+    return {
+      ok: true,
+      ...(typeof body?.email === "string" ? { email: body.email } : {}),
+      ...(typeof body?.expiresAt === "string"
+        ? { expiresAt: body.expiresAt }
+        : {}),
+    };
   }
   const code = typeof body?.code === "string" ? body.code : undefined;
   const failure = failureFor(response.status, code);
