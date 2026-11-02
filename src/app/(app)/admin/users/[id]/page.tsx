@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatRelative, formatTime } from "@/lib/admin/format";
 import { disabledReason } from "@/lib/admin/denial-copy";
 import {
+  getPendingEmailChange,
   listActivePositions,
   listUserAudit,
   listUserSessions,
@@ -18,6 +19,7 @@ import { prisma } from "@/lib/prisma";
 import { displayName } from "@/lib/user-display";
 import { AccountActions } from "./account-actions";
 import { AuditTimeline } from "./audit-timeline";
+import { EmailChangeForm } from "./email-change-form";
 import { PositionsEditor } from "./positions-editor";
 import { ProfileForm } from "./profile-form";
 import { SessionsTable } from "./sessions-table";
@@ -60,19 +62,21 @@ export default async function UserDetailPage({
   if (!user) notFound();
 
   const deleted = user.status === "DELETED";
-  const [timeline, sessions, options, session, slack] = await Promise.all([
-    listUserAudit(prisma, id, cursor),
-    deleted ? [] : listUserSessions(prisma, id, now),
-    deleted ? [] : listActivePositions(prisma),
-    getSession(),
-    // Read-only here: only the user links or unlinks their Slack account.
-    deleted
-      ? null
-      : prisma.slackIdentity.findUnique({
-          where: { userId: id },
-          select: { slackUserId: true },
-        }),
-  ]);
+  const [timeline, sessions, options, session, slack, pendingEmail] =
+    await Promise.all([
+      listUserAudit(prisma, id, cursor),
+      deleted ? [] : listUserSessions(prisma, id, now),
+      deleted ? [] : listActivePositions(prisma),
+      getSession(),
+      // Read-only here: only the user links or unlinks their Slack account.
+      deleted
+        ? null
+        : prisma.slackIdentity.findUnique({
+            where: { userId: id },
+            select: { slackUserId: true },
+          }),
+      deleted ? null : getPendingEmailChange(prisma, id, now),
+    ]);
 
   const positionIds = [
     ...new Set(
@@ -204,10 +208,17 @@ export default async function UserDetailPage({
       ) : null}
       <ProfileForm
         userId={user.id}
-        email={user.email}
         name={user.name}
         preferredName={user.preferredName}
         disabledReason={decide("updateProfile")}
+      />
+      <EmailChangeForm
+        userId={user.id}
+        name={shown}
+        email={user.email}
+        legacyEmail={user.legacyEmail}
+        pending={pendingEmail}
+        disabledReason={decide("changeEmail")}
       />
       <PositionsEditor
         userId={user.id}
