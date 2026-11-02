@@ -96,7 +96,7 @@ A tombstone sets the user's status to `DELETED` and scrubs the personal fields: 
 
 1. A request arrives at `sgaOperations@northeastern.edu`.
 2. Confirm it came from the account's own address, by replying to that address.
-3. An admin tombstones the account through the admin delete (#48). The audit row is `USER_DELETED { reason: "admin" }`.
+3. An admin tombstones the account with "Delete account" on the user's page, after deactivating them (admin delete, #48). The audit row is `USER_DELETED { reason: "admin" }`.
 4. Reply within 14 days.
 
 The Primary Admin cannot be tombstoned. The Primary Admin must transfer the role first.

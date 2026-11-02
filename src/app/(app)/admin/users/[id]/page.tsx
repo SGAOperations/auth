@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatRelative, formatTime } from "@/lib/admin/format";
+import { deleteReason } from "@/lib/admin/delete-user";
 import { disabledReason } from "@/lib/admin/denial-copy";
 import {
   getPendingEmailChange,
@@ -19,6 +20,7 @@ import { prisma } from "@/lib/prisma";
 import { displayName } from "@/lib/user-display";
 import { AccountActions } from "./account-actions";
 import { AuditTimeline } from "./audit-timeline";
+import { DeleteUser } from "./delete-user";
 import { EmailChangeForm } from "./email-change-form";
 import { PositionsEditor } from "./positions-editor";
 import { ProfileForm } from "./profile-form";
@@ -240,6 +242,15 @@ export default async function UserDetailPage({
         name={shown}
         sessions={sessionItems}
         revokeReason={decide("revokeSessions")}
+      />
+      <DeleteUser
+        userId={user.id}
+        name={shown}
+        email={user.email}
+        reason={deleteReason(
+          decide("delete"),
+          user.status === "DEACTIVATED" ? "DEACTIVATED" : "ACTIVE",
+        )}
       />
       <AuditTimeline
         timeline={timeline}
