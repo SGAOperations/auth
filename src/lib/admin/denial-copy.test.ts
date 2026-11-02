@@ -44,6 +44,18 @@ describe("denial copy", () => {
     );
   });
 
+  it("words the email change refusals as the endpoint does", () => {
+    expect(failureMessage({ ok: false, code: "EMAIL_UNCHANGED" })).toBe(
+      "That is already this user's email address.",
+    );
+    expect(failureMessage({ ok: false, code: "EMAIL_UNAVAILABLE" })).toBe(
+      "That email address can't be used for this account.",
+    );
+    expect(failureMessage({ ok: false, code: "EMAIL_SEND_LIMITED" })).toBe(
+      "Too many emails have been sent to that address. Try again later.",
+    );
+  });
+
   it("explains a disabled control only when the action is denied", () => {
     expect(disabledReason({ allowed: true })).toBeNull();
     expect(disabledReason({ allowed: false, reason: "NOT_ADMIN" })).toBe(

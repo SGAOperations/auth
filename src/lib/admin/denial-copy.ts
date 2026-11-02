@@ -25,6 +25,10 @@ export const FAILURE_COPY: Record<FailureCode, string> = {
   VALIDATION: "Check the details and try again.",
   POSITION_LIMIT: "Users can hold at most 50 positions.",
   POSITION_DELETED: "That position was deleted. Refresh and try again.",
+  EMAIL_UNCHANGED: "That is already this user's email address.",
+  EMAIL_UNAVAILABLE: "That email address can't be used for this account.",
+  EMAIL_SEND_LIMITED:
+    "Too many emails have been sent to that address. Try again later.",
   RATE_LIMITED: "Too many requests. Try again later.",
   CONFLICT: "That can't be done right now. Refresh and try again.",
   UNEXPECTED: "Something went wrong. Try again.",
