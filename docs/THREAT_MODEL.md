@@ -241,7 +241,7 @@ Trust boundaries:
 - Per-environment secrets, with dev kept separate from production (`#46 (AUTH-T34)`, [ENVIRONMENTS.md](ENVIRONMENTS.md)).
 - `#86 (AUTH-T74)` log redaction.
 - `#81 (AUTH-T69)` rotation procedures.
-- Secrets scoped to the CI test job (`#17 (AUTH-T06)`). Neon and cron secrets live only in GitHub Environments: branch-restricted for pushes and schedules, approval-gated for pull requests, because any secret a `pull_request` workflow can name is reachable by that PR's code (#322, BT2 and BT9).
+- Secrets scoped to the CI test job (`#17 (AUTH-T06)`). Any secret a `pull_request` workflow can name is reachable by that PR's code, so the Neon API key and the cron secrets live only in GitHub Environments that the default branch alone may deploy to. Pull-request CI holds only the test branches' own URLs and empties those branches with their own `migration` role, never a Neon API key (#322, BT2 and BT9).
 - Role passwords reset on every non-production Neon branch after it is created, so a child branch's credentials never open its parent ([rotate-secrets.md](runbooks/rotate-secrets.md), #322 BT3).
 - Branch previews run attacker-controllable code by design, so they get their own Neon `preview` branch with the `runtime` role only and never run migrations (#322, BT7).
 - `server-only` modules and no `NEXT_PUBLIC_` secrets ([ENGINEERING.md](ENGINEERING.md) §3).
