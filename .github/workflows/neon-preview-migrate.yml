@@ -1,0 +1,81 @@
+# Keeps the Neon `preview` branch's schema in step with `dev` (black-team
+# BT7). Branch previews run unreviewed code, so their builds never migrate
+# (scripts/vercel-build.mjs) and Preview (all branches) holds no DIRECT_URL.
+# This job applies `dev`'s migrations to `preview` instead, from trusted code:
+# it runs only on pushes to `dev` that touch the schema, or by hand.
+#
+# `migrate deploy` only applies pending migrations, so the branch keeps its
+# data and its role passwords; a `branches reset --parent` would do neither.
+# A branch preview that adds its own migration still runs against `dev`'s
+# schema until that migration lands on `dev`.
+#
+# This job is not a required check.
+name: Neon preview migrate
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - prisma/migrations/**
+      - prisma/schema.prisma
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-preview-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # PREVIEW_DIRECT_URL lives in the `neon-preview` Environment, which only
+    # `dev` may deploy to. See CONTRIBUTING.md "Neon secrets".
+    environment: neon-preview
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Cache prisma engines
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/prisma
+          key: prisma-engines-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Refuse anything but the preview branch
+        env:
+          DIRECT_URL: ${{ secrets.PREVIEW_DIRECT_URL }}
+        run: |
+          node --input-type=module -e '
+            import { PROTECTED_ENDPOINTS, endpointId, hashEndpoint } from "./scripts/prisma-guard.mjs";
+            const raw = process.env.DIRECT_URL;
+            if (!raw) {
+              console.error("::error::PREVIEW_DIRECT_URL is not set in the neon-preview Environment.");
+              process.exit(1);
+            }
+            let url;
+            try {
+              url = new URL(raw);
+            } catch {
+              console.error("::error::PREVIEW_DIRECT_URL is not a valid URL.");
+              process.exit(1);
+            }
+            const hash = hashEndpoint(endpointId(url.hostname));
+            const hit = PROTECTED_ENDPOINTS.find((e) => e.sha256 === hash);
+            if (hit) {
+              console.error(`::error::PREVIEW_DIRECT_URL points at the Neon ${hit.branch} branch, not preview.`);
+              process.exit(1);
+            }
+            if (url.searchParams.get("sslmode") !== "verify-full") {
+              console.error("::error::PREVIEW_DIRECT_URL must use sslmode=verify-full.");
+              process.exit(1);
+            }
+          '
+      - name: Apply migrations to preview
+        env:
+          DIRECT_URL: ${{ secrets.PREVIEW_DIRECT_URL }}
+        run: npx prisma migrate deploy
