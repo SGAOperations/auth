@@ -593,8 +593,9 @@ describe("changes while a transfer is in flight", () => {
     it(`${from}: revoking the recipient's admin cancels the transfer at once`, async () => {
       await withRollback(async () => {
         const { s, id } = await inFlight(from);
+        // Only the Primary Admin may revoke another admin (BT4).
         const done = await adminAction(
-          s.actors.t,
+          s.actors.pa,
           s.actors.r.user,
           "revoke-admin",
         );
