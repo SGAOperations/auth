@@ -8,6 +8,12 @@ import { checkPrismaCommand } from "./scripts/prisma-guard.mjs";
 // Backstop for a bare `npx prisma migrate dev`; see docs/MIGRATIONS.md.
 checkPrismaCommand(process.argv.slice(2), process.env);
 
+// `prisma generate` never connects, and branch previews hold no DIRECT_URL
+// (docs/ENVIRONMENTS.md), so the postinstall generate gets a placeholder.
+// Every other command still fails without a real DIRECT_URL.
+const generateOnly =
+  !process.env.DIRECT_URL && process.argv.slice(2).includes("generate");
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -15,6 +21,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DIRECT_URL"),
+    url: generateOnly ? "postgresql://placeholder" : env("DIRECT_URL"),
   },
 });
