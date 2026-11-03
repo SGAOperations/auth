@@ -7,6 +7,7 @@ import {
   applyAccountUnlock,
   applyDeviceFailure,
   applyDeviceSuccess,
+  isDeviceSpent,
   isLocked,
   type LockEvent,
 } from "@/lib/auth/lockout-policy";
@@ -33,7 +34,8 @@ export type SignInCheck =
  *
  * A device counts only when its cookie names a row that belongs to the account
  * being signed in to. A valid device is exempt from the account lock and is
- * refused only for its own lock.
+ * refused only for its own lock, until it is spent (`isDeviceSpent`): then it
+ * is treated as any other browser.
  */
 export async function checkSignIn(
   db: ReadDb,
@@ -50,10 +52,12 @@ export async function checkSignIn(
   const found = deviceRaw ? await findDevice(db, deviceRaw) : null;
   const device = user && found?.userId === user.id ? found : null;
 
-  if (device) {
-    return isLocked(device, now)
-      ? { outcome: "refuse", userId: device.userId, scope: "device" }
-      : { outcome: "proceed", userId: device.userId, deviceId: device.id };
+  if (device && isLocked(device, now)) {
+    return { outcome: "refuse", userId: device.userId, scope: "device" };
+  }
+  // A spent device falls through to the account rules below.
+  if (device && !isDeviceSpent(device, now)) {
+    return { outcome: "proceed", userId: device.userId, deviceId: device.id };
   }
   if (user && isLocked(user.accountLock ?? { lockedUntil: null }, now)) {
     return { outcome: "refuse", userId: user.id, scope: "account" };
@@ -125,7 +129,8 @@ export async function recordFailedSignIn(
 
 /**
  * Resets the failure counters after a completed login. Writes only the
- * counter columns, never `lockedUntil`, so a racing failure's lock survives.
+ * account's counter columns, never its `lockedUntil`, so a racing failure's
+ * lock survives. A device's lapsed lock is cleared, which ends its spent state.
  */
 export async function recordSuccessfulSignIn(
   db: Pick<PrismaClient, "accountLock" | "knownDevice">,
@@ -149,10 +154,9 @@ export async function recordSuccessfulSignIn(
       select: { failedCount: true, windowStartedAt: true, lockedUntil: true },
     });
     if (device) {
-      const { failedCount, windowStartedAt } = applyDeviceSuccess(device, now);
       await db.knownDevice.update({
         where: { id: deviceId },
-        data: { failedCount, windowStartedAt },
+        data: applyDeviceSuccess(device, now),
       });
     }
   }

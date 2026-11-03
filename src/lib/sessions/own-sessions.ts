@@ -185,6 +185,13 @@ function jsonResponse(body: unknown, status: number): Response {
 const unauthenticated = () => jsonResponse({ error: "unauthenticated" }, 401);
 const notFound = () => jsonResponse({ error: "not_found" }, 404);
 const invalidOrigin = () => jsonResponse({ error: "invalid_origin" }, 403);
+const reauthRequired = () => jsonResponse({ error: "REAUTH_REQUIRED" }, 403);
+
+const reauthErrorBody = z.looseObject({ code: z.literal("REAUTH_REQUIRED") });
+
+function isReauthRequired(error: { body?: unknown }): boolean {
+  return reauthErrorBody.safeParse(error.body).success;
+}
 
 export function createOwnSessionHandlers(deps: OwnSessionDeps) {
   return {
@@ -233,8 +240,12 @@ export function createOwnSessionHandlers(deps: OwnSessionDeps) {
       try {
         await deps.revokeByToken(target.token, request.headers);
       } catch (error) {
-        // The caller's own session vanished mid-request.
-        if (isAPIError(error)) return unauthenticated();
+        if (isAPIError(error)) {
+          // `/revoke-session` sits behind the re-auth gate (docs/REAUTH.md).
+          if (isReauthRequired(error)) return reauthRequired();
+          // The caller's own session vanished mid-request.
+          return unauthenticated();
+        }
         throw error;
       }
 

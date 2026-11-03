@@ -103,12 +103,12 @@ On the Better Auth route, `createDuplicateCookieGuard` (`src/lib/security/duplic
 
 `src/proxy.ts` runs `createOriginGuard` (`src/lib/security/origin.ts`) after the preview gate on every request whose path is `/api/sgauth` or under `/api/sgauth/`. It covers routes by path, so a new route cannot forget to opt in.
 
+- **Path:** checked after percent-decoding, the form the router matches on (`decodePathname`), so `/api/%73gauth/...` and `/%61pi/sgauth/...` are guarded like `/api/sgauth/...`. Dot segments and backslashes an encoded `/` or `\` hid are resolved first. A malformed encoding is 400 `INVALID_PATH` (BT6). The proxy's own `/api/` test uses the decoded path too.
 - **Checked:** every method except GET, HEAD and OPTIONS.
   - `Sec-Fetch-Site: cross-site` is rejected whatever the Origin says. Every registered product is same-site with SGAuth, and sibling subdomains are `same-site`, so only Origin tells them apart.
   - The `Origin` header must be a bare http(s) origin. `null` is rejected. A missing Origin falls back to `Referer`, reduced to its origin. Neither present is rejected.
-  - The origin must match a registry-derived trusted origin exactly (`getTrustedOrigins()`). There is no wildcard or pattern matching.
-  - A registry failure fails closed.
+  - The origin must be **SGAuth's own origin** (from the auth base URL), exactly. Product origins are not accepted: no product mutates `/api/sgauth/*`, and trusting them let XSS on any product drive the admin API (BT5). There is no wildcard or pattern matching.
 - **Answer:** 403 `{ "code": "INVALID_ORIGIN", "message": "Invalid origin." }`, identical for every reason. The reason, method, path and origin are logged at `warn`, never the cookie, query string or full Referer. A rejection writes no `AuditEvent`.
 - **Not covered here:** `/api/auth/*` (Better Auth checks Origin itself, fed by the same registry), server actions (Next rejects an Origin that does not match Host), `/api/csp-report` and `/preview-gate/unlock`.
-- **Non-browser callers** (product servers, scripts, curl) must send `Origin: <their registered product origin>` on mutations, or get a 403. The check does not depend on a cookie being present. Origin is not a boundary against a non-browser caller, which can send any value.
+- **Non-browser callers** (scripts, curl) must send `Origin: <SGAuth's own origin>` on `/api/sgauth/*` mutations, or get a 403. The check does not depend on a cookie being present. Origin is not a boundary against a non-browser caller, which can send any value.
 - **Limit:** Origin does not stop a compromised registered subdomain. Subdomain hygiene (#80) does.

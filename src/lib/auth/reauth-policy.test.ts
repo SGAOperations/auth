@@ -95,4 +95,14 @@ describe("FRESH_AUTH_AUTH_PATHS", () => {
     );
     for (const path of FRESH_AUTH_AUTH_PATHS) expect(path).toMatch(/^\//);
   });
+
+  it("gates revoking one session as well as all of them", () => {
+    expect(FRESH_AUTH_AUTH_PATHS).toEqual(
+      expect.arrayContaining([
+        "/revoke-session",
+        "/revoke-sessions",
+        "/revoke-other-sessions",
+      ]),
+    );
+  });
 });

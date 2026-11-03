@@ -49,6 +49,8 @@ From a fresh clone to a seeded local Primary Admin takes under 15 minutes.
    npx neonctl branches create --name dev-<github-handle> --parent dev
    ```
 
+   **Then reset both role passwords on your branch before using it.** Neon copies roles with their passwords into a new branch, so until you do, your branch's strings carry the shared `dev` passwords. In the Neon console open your branch, then Roles, and use Reset password on `runtime` and then on `migration` (or see [rotate-secrets.md](docs/runbooks/rotate-secrets.md#after-creating-a-branch) for the API call). Print the strings only after this.
+
 5. Print the two connection strings for your branch:
 
    ```sh
@@ -128,6 +130,7 @@ What it writes depends on `SGAUTH_ENV`:
 
 The rules:
 
+- It checks the database before connecting, not only `SGAUTH_ENV`: a `DATABASE_URL` or `DIRECT_URL` on Neon `main` is always refused, and Neon `dev` is refused unless `SGAUTH_ENV=dev` (the same hashed list as the [migration guard](docs/MIGRATIONS.md#the-guard)).
 - It never deletes anything.
 - It never overwrites an existing password. To change the seeded password, change it through the app.
 - It moves Primary Admin to your email when another user held it on your branch (a branch from `dev` brings that data along).
@@ -190,7 +193,7 @@ Run `npm run test:unit` for the suites that need no database. `npm test` also ru
 ## Troubleshooting
 
 - **The first query after idle is slow.** Neon scales to zero.
-- **`migrate dev` reports drift and offers to reset.** Your branch inherited a migration that a PR preview applied to Neon `dev` ([Shared pre-production database](docs/ENVIRONMENTS.md#shared-pre-production-database)). On a personal branch, accepting the reset is safe. Re-run `npm run seed` afterwards.
+- **`migrate dev` reports drift and offers to reset.** Your branch inherited a migration that is on Neon `dev` but not in your checkout ([Pre-production databases](docs/ENVIRONMENTS.md#pre-production-databases)). On a personal branch, accepting the reset is safe. Re-run `npm run seed` afterwards.
 - **`migrate dev` fails creating the shadow database.** It needs a role allowed to create databases. The `migration` role may lack `CREATEDB`: ask in the SGA engineering channel before working around it, and do not borrow the project owner's credentials.
 - **`Invalid server environment`.** The listed variable is missing or invalid in `.env`.
 - **`SEED_PRIMARY_ADMIN_*: only allowed when SGAUTH_ENV=local`.** Remove the variables, or set `SGAUTH_ENV=local`.
@@ -212,8 +215,9 @@ The Neon project is `sgauth` (`aws-us-east-1`) with three permanent branches:
 | `dev`  | Shared non-production deployment |
 | `test` | CI integration tests             |
 
-Preview and personal branches are created on top of these. The Free plan caps a
-project at 10 branches, so the three above are the permanent baseline.
+`preview` (branch previews; see [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md#pre-production-databases)), the `ci-shard-*` branches and personal branches are created on top of these. The Free plan caps a
+project at 10 branches: the three above, `preview` and the four shards leave
+room for two personal branches.
 
 Two database roles exist in the `neondb` database: `runtime` (DML only, no DDL)
 used by `DATABASE_URL`, and `migration` (owns the schema, DDL) used by
@@ -222,6 +226,15 @@ connection (host contains `-pooler`), `DIRECT_URL` is the direct one, and both
 use `sslmode=verify-full`. Credentials live in Vercel env and the team password
 manager, never in git. Pooled vs. direct handling under Prisma is settled in
 AUTH-T04.
+
+**Every branch has its own role passwords, and only because an operator reset
+them.** Neon copies the `runtime` and `migration` roles, passwords included,
+into every new branch. `dev`, `test`, `preview`, the `ci-shard-*` branches and
+every personal branch descend from `main`, so each one carried production's
+passwords until they were reset on it. Resetting both roles right after
+creating any non-production branch is a hard step, as is the check that the
+reset took; both are in
+[rotate-secrets.md](docs/runbooks/rotate-secrets.md#after-creating-a-branch).
 
 To restore `main` to an earlier point in time, see
 [docs/runbooks/neon-restore.md](docs/runbooks/neon-restore.md). All runbooks are

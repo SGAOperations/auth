@@ -4,14 +4,16 @@ How schema changes reach each database, and the rules that keep them safe. Envir
 
 ## Where each command runs
 
-| Command                      | Where               | Database                                                                                                                                             | Who                       |
-| ---------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `npm run prisma:migrate-dev` | Local               | Your personal Neon branch                                                                                                                            | Developers                |
-| `prisma migrate deploy`      | Vercel build        | Production builds migrate Neon `main`. `dev` and PR preview builds migrate the shared Neon `dev` ([build pipeline](ENVIRONMENTS.md#build-pipeline)). | Vercel, from `DIRECT_URL` |
-| `prisma migrate deploy`      | CI `migrations` job | A scratch Postgres                                                                                                                                   | GitHub Actions            |
-| (none)                       | CI `test` job       | Neon `test`, reset from `dev` by CI and never migrated by hand                                                                                       | GitHub Actions            |
+| Command                      | Where               | Database                                                                                                                                                      | Who                       |
+| ---------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `npm run prisma:migrate-dev` | Local               | Your personal Neon branch                                                                                                                                     | Developers                |
+| `prisma migrate deploy`      | Vercel build        | Production builds migrate Neon `main`, and `dev` builds migrate Neon `dev`. Other branch previews skip it ([build pipeline](ENVIRONMENTS.md#build-pipeline)). | Vercel, from `DIRECT_URL` |
+| `prisma migrate deploy`      | CI `migrations` job | A scratch Postgres                                                                                                                                            | GitHub Actions            |
+| (none)                       | CI `test` job       | Neon `test`, reset from `dev` by CI and never migrated by hand                                                                                                | GitHub Actions            |
 
-Developers run `migrate dev` only against personal Neon branches. Production and `dev` deployments only ever run `migrate deploy`.
+Developers run `migrate dev` only against personal Neon branches. Production and `dev` deployments only ever run `migrate deploy`, and no other deployment runs anything.
+
+`DIRECT_URL` is the schema owner's credential, so it is set only where a build migrates: Vercel Production and the `dev` branch override, never Preview (all branches). Vercel cannot hide it from the running functions, so moving Production's migrations into an Environment-gated GitHub Actions job and deleting `DIRECT_URL` from Vercel is the planned follow-up ([`DIRECT_URL` at runtime](ENVIRONMENTS.md#direct_url-at-runtime)).
 
 ## The guard
 
@@ -29,6 +31,8 @@ Two layers apply it:
 - `prisma.config.ts` runs the same check, so a bare `npx prisma migrate dev` is refused too.
 
 `migrate deploy`, `migrate resolve`, `migrate status`, `migrate diff`, `generate` and `studio` are never blocked, because builds and recovery need them. The guard prevents accidents. It does not stop someone deliberately pointing other tooling (`prisma db execute`, `psql`) at a protected database, so the `main` credentials stay in the password manager and Vercel.
+
+`npm run seed` reuses the same list (`prisma/seed/guard.ts`): it refuses a `DATABASE_URL` or `DIRECT_URL` on Neon `main` whatever `SGAUTH_ENV` says, refuses Neon `dev` unless `SGAUTH_ENV=dev`, and honours `SGAUTH_PROTECTED_DB_HOSTS`.
 
 The repository is public, so the protected endpoints are stored as SHA-256 hashes, never as IDs. To protect another endpoint, an operator adds an entry to `PROTECTED_ENDPOINTS` in `scripts/prisma-guard.mjs`: the SHA-256 hex digest of the lowercased endpoint ID, without `-pooler` or the domain. Never commit the ID itself, and never print a connection string.
 
@@ -62,7 +66,7 @@ Prisma cannot express triggers, functions, CHECK constraints or partial indexes.
 
 `migrate deploy` runs during the build while the previous deployment is still serving traffic. So every migration must work with the code that is deployed right now. Two more reasons:
 
-- A PR preview applies its migration at once to the shared Neon `dev`, behind `auth-dev` ([details](ENVIRONMENTS.md#shared-pre-production-database)).
+- A merged migration reaches Neon `dev`, behind `auth-dev`, before production ([details](ENVIRONMENTS.md#pre-production-databases)).
 - Vercel instant rollback puts older code back on the newer schema.
 
 **Expand** steps are always safe: add tables, add nullable columns or columns with a default, add indexes.
@@ -83,4 +87,4 @@ PRs carry expand steps only. A contract step merges only after the code that sto
 A failed `migrate deploy` fails the build, and the previous deployment keeps serving.
 
 - Fix it with a new migration, or run `prisma migrate resolve --rolled-back <name>` or `--applied <name>` against that environment's `DIRECT_URL`. An operator runs `resolve`. It is not guarded.
-- A stray PR migration on Neon `dev`: resolve it, or reset Neon `dev` from `main` before launch. See [ENVIRONMENTS.md](ENVIRONMENTS.md#shared-pre-production-database) and [runbooks/neon-restore.md](runbooks/neon-restore.md).
+- A stray migration on Neon `dev` (one applied by a branch preview before previews stopped migrating): resolve it, or reset Neon `dev` from `main` before launch and then reset its role passwords ([rotate-secrets.md](runbooks/rotate-secrets.md#after-creating-a-branch)). See [ENVIRONMENTS.md](ENVIRONMENTS.md#pre-production-databases) and [runbooks/neon-restore.md](runbooks/neon-restore.md).

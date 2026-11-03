@@ -12,27 +12,37 @@ import {
 } from "@/lib/token-links/handler";
 import {
   claimVerifyToken,
+  isVerifyTokenRevoked,
   isVerifyTokenUsed,
   releaseVerifyToken,
 } from "@/lib/token-links/verify-email-token";
 
-type VerifyEmailDb = Pick<PrismaClient, "usedEmailVerificationToken" | "user">;
+type VerifyEmailDb = Pick<
+  PrismaClient,
+  "usedEmailVerificationToken" | "user" | "session" | "verification"
+>;
 
-const jwtPayload = z.object({ email: z.email(), exp: z.number() });
+const jwtPayload = z.object({
+  email: z.email(),
+  exp: z.number(),
+  iat: z.number().optional(),
+});
 
 /**
  * Signature and expiry only, with no database read. `null` for anything that
- * is not a live verify token this server signed.
+ * is not a live verify token this server signed. `issuedAt` is the `iat` in
+ * seconds, or 0 when absent, so such a token falls before any cutoff.
  */
 export async function readVerifyToken(
   token: string,
   secret: string,
-): Promise<{ email: string; expiresAt: Date } | null> {
+): Promise<{ email: string; expiresAt: Date; issuedAt: number } | null> {
   const payload = jwtPayload.safeParse(await verifyJWT(token, secret));
   if (!payload.success) return null;
   return {
     email: payload.data.email,
     expiresAt: new Date(payload.data.exp * 1000),
+    issuedAt: payload.data.iat ?? 0,
   };
 }
 
@@ -110,7 +120,11 @@ export async function loadVerifyEmailView(
 
   if (await isVerifyTokenUsed(db, token)) return { state: "used" };
   if (await isEmailVerified(db, email)) return { state: "used" };
-  return live ? { state: "ready", token, email } : { state: "expired", token };
+  if (!live) return { state: "expired", token };
+  // Revoked by a repeat sign-up (repeat-signup.ts): the mailbox owner sets the
+  // password through the set-password link instead.
+  if (await isVerifyTokenRevoked(db, live)) return { state: "invalid" };
+  return { state: "ready", token, email };
 }
 
 interface VerifyEmailAuth {
@@ -120,7 +134,30 @@ interface VerifyEmailAuth {
       headers: Headers;
       returnHeaders: true;
     }): Promise<{ headers: Headers }>;
+    getSession(context: {
+      headers: Headers;
+      query: { disableRefresh: true };
+    }): Promise<{ user: { email: string } } | null>;
   };
+}
+
+/** The signed-in user's address, or `null` with no usable session. */
+async function signedInEmail(
+  auth: VerifyEmailAuth,
+  headers: Headers,
+): Promise<string | null> {
+  try {
+    const session = await auth.api.getSession({
+      headers,
+      // Read only: no refresh, so no Set-Cookie to lose.
+      query: { disableRefresh: true },
+    });
+    return session?.user.email ?? null;
+  } catch (error) {
+    // A deactivated user surfaces as an APIError from the after-hook.
+    if (isAPIError(error)) return null;
+    throw error;
+  }
 }
 
 /**
@@ -129,6 +166,11 @@ interface VerifyEmailAuth {
  * side effects. Claiming and verifying cannot share a transaction, so the
  * order fails closed: any failure Better Auth reports releases the claim, and
  * a failed release leaves the link burned.
+ *
+ * A browser already signed in as someone else verifies the address but is not
+ * signed in to it (black-team BT20). Otherwise Better Auth would replace that
+ * session with one for the token's account, which is login CSRF: a victim who
+ * clicks an attacker's link would be working in the attacker's account.
  */
 export function createVerifyEmailConsumer({
   auth,
@@ -150,24 +192,39 @@ export function createVerifyEmailConsumer({
     // Better Auth answers an already-verified address with success and no
     // session, which would look like a login that never happened.
     if (await isEmailVerified(db, read.email)) return { result: "used" };
+    // Issued before a repeat sign-up revoked the account's verify links. Read
+    // before the claim, so nothing is written for it.
+    if (await isVerifyTokenRevoked(db, read)) return { result: "invalid" };
 
     if ((await claimVerifyToken(db, token, read.expiresAt)) === "used") {
       return { result: "used" };
     }
 
+    const current = await signedInEmail(auth, request.headers);
+    const otherUser = current !== null && current !== read.email;
+    const startedAt = new Date();
+
     let headers: Headers;
     try {
       ({ headers } = await auth.api.verifyEmail({
         query: { token },
-        headers: request.headers,
+        // No cookies for another user's browser: Better Auth sees no session.
+        headers: otherUser ? new Headers() : request.headers,
         returnHeaders: true,
       }));
     } catch (error) {
-      // The verification did not happen, so the person may retry this link,
-      // for example after INVALID_USER from someone else's session.
+      // The verification did not happen, so the person may retry this link.
       await releaseVerifyToken(db, token);
       if (isAPIError(error)) return { result: "invalid" };
       throw error;
+    }
+
+    if (otherUser) {
+      // The auto-sign-in session's cookie is never sent, so its row goes too.
+      await db.session.deleteMany({
+        where: { user: { email: read.email }, createdAt: { gte: startedAt } },
+      });
+      return { result: "done" };
     }
 
     // The address is verified and the session headers are in hand, so a throw

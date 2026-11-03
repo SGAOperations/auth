@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { useReauth } from "@/components/reauth-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -78,6 +79,7 @@ const FAILURE_COPY: Record<
 > = {
   RATE_LIMITED: "Too many changes. Try again in a minute.",
   FORBIDDEN: "You don't have permission to do that.",
+  REAUTH_REQUIRED: "Confirm it's you to save changes to a product.",
   NOT_FOUND: "This product no longer exists.",
   ACTIVE_PRODUCT: "Deactivate this product before deleting it.",
   CONFIRMATION_MISMATCH: "The slug you typed doesn't match.",
@@ -104,6 +106,7 @@ export function ProductForm({
   positions: readonly ProductFormPosition[];
 }) {
   const router = useRouter();
+  const reauth = useReauth();
   const [filter, setFilter] = useState("");
   const slugTouched = useRef(false);
 
@@ -156,12 +159,18 @@ export function ProductForm({
 
   async function onSubmit(values: ProductFormValues) {
     const payload = toProductPayload(values, mode);
+    const save = () =>
+      mode === "create" || !product
+        ? createProduct(payload)
+        : updateProduct(product.id, payload);
     let result;
     try {
-      result =
-        mode === "create" || !product
-          ? await createProduct(payload)
-          : await updateProduct(product.id, payload);
+      result = await save();
+      // Product changes need a fresh sign-in: prompt once, then retry once.
+      if (!result.ok && result.code === "REAUTH_REQUIRED") {
+        if (!(await reauth.prompt())) return;
+        result = await save();
+      }
     } catch {
       toast.error(UNEXPECTED_COPY);
       return;

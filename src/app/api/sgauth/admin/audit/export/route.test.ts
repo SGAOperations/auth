@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   resolveUserFilter: vi.fn(),
   exportAuditCsv: vi.fn(),
   loggerError: vi.fn(),
+  loggerWarn: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: { tag: "prisma" } }));
@@ -20,7 +21,9 @@ vi.mock("@/lib/rate-limit/server", () => ({
   limitRequest: mocks.limitRequest,
 }));
 vi.mock("@/lib/audit", () => ({ audit: mocks.audit }));
-vi.mock("@/lib/log", () => ({ logger: { error: mocks.loggerError } }));
+vi.mock("@/lib/log", () => ({
+  logger: { error: mocks.loggerError, warn: mocks.loggerWarn },
+}));
 vi.mock("@/lib/log/request", () => ({
   withRequestLogging:
     (_route: string, handler: (req: Request) => Promise<Response>) =>
@@ -39,9 +42,11 @@ import { GET } from "./route";
 const ADMIN = { id: "0192ab3c-4d5e-7f60-8a1b-2c3d4e5f6a7b" };
 const USER = "0192ab3c-4d5e-7f60-8a1b-2c3d4e5f6a7c";
 
-const get = (query = "") =>
+const get = (query = "", headers: Record<string, string> = {}) =>
   GET(
-    new Request(`http://localhost:3000/api/sgauth/admin/audit/export${query}`),
+    new Request(`http://localhost:3000/api/sgauth/admin/audit/export${query}`, {
+      headers,
+    }),
   );
 
 async function* csv(...chunks: string[]) {
@@ -59,6 +64,31 @@ beforeEach(() => {
 });
 
 describe("GET /api/sgauth/admin/audit/export", () => {
+  it.each(["cross-site", "same-site", "Cross-Site"])(
+    "refuses Sec-Fetch-Site %s before the guard, and exports nothing (BT25)",
+    async (site) => {
+      const response = await get("", { "Sec-Fetch-Site": site });
+      expect(response.status).toBe(403);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(await response.json()).toMatchObject({
+        code: "CROSS_SITE_REQUEST",
+      });
+      expect(mocks.requireAdmin).not.toHaveBeenCalled();
+      expect(mocks.audit).not.toHaveBeenCalled();
+      expect(mocks.exportAuditCsv).not.toHaveBeenCalled();
+      expect(mocks.loggerWarn).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(["same-origin", "none"])(
+    "exports for Sec-Fetch-Site %s",
+    async (site) => {
+      const response = await get("", { "Sec-Fetch-Site": site });
+      expect(response.status).toBe(200);
+      expect(mocks.audit).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("passes a guard denial through and does nothing else", async () => {
     const denied = Response.json({ code: "NOT_ADMIN" }, { status: 403 });
     mocks.requireAdmin.mockResolvedValue({ response: denied });

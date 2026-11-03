@@ -1,4 +1,5 @@
 import "server-only";
+import type { TemplateName } from "@/lib/email/templates";
 
 // Send caps, counted in fixed UTC windows (calendar hour and UTC day). A fixed
 // window allows up to twice a cap across a boundary; that is acceptable for
@@ -7,6 +8,28 @@ import "server-only";
 export const RECIPIENT_HOURLY_CAP = 10;
 export const RECIPIENT_DAILY_CAP = 30;
 export const ALERT_RATIO = 0.8;
+
+/**
+ * Security mail skips the per-recipient caps and counts toward the global cap
+ * only (black-team BT8). Otherwise anyone could fill a recipient's caps with
+ * unauthenticated reset requests and silence the unlock link, the reset link,
+ * the email-change notice, security notices and the Primary Admin transfer's
+ * cancel link for a day. Each of these is bounded upstream instead: the reset
+ * and lockout limits, or an admin or system action.
+ */
+export const RECIPIENT_CAP_EXEMPT_TEMPLATES: ReadonlySet<TemplateName> =
+  new Set<TemplateName>([
+    "reset-password",
+    "account-locked",
+    "account-unlock",
+    "email-change-notice",
+    "security-notice",
+    "security-alert",
+    "pa-transfer-initiated",
+    "pa-transfer-accepted",
+    "pa-transfer-cancelled",
+    "pa-transfer-completed",
+  ]);
 
 const HOUR_TTL_SECONDS = 2 * 60 * 60;
 const DAY_TTL_SECONDS = 2 * 24 * 60 * 60;
@@ -168,29 +191,40 @@ export function createEmailCaps({
     }
   }
 
-  async function check(recipientHash: string): Promise<CapDecision> {
+  /**
+   * `template` decides whether the recipient caps apply; with none, they do.
+   * An exempt send neither checks nor counts toward them.
+   */
+  async function check(
+    recipientHash: string,
+    template?: TemplateName,
+  ): Promise<CapDecision> {
     const date = new Date(now());
     const day = utcDay(date);
     const hour = `${day}${pad(date.getUTCHours())}`;
+    const exempt =
+      template !== undefined && RECIPIENT_CAP_EXEMPT_TEMPLATES.has(template);
 
     try {
-      const [hourly, daily] = await store.incr([
-        {
-          key: `email:rcpt:1h:${recipientHash}:${hour}`,
-          ttlSeconds: HOUR_TTL_SECONDS,
-        },
-        {
-          key: `email:rcpt:1d:${recipientHash}:${day}`,
-          ttlSeconds: DAY_TTL_SECONDS,
-        },
-      ]);
-      // A refusal leaves the global count alone, so one abused address cannot
-      // eat the whole daily budget.
-      if (hourly > RECIPIENT_HOURLY_CAP) {
-        return { allowed: false, cap: "recipient:1h" };
-      }
-      if (daily > RECIPIENT_DAILY_CAP) {
-        return { allowed: false, cap: "recipient:1d" };
+      if (!exempt) {
+        const [hourly, daily] = await store.incr([
+          {
+            key: `email:rcpt:1h:${recipientHash}:${hour}`,
+            ttlSeconds: HOUR_TTL_SECONDS,
+          },
+          {
+            key: `email:rcpt:1d:${recipientHash}:${day}`,
+            ttlSeconds: DAY_TTL_SECONDS,
+          },
+        ]);
+        // A refusal leaves the global count alone, so one abused address
+        // cannot eat the whole daily budget.
+        if (hourly > RECIPIENT_HOURLY_CAP) {
+          return { allowed: false, cap: "recipient:1h" };
+        }
+        if (daily > RECIPIENT_DAILY_CAP) {
+          return { allowed: false, cap: "recipient:1d" };
+        }
       }
 
       const [global] = await store.incr([

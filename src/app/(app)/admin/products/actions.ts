@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { audit, withAuditTransaction } from "@/lib/audit";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth/current-user";
+import { requireFreshAuth } from "@/lib/auth/server";
+import { PRODUCT_ROUTING_FIELDS } from "@/lib/audit-catalog";
 import { can } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import * as service from "@/lib/product-admin";
@@ -23,6 +25,7 @@ export type ProductActionFailure =
       ok: false;
       code:
         | "FORBIDDEN"
+        | "REAUTH_REQUIRED"
         | "RATE_LIMITED"
         | "NOT_FOUND"
         | "SLUG_TAKEN"
@@ -42,9 +45,11 @@ export type ProductActionResult =
 const idSchema = z.uuid();
 const confirmSlugSchema = z.string().max(64);
 
-// The shared ladder: session, `can()`, admin MFA, then the rate limit. A denial
-// returns before any rate-limit token is spent or any row is touched. Server
-// actions get Next.js's Origin-vs-Host check; none sets `allowedOrigins`.
+// The shared ladder: session, `can()`, admin MFA, the rate limit, then fresh
+// re-authentication. A denial returns before any rate-limit token is spent or
+// any row is touched. Re-auth is required because a product's base URL feeds
+// the trusted origins and the redirect allowlist (BT14). Server actions get
+// Next.js's Origin-vs-Host check; none sets `allowedOrigins`.
 async function authorizeProductAdmin(): Promise<
   { actor: CurrentUser } | { failure: ProductActionFailure }
 > {
@@ -58,6 +63,13 @@ async function authorizeProductAdmin(): Promise<
   }
   const limited = await limitRequest("adminMutation", actor.id);
   if (limited) return { failure: { ok: false, code: "RATE_LIMITED" } };
+  const fresh = await requireFreshAuth();
+  if (!fresh.ok) {
+    // A 401 here is a session that ended mid-request.
+    const code =
+      fresh.response.status === 403 ? "REAUTH_REQUIRED" : "FORBIDDEN";
+    return { failure: { ok: false, code } };
+  }
   return { actor };
 }
 
@@ -102,7 +114,7 @@ export async function createProduct(
         actorUserId: actor.id,
         targetType: "PRODUCT",
         targetId: created.id,
-        metadata: { slug: created.slug },
+        metadata: { slug: created.slug, after: service.routingValues(created) },
       });
       return created;
     });
@@ -130,13 +142,26 @@ export async function updateProduct(
           db: tx,
         });
         if (result.changed.length > 0) {
+          // Old and new values for the routing fields that changed (BT14).
+          const routing = result.changed.filter((field) =>
+            (PRODUCT_ROUTING_FIELDS as readonly string[]).includes(field),
+          );
           await audit({
             type: "PRODUCT_UPDATED",
             actorType: "USER",
             actorUserId: actor.id,
             targetType: "PRODUCT",
             targetId: result.product.id,
-            metadata: { slug: result.product.slug, fields: result.changed },
+            metadata: {
+              slug: result.product.slug,
+              fields: result.changed,
+              ...(routing.length > 0
+                ? {
+                    before: service.routingValues(result.before, routing),
+                    after: service.routingValues(result.product, routing),
+                  }
+                : {}),
+            },
           });
         }
         return result;
@@ -174,7 +199,10 @@ export async function deleteProduct(
         actorUserId: actor.id,
         targetType: "PRODUCT",
         targetId: deleted.id,
-        metadata: { slug: deleted.slug },
+        metadata: {
+          slug: deleted.slug,
+          before: service.routingValues(deleted),
+        },
       });
     });
     invalidateProductCache();

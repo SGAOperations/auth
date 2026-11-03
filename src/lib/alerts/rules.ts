@@ -56,6 +56,14 @@ export const ALERT_RULES = [
     mode: "any",
   },
   {
+    // Admin authority changed hands (black-team BT4): the PA and every admin
+    // hear about it within the hour, not only at the next manual review.
+    key: "admin-role-changed",
+    source: "audit",
+    types: ["ADMIN_GRANTED", "ADMIN_REVOKED"],
+    mode: "any",
+  },
+  {
     key: "jwks-rotated",
     source: "audit",
     types: ["JWKS_ROTATED"],

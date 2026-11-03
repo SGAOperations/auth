@@ -20,7 +20,9 @@ const personName = z
   .max(100)
   .regex(/^[^\p{Cc}]+$/u, "must not contain control characters");
 
-const name = personName.optional();
+// An optional greeting name that fails the rule is dropped, not fatal: the
+// stored name is user-supplied, and a bad one must never stop recovery mail.
+const name = personName.optional().catch(undefined);
 
 const url = z.url({ protocol: /^https?$/ });
 
@@ -95,13 +97,40 @@ const SECURITY_EVENTS = {
     body: (when: string) =>
       `An SGA admin reset two-factor authentication on your account at ${when}. Set it up again from your account page. If you didn't ask for this, contact SGA right away.`,
   },
+  "mfa-enabled": {
+    subject: "Two-factor authentication was turned on for your SGA account",
+    heading: "Two-factor authentication was turned on",
+    body: (when: string) =>
+      `Two-factor authentication was turned on for your account at ${when}. If this wasn't you, reset your password immediately and contact SGA Operational Affairs.`,
+  },
+  "mfa-disabled": {
+    subject: "Two-factor authentication was turned off for your SGA account",
+    heading: "Two-factor authentication was turned off",
+    body: (when: string) =>
+      `Two-factor authentication was turned off for your account at ${when}. If this wasn't you, reset your password immediately and contact SGA Operational Affairs.`,
+  },
+  "passkey-added": {
+    subject: "A passkey was added to your SGA account",
+    heading: "A passkey was added",
+    body: (when: string) =>
+      `A passkey was added to your account at ${when}. If this wasn't you, remove it from your account page, reset your password, and contact SGA Operational Affairs.`,
+  },
+  "passkey-removed": {
+    subject: "A passkey was removed from your SGA account",
+    heading: "A passkey was removed",
+    body: (when: string) =>
+      `A passkey was removed from your account at ${when}. If this wasn't you, reset your password immediately and contact SGA Operational Affairs.`,
+  },
 } as const;
+
+export type SecurityNoticeEvent = keyof typeof SECURITY_EVENTS;
 
 const ALERT_HEADLINES: Record<RuleKey, string> = {
   "login-failed-spike": "SGA Auth: failed sign-in spike",
   "account-locked-spike": "SGA Auth: account lockout spike",
   "break-glass": "SGA Auth: break-glass recovery used",
   "pa-transfer-initiated": "SGA Auth: Primary Admin transfer started",
+  "admin-role-changed": "SGA Auth: admin access changed",
   "jwks-rotated": "SGA Auth: signing keys rotated",
   "job-failed": "SGA Auth: scheduled job failed",
   "upstash-fail-open": "SGA Auth: Upstash fail-open",
@@ -135,6 +164,8 @@ function alertBullet(item: AlertItem): string {
       return `Break-glass Primary Admin recovery was used ${times(n)}${since}.`;
     case "pa-transfer-initiated":
       return `${n} Primary Admin ${n === 1 ? "transfer" : "transfers"} started${since}.`;
+    case "admin-role-changed":
+      return `Admin access was granted or revoked ${times(n)}${since}. Check the audit log.`;
     case "jwks-rotated":
       return `The token signing keys were rotated ${times(n)}${since}.`;
     case "job-failed": {
@@ -268,6 +299,10 @@ export const TEMPLATES = {
         "password-reset",
         "admin-granted",
         "mfa-reset",
+        "mfa-enabled",
+        "mfa-disabled",
+        "passkey-added",
+        "passkey-removed",
       ]),
       occurredAt: z.date(),
     }),

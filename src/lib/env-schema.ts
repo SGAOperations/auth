@@ -35,7 +35,9 @@ export const serverShape = z.object({
   SGAUTH_SIGNUP_ALLOWLIST: z.string().optional(),
   SGAUTH_PREVIEW_GATE_PASSWORD: z.string().min(16).optional(),
   SGAUTH_PREVIEW_GATE: z.enum(["on", "off"]).optional(),
-  SGAUTH_CSP_MODE: z.enum(CSP_MODES).default("report-only"),
+  // Unset means `enforce` in production and `report-only` elsewhere (BT19);
+  // serverSchema fills it in. An explicit value always wins.
+  SGAUTH_CSP_MODE: z.enum(CSP_MODES).optional(),
   // Declared only to be refused: Better Auth reads it straight from the
   // environment, which would bypass the product registry.
   BETTER_AUTH_TRUSTED_ORIGINS: z.string().optional(),
@@ -164,7 +166,12 @@ const REQUIRED_IN: Partial<
   CRON_SECRET: ["production", "dev"],
 };
 
-export const serverSchema = serverShape.superRefine((env, ctx) => {
+/** The CSP mode for an environment that does not set SGAUTH_CSP_MODE. */
+export function defaultCspMode(sgauthEnv: SgauthEnv): CspMode {
+  return sgauthEnv === "production" ? "enforce" : "report-only";
+}
+
+const refinedServerShape = serverShape.superRefine((env, ctx) => {
   for (const [key, envs] of Object.entries(REQUIRED_IN)) {
     const name = key as keyof typeof REQUIRED_IN;
     if (env[name] === undefined && envs.includes(env.SGAUTH_ENV)) {
@@ -224,7 +231,12 @@ export const serverSchema = serverShape.superRefine((env, ctx) => {
   }
 });
 
-export type ServerEnv = z.infer<typeof serverSchema>;
+export const serverSchema = refinedServerShape.transform((env) => ({
+  ...env,
+  SGAUTH_CSP_MODE: env.SGAUTH_CSP_MODE ?? defaultCspMode(env.SGAUTH_ENV),
+}));
+
+export type ServerEnv = z.output<typeof serverSchema>;
 
 // No NEXT_PUBLIC_* variable exists yet.
 export const publicSchema = z.object({});

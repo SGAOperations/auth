@@ -32,6 +32,10 @@ jobs:
   monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # NEON_API_KEY, RESEND_API_KEY and NEON_QUOTA_ALERT_TO live in the
+    # `neon-ops` Environment, which only the default branch may deploy to.
+    # See CONTRIBUTING.md "Neon secrets".
+    environment: neon-ops
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

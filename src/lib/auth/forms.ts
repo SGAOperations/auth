@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { profileInputSchema } from "@/lib/account/profile";
 import {
   AUTH_ERROR_CODES,
   PASSWORD_MAX_LENGTH,
@@ -56,7 +57,7 @@ export const AUTH_COPY = {
   passwordTooShort: `Use at least ${PASSWORD_MIN_LENGTH} characters.`,
   passwordTooLong: `Use ${PASSWORD_MAX_LENGTH} characters or fewer.`,
 
-  forgotRateLimited: "Too many reset requests. Try again in 10 minutes.",
+  forgotRateLimited: "Too many reset requests. Try again later.",
 
   resendSent: "If this address still needs verifying, we've sent a new link.",
   resendRateLimited:
@@ -83,7 +84,8 @@ export const signInSchema = z.object({
 });
 
 export const signUpSchema = z.object({
-  name: z.string().trim().min(1).max(100),
+  // The profile form's rule, which the server enforces too (display-name.ts).
+  name: profileInputSchema.shape.name,
   email: emailField.refine(isAllowedSignupEmail, {
     message: AUTH_ERROR_CODES.EMAIL_DOMAIN_NOT_ALLOWED.message,
   }),
@@ -280,12 +282,14 @@ export function isTerminalSecondFactorState(
 
 export interface SignUpErrorResult {
   /** The field to attach the message to, or null for the form as a whole. */
-  field: "email" | "password" | null;
+  field: "name" | "email" | "password" | null;
   message: string;
 }
 
 export function mapSignUpError(error: AuthClientError): SignUpErrorResult {
   switch (error.code) {
+    case "INVALID_NAME":
+      return { field: "name", message: AUTH_ERROR_CODES.INVALID_NAME.message };
     case "EMAIL_DOMAIN_NOT_ALLOWED":
       return {
         field: "email",

@@ -43,8 +43,11 @@ const ids: Identifiers = {
   product: "0192f0a0-0000-7000-8000-000000000002",
 };
 
+// The lowest limit; of equal limits, the longest window, which binds longest.
 const tightest = (policy: PolicyName): Rule =>
-  [...POLICIES[policy]].sort((a, b) => a.limit - b.limit)[0];
+  [...POLICIES[policy]].sort(
+    (a, b) => a.limit - b.limit || b.windowSeconds - a.windowSeconds,
+  )[0];
 
 describe("check", () => {
   it.each(Object.keys(POLICIES) as PolicyName[])(
@@ -224,7 +227,8 @@ describe("namespacing and hashing", () => {
     for (const policy of Object.keys(POLICIES) as PolicyName[]) {
       await limiter.check(policy, ids);
     }
-    expect(keys.length).toBe(27);
+    // One key per rule: every rule here keys on an identifier in `ids`.
+    expect(keys.length).toBe(Object.values(POLICIES).flat().length);
     for (const key of keys) {
       expect(key).not.toContain("student@northeastern.edu");
       expect(key).not.toContain("session-token-value");

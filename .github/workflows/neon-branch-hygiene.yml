@@ -32,6 +32,11 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # NEON_API_KEY and NEON_PROJECT_ID live in the `neon-ops` Environment,
+    # which only the default branch may deploy to. Without it, Run workflow
+    # from any pushed branch would run that branch's copy of this file with
+    # the key. See CONTRIBUTING.md "Neon secrets".
+    environment: neon-ops
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

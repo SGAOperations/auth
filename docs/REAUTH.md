@@ -63,6 +63,7 @@ if (!fresh.ok) return fresh.response; // 401 UNAUTHORIZED or 403 REAUTH_REQUIRED
 | `/change-password`                   | Changing the password        |
 | `/revoke-sessions`                   | Revoking every session       |
 | `/revoke-other-sessions`             | Revoking every other session |
+| `/revoke-session`                    | Revoking one session         |
 | `/two-factor/enable`                 | Starting MFA enrollment      |
 | `/two-factor/disable`                | Turning MFA off              |
 | `/two-factor/get-totp-uri`           | Reveals the TOTP secret      |

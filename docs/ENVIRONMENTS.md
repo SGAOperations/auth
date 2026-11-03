@@ -8,7 +8,7 @@ How SGAuth is hosted on Vercel and which database each environment uses. This do
 | ----------- | ----------- | ------------------------------ | --------------- | ------------ | ------------ | -------------------------------------------------------------------------------- |
 | Production  | `main`      | `auth.northeasternsga.com`     | Production      | `main`       | `production` | public (production domain)                                                       |
 | Dev         | `dev`       | `auth-dev.northeasternsga.com` | Preview (`dev`) | `dev` shared | `dev`        | public at Vercel (Deployment Protection Exception); gated in code (#134)         |
-| Preview     | PR branches | `*.vercel.app`                 | Preview         | `dev` shared | `preview`    | Vercel Authentication, plus #134's gate; automation bypass for CI and Playwright |
+| Preview     | PR branches | `*.vercel.app`                 | Preview         | `preview`    | `preview`    | Vercel Authentication, plus #134's gate; automation bypass for CI and Playwright |
 | Local       | any         | `auth.sga.localhost:3000`      | n/a             | personal     | `local`      | n/a                                                                              |
 
 The `*.vercel.app` deployment URLs generated for `dev` stay protected. Only the `auth-dev.northeasternsga.com` domain is excepted.
@@ -21,8 +21,8 @@ Every variable set in Vercel, by scope. "Preview (`dev`)" is the branch-specific
 
 | Variable                                                                                  | Purpose                                                                                                                                                                                                                           | Production                           | Preview (`dev`)                      | Preview (all branches) | Development   | Source | Secret |
 | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------ | ---------------------- | ------------- | ------ | ------ |
-| `DATABASE_URL`                                                                            | Pooled runtime role. `sslmode=verify-full`.                                                                                                                                                                                       | Neon `main`                          | inherited (Neon `dev`)               | Neon `dev`             | empty         | manual | yes    |
-| `DIRECT_URL`                                                                              | Direct migration role. `sslmode=verify-full` (fallback below).                                                                                                                                                                    | Neon `main`                          | inherited (Neon `dev`)               | Neon `dev`             | empty         | manual | yes    |
+| `DATABASE_URL`                                                                            | Pooled runtime role. `sslmode=verify-full`.                                                                                                                                                                                       | Neon `main`                          | Neon `dev` (own override)            | Neon `preview`         | empty         | manual | yes    |
+| `DIRECT_URL`                                                                              | Direct migration role. `sslmode=verify-full` (fallback below). Only builds that migrate need it; see [Build pipeline](#build-pipeline).                                                                                           | Neon `main`                          | Neon `dev` (own override)            | not set                | empty         | manual | yes    |
 | `SGAUTH_ENV`                                                                              | Selects Better Auth's `baseURL` (`src/lib/auth/settings.ts`).                                                                                                                                                                     | `production`                         | `dev`                                | `preview`              | `local`       | manual | no     |
 | `BETTER_AUTH_SECRET`                                                                      | Better Auth signing secret. Generate with `npx @better-auth/cli secret`.                                                                                                                                                          | distinct value                       | distinct value                       | distinct value         | its own value | manual | yes    |
 | `BETTER_AUTH_SECRETS` ([#81](https://github.com/SGAOperations/auth/issues/81))            | Versioned secrets, `<version>:<secret>` entries, current first. Set only after a rotation; `BETTER_AUTH_SECRET` then only decrypts older data. See [runbooks/rotate-secrets.md](runbooks/rotate-secrets.md).                      | not set until rotated                | not set until rotated                | not set                | not set       | manual | yes    |
@@ -56,10 +56,12 @@ Notes:
 Rules:
 
 - **No secret value is shared across scopes.** `auth-dev` is reachable from the internet, so none of its secrets (`BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, database credentials) may equal production's or the Preview (all branches) value. The Neon `dev` roles have no access to Neon `main`.
+- **Neon copies role passwords when it creates a branch.** A branch made from `main` (or from `dev`) starts with the parent's `runtime` and `migration` passwords, so "the `dev` roles have no access to `main`" holds only after the passwords were reset on the new branch. Reset them on every non-production branch right after creating it, and check it, as in [rotate-secrets.md](runbooks/rotate-secrets.md#after-creating-a-branch).
+- **Preview (all branches) never holds a credential for Neon `main` or `dev`.** Any pushed branch builds a preview, and that branch controls both `scripts/vercel-build.mjs` and the server code that runs with these variables. So the Preview scope gets its own Neon `preview` branch with its own reset role passwords, and the `dev` override sets its own `DATABASE_URL` and `DIRECT_URL` instead of inheriting them.
 - Nothing secret is `NEXT_PUBLIC_`.
 - Rotation procedures for every secret are in [runbooks/rotate-secrets.md](runbooks/rotate-secrets.md).
 - Every connection string uses `sslmode=verify-full`. The one exception is `DIRECT_URL`, which may use `sslmode=require&sslaccept=strict` if the migration CLI rejects `verify-full`. If that happens, note it on #12.
-- The `dev` branch override must set `SGAUTH_ENV`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, `SGAUTH_SIGNUP_ALLOWLIST`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `CRON_SECRET`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password, and the env validation (#75, #32, #50) refuses to start on `production` or `dev` without the Upstash pair, the Resend pair or `CRON_SECRET`.
+- The `dev` branch override must set `SGAUTH_ENV`, `DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_SECRET`, `SGAUTH_PREVIEW_GATE_PASSWORD`, `SGAUTH_SIGNUP_ALLOWLIST`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` and `CRON_SECRET`. The build refuses to run without the right `SGAUTH_ENV`. #134's validation refuses to start without the gate password, and the env validation (#75, #32, #50) refuses to start on `production` or `dev` without the Upstash pair, the Resend pair or `CRON_SECRET`.
 - Never set `SGAUTH_PREVIEW_GATE=off` in a Vercel scope.
 
 ## Cookies and SDK values
@@ -70,7 +72,7 @@ One row per environment. Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from
 | ----------- | -------------------------------------- | --------------------------------------- | --------------------- | ------ | ----------- | ----------------------------------------------------- |
 | Production  | `https://auth.northeasternsga.com`     | `__Secure-sgauth.session_token`         | `northeasternsga.com` | yes    | `main`      | every production product (these are the SDK defaults) |
 | Dev         | `https://auth-dev.northeasternsga.com` | `__Secure-sgauth-dev.session_token`     | `northeasternsga.com` | yes    | `dev`       | product dev and preview environments                  |
-| Preview     | the deployment's `*.vercel.app` host   | `__Secure-sgauth-preview.session_token` | none (host-only)      | yes    | `dev`       | SGAuth's own testing only, no product SSO             |
+| Preview     | the deployment's `*.vercel.app` host   | `__Secure-sgauth-preview.session_token` | none (host-only)      | yes    | `preview`   | SGAuth's own testing only, no product SSO             |
 | Local       | `http://auth.sga.localhost:3000`       | `sgauth-local.session_token`            | `sga.localhost`       | no     | personal    | developers on their own machine                       |
 
 ## Product previews
@@ -119,7 +121,7 @@ Run each check in Chrome, Firefox and Safari (macOS) unless it says otherwise, i
 1. **Login sets exactly one cookie.** Unlock the gate on `auth-dev` and sign in as `victim`. Pass: DevTools shows exactly one `__Secure-sgauth-dev.session_token` for `auth-dev`, with Domain `.northeasternsga.com`, Path `/`, Secure, HttpOnly, SameSite Lax, and no `session_data` cookie. Note its Expires (about 30 days out). Then check for the #5611 symptom: wait 30 seconds, reload `auth-dev` twice, open `/api/auth/get-session`. Pass: the cookie is still there and the JSON shows `victim`.
 2. **Stub receives and resolves it.** Open `https://stub-dev.northeasternsga.com/`. Pass: it shows `Signed in as victim@...` with one copy, and still does after a reload 30 seconds later.
 3. **Sign-out clears it on both hosts.** Run the sign-out snippet on `auth-dev`. Pass: the cookie is gone on `auth-dev`, `/api/auth/get-session` returns `null`, and stub-dev shows the no-cookie text. Sign in again before check 6.
-4. **Preview host-only mode** (one PR preview, all three browsers). Unlock the gate on the preview and sign in as `victim` (preview uses Neon `dev`, so the accounts are shared). Pass: exactly one `__Secure-sgauth-preview.session_token`, with **no** Domain, Secure, HttpOnly, SameSite Lax; `/api/auth/get-session` on the preview shows `victim`; and no `sgauth` cookie is added on `northeasternsga.com` hosts.
+4. **Preview host-only mode** (one PR preview, all three browsers). Unlock the gate on the preview and sign in as `victim` (preview uses Neon `preview`, so create the two accounts there too, the same way). Pass: exactly one `__Secure-sgauth-preview.session_token`, with **no** Domain, Secure, HttpOnly, SameSite Lax; `/api/auth/get-session` on the preview shows `victim`; and no `sgauth` cookie is added on `northeasternsga.com` hosts.
 5. **Local `*.sga.localhost`.** Set `SGAUTH_ENV=local`, run `npm run dev` and `node scripts/sso-stub.mjs`, with the account on your personal Neon branch. Record whether `auth.sga.localhost` resolved natively or needed `network.dns.localDomains` (Firefox) or the hosts-file line (Safari). Sign in at `http://auth.sga.localhost:3000`. Pass: exactly one `sgauth-local.session_token` with Domain `.sga.localhost`, HttpOnly, SameSite Lax, not Secure; `http://vaultz.sga.localhost:3001` shows "Signed in as ..."; after sign-out it shows "Not signed in". A browser that drops or refuses the cookie is a **fail** and triggers the `sga.test` hosts-file follow-up.
 6. **Cookie tossing.** In a second profile sign in as `attacker` and copy its `session_token` value. In the victim's browser, toss it once per variant at `https://stub-dev.northeasternsga.com/toss`, clearing tossed cookies and signing in as `victim` again between variants. Record, per variant:
    - `parent-path`: stub-dev still shows one copy (`victim`). In the Network panel for `auth-dev`'s `/api/auth/get-session`, record whether the Cookie header carries two copies, which is first, and whose session SGAuth resolved.
@@ -197,11 +199,24 @@ Products set `SGAUTH_URL` and `SGAUTH_COOKIE_NAME` from the [table above](#cooki
 
 1. Works out the expected `SGAUTH_ENV` from `VERCEL_ENV` and `VERCEL_GIT_COMMIT_REF`: `production` for Production, `dev` for Preview on branch `dev`, `preview` for any other Preview ref. Anything else is not a Vercel build and the script exits.
 2. Exits if `SGAUTH_ENV` differs from that value. This catches a missing `dev` branch override before any migration runs.
-3. Requires `DATABASE_URL` and `DIRECT_URL`, and checks their `sslmode`.
-4. Logs `SGAUTH_ENV`, `VERCEL_ENV`, the ref and the database host name. Nothing else about the connection is logged.
-5. Runs `prisma generate`, `prisma migrate deploy`, then `next build`, stopping at the first failure.
+3. Decides whether to migrate: only Production and the Preview of branch `dev` do. Any other Preview skips `prisma migrate deploy` and logs `skipping prisma migrate deploy`.
+4. Requires `DATABASE_URL`, and `DIRECT_URL` when it migrates, and checks the `sslmode` of each one that is set. A build without `DIRECT_URL` hands `prisma generate` a placeholder, since `generate` never connects.
+5. Logs `SGAUTH_ENV`, `VERCEL_ENV`, the ref and the database host name. Nothing else about the connection is logged.
+6. Runs `prisma generate`, `prisma migrate deploy` (when migrating), then `next build`, stopping at the first failure.
 
-Migrations apply while the previous deployment is still serving, so every migration follows expand/contract ([MIGRATIONS.md](MIGRATIONS.md#expandcontract)). Nothing in the build log may contain a credential or connection string. There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
+Migrations apply while the previous deployment is still serving, so every migration follows expand/contract ([MIGRATIONS.md](MIGRATIONS.md#expandcontract)). Nothing in the build log may contain a credential or connection string.
+
+Skipping migrations on branch previews prevents accidents only. A pushed branch controls `scripts/vercel-build.mjs` and the code its preview runs, so what keeps a branch out of the shared databases is that the Preview (all branches) scope holds no credential for them ([Rules](#environment-variables)). A branch preview runs against Neon `preview` at whatever schema that branch last had; a PR whose code needs its own new migration is exercised in CI and on a personal branch, not on its preview. `.github/workflows/neon-preview-migrate.yml` keeps `preview` at `dev`'s schema: every push to `dev` that touches `prisma/migrations/` or `schema.prisma` runs `prisma migrate deploy` against `preview` with `PREVIEW_DIRECT_URL` from the `neon-preview` Environment. It refuses a URL on Neon `main` or `dev`, and it keeps `preview`'s data and role passwords, which a `branches reset --parent` would not. Run it by hand (Actions → Neon preview migrate → Run workflow) after creating or resetting `preview`.
+
+### `DIRECT_URL` at runtime
+
+Vercel cannot scope a variable to the build only, so Production's `DIRECT_URL` (the schema-owning `migration` role) is also present in every running function, where an env leak or code execution would yield the owner of the audit and Primary Admin triggers. The runtime never reads it. The planned fix, not built yet:
+
+1. Add a `migrate` workflow job bound to a GitHub Environment `db-production` (deployment branch `main` only, required reviewer), holding `DIRECT_URL` for Neon `main`. It runs `prisma migrate deploy` on push to `main`.
+2. Make the Production build wait for it: either Vercel's "Ignored Build Step" polls for the job's success on that commit, or the job triggers the deploy through a Vercel deploy hook and Git auto-deploy for `main` is turned off.
+3. Change `scripts/vercel-build.mjs` so Production no longer migrates, then delete `DIRECT_URL` from the Vercel Production scope and rotate the `migration` password on `main`.
+
+Until then, the mitigation is the scoping above: `DIRECT_URL` is set only in Production and the `dev` override, never in Preview (all branches). There are no Vercel cron jobs: scheduled work runs from GitHub Actions (AUTH-T38), so do not add a `crons` section to `vercel.json`.
 
 ## Scheduled jobs
 
@@ -215,24 +230,21 @@ Migrations apply while the previous deployment is still serving, so every migrat
 
 - **Hourly, not every 15 minutes.** Every run queries Postgres and wakes the Neon compute for about 5 minutes. Every 15 minutes is about 60 CU-hours a month per branch against the Free plan's 100 per project. Hourly is about 15. A transfer completes up to about an hour after its 24-hour cooling window ends, plus any GitHub schedule delay.
 - **Targets.** Scheduled runs call production only. `dev` is dispatch-only: Actions, then "Scheduled jobs", then Run workflow with `environment=dev`.
-- **GitHub secrets**, each equal to the matching Vercel `CRON_SECRET`: `CRON_SECRET_PRODUCTION` (Production) and `CRON_SECRET_DEV` (Preview `dev`). While `auth-dev` is still behind Standard Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET_DEV`; the workflow sends it as `x-vercel-protection-bypass` for dev calls only.
+- **GitHub Environment secrets**, each equal to the matching Vercel `CRON_SECRET`: `CRON_SECRET_PRODUCTION` in the `cron-production` Environment and `CRON_SECRET_DEV` in `cron-dev`. While `auth-dev` is still behind Standard Protection, also set `VERCEL_AUTOMATION_BYPASS_SECRET_DEV` in `cron-dev`; the workflow sends it as `x-vercel-protection-bypass` for dev calls only. Both Environments allow deployments from the default branch (`dev`) only, so no other branch's workflow can read them. They are never repository secrets. (The names avoid `production` and `preview`, which Vercel's GitHub deployments already use.)
 - **Behaviour.** Every route is idempotent and returns quickly. A missing or wrong bearer answers `401` and does nothing. A failing job answers non-2xx, which shows as a red run. A missed run is caught by the next one.
 - GitHub runs schedules only from the default branch (`dev`) and disables them after 60 days without repository activity.
 
-## Shared pre-production database
+## Pre-production databases
 
-`dev` and every PR preview use the one Neon `dev` branch. There is no Neon-Vercel integration, and opening or closing a PR never creates or deletes a Neon branch. The daily hygiene job (#20) deletes only stale `tmp-*` branches.
+`auth-dev` uses Neon `dev`. Every branch preview uses the one Neon `preview` branch (parent `dev`), with its own `runtime` role password and no `DIRECT_URL`. There is no Neon-Vercel integration, and opening or closing a PR never creates or deletes a Neon branch. The daily hygiene job (#20) deletes only stale `tmp-*` branches.
 
 Consequences:
 
-- A PR's migration is applied, as soon as its preview builds, to the database that `auth-dev` and every other preview use.
-- A destructive or incompatible migration in an open PR breaks `auth-dev` and other previews immediately.
-- An abandoned PR leaves its migration applied with no matching folder on `dev`.
-- Two PRs that both add migrations interleave on one database.
+- Only code merged to `dev` migrates Neon `dev`, and a branch preview never migrates anything.
+- A branch preview can read and write Neon `preview` only. Nothing trusts that database: previews use host-only cookies and no product SSO.
+- Migrations still reach `dev` before `main`, so they follow expand/contract: contract steps land only after the code that stops using the old shape is live.
 
-The rule: **PR migrations must be additive (expand only).** Contract steps land on `dev` only after merge.
-
-Recovery: `prisma migrate resolve` for a failed or stray migration, or reset the Neon `dev` branch from `main` before launch (see [MIGRATIONS.md](MIGRATIONS.md#recovery)).
+Recovery: `prisma migrate resolve` for a failed migration on `dev`, or reset the Neon `dev` branch from `main` before launch and then reset its role passwords again (see [MIGRATIONS.md](MIGRATIONS.md#recovery)).
 
 Pre-production data is shared and disposable. Never copy production data into it.
 

@@ -85,6 +85,41 @@ describe("recipient caps", () => {
   });
 });
 
+describe("security mail", () => {
+  it("is never refused by a recipient cap a flood has already filled", async () => {
+    const { caps } = setup();
+    // A flood of ordinary mail fills both recipient caps.
+    await sendMany(caps, "a", 40);
+    expect(await caps.check("a", "verify-email")).toMatchObject({
+      allowed: false,
+    });
+    for (const template of [
+      "reset-password",
+      "account-unlock",
+      "security-notice",
+      "pa-transfer-accepted",
+    ] as const) {
+      expect(await caps.check("a", template)).toEqual({ allowed: true });
+    }
+  });
+
+  it("does not count toward the recipient caps", async () => {
+    const { caps } = setup();
+    for (let i = 0; i < 20; i += 1) await caps.check("a", "reset-password");
+    expect(await caps.check("a", "verify-email")).toEqual({ allowed: true });
+  });
+
+  it("still counts toward and is refused by the global cap", async () => {
+    const { caps } = setup({ dailyCap: 2 });
+    expect(await caps.check("a", "reset-password")).toEqual({ allowed: true });
+    expect(await caps.check("b", "reset-password")).toEqual({ allowed: true });
+    expect(await caps.check("c", "reset-password")).toEqual({
+      allowed: false,
+      cap: "global:1d",
+    });
+  });
+});
+
 describe("global daily cap", () => {
   it("alerts at 80%, refuses past the cap, and alerts once each", async () => {
     const { caps, log } = setup({ dailyCap: 10 });

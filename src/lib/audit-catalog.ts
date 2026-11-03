@@ -143,8 +143,44 @@ export const PRODUCT_AUDIT_FIELDS = [
 export type ProductAuditField = (typeof PRODUCT_AUDIT_FIELDS)[number];
 
 // Slugs and field names are not PII, and the slug keeps the history readable
-// after a delete. Never put values here: an update records field names only.
+// after a delete. Values are recorded for the routing fields only (below);
+// every other field is recorded by name.
 const productSlugMetadata = z.strictObject({ slug: z.string().min(2).max(64) });
+
+/**
+ * The product fields whose values the audit keeps (BT14): `baseUrl` feeds the
+ * trusted origins and the redirect allowlist, and `isActive` turns that on and
+ * off. None of them is PII.
+ */
+export const PRODUCT_ROUTING_FIELDS = [
+  "baseUrl",
+  "isActive",
+  "loginRedirectPath",
+] as const;
+
+const productRouting = z.strictObject({
+  baseUrl: z.string().max(2048).optional(),
+  isActive: z.boolean().optional(),
+  loginRedirectPath: z.string().max(2048).nullable().optional(),
+});
+
+const productUpdatedMetadata = productSlugMetadata
+  .extend({
+    fields: z.array(z.enum(PRODUCT_AUDIT_FIELDS)).min(1),
+    // Present when a routing field changed, naming the same fields.
+    before: productRouting.optional(),
+    after: productRouting.optional(),
+  })
+  .refine(
+    ({ before, after }) =>
+      Object.keys(before ?? {})
+        .sort()
+        .join() ===
+      Object.keys(after ?? {})
+        .sort()
+        .join(),
+    { message: "before and after must name the same fields" },
+  );
 
 const productApiKeyMetadata = productSlugMetadata.extend({
   keyId: z.uuid(),
@@ -362,14 +398,15 @@ export const AUDIT_CATALOG = {
   // createdAt) index. Position-side history reads metadata.positionId.
   POSITION_ASSIGNED: positionOnUser,
   POSITION_UNASSIGNED: positionOnUser,
-  PRODUCT_CREATED: { targetType: "PRODUCT", metadata: productSlugMetadata },
-  PRODUCT_UPDATED: {
+  PRODUCT_CREATED: {
     targetType: "PRODUCT",
-    metadata: productSlugMetadata.extend({
-      fields: z.array(z.enum(PRODUCT_AUDIT_FIELDS)).min(1),
-    }),
+    metadata: productSlugMetadata.extend({ after: productRouting.optional() }),
   },
-  PRODUCT_DELETED: { targetType: "PRODUCT", metadata: productSlugMetadata },
+  PRODUCT_UPDATED: { targetType: "PRODUCT", metadata: productUpdatedMetadata },
+  PRODUCT_DELETED: {
+    targetType: "PRODUCT",
+    metadata: productSlugMetadata.extend({ before: productRouting.optional() }),
+  },
   // A product API key (#312). The key id and its public prefix, never the key.
   PRODUCT_API_KEY_CREATED: {
     targetType: "PRODUCT",

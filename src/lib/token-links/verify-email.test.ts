@@ -22,11 +22,15 @@ const expired = () =>
 function fakeDb({
   verified = false,
   used = [] as string[],
-}: { verified?: boolean; used?: string[] } = {}) {
+  cutoff = null as Date | null,
+}: { verified?: boolean; used?: string[]; cutoff?: Date | null } = {}) {
   const claimed = new Set(used.map(hashVerifyToken));
   const db = {
     user: {
-      findUnique: vi.fn(async () => ({ emailVerified: verified })),
+      findUnique: vi.fn(async () => ({ id: "u1", emailVerified: verified })),
+    },
+    verification: {
+      findFirst: vi.fn(async () => (cutoff ? { createdAt: cutoff } : null)),
     },
     usedEmailVerificationToken: {
       findUnique: vi.fn(async ({ where }: { where: { tokenHash: string } }) =>
@@ -38,6 +42,9 @@ function fakeDb({
         return { count: fresh.length };
       }),
       deleteMany: vi.fn(async () => ({ count: 0 })),
+    },
+    session: {
+      deleteMany: vi.fn(async () => ({ count: 1 })),
     },
   };
   return { db: db as unknown as Db, mocks: db };
@@ -132,6 +139,18 @@ describe("loadVerifyEmailView", () => {
     });
   });
 
+  it("is invalid for a live token issued at or before the account's cutoff", async () => {
+    const token = await live();
+    // A cutoff later in the same second still covers the token.
+    expect(
+      await view({ token }, { cutoff: new Date(Date.now() + 10) }).result,
+    ).toEqual({ state: "invalid" });
+    // A token issued after the cutoff is untouched.
+    expect(
+      await view({ token }, { cutoff: new Date(Date.now() - 5000) }).result,
+    ).toMatchObject({ state: "ready" });
+  });
+
   it("shows a token already consumed as used", async () => {
     const token = await live();
     expect(await view({ token }, { used: [token] }).result).toEqual({
@@ -166,19 +185,60 @@ describe("createVerifyEmailConsumer", () => {
     method: "POST",
   });
 
-  function setup(options?: Parameters<typeof fakeDb>[0]) {
+  function setup(
+    options?: Parameters<typeof fakeDb>[0] & { signedInAs?: string },
+  ) {
     const { db, mocks } = fakeDb(options);
     const headers = new Headers({ "set-cookie": "session=1" });
-    const verifyEmail = vi.fn(async () => ({ headers }));
+    const verifyEmail = vi.fn<
+      (context: { headers: Headers }) => Promise<{ headers: Headers }>
+    >(async () => ({ headers }));
+    const getSession = vi.fn(async () =>
+      options?.signedInAs ? { user: { email: options.signedInAs } } : null,
+    );
     const resolveRedirect = vi.fn(async () => "https://app.example.com/home");
     const consume = createVerifyEmailConsumer({
-      auth: { api: { verifyEmail } },
+      auth: { api: { verifyEmail, getSession } },
       db,
       secret: SECRET,
       resolveRedirect,
     });
     return { consume, mocks, verifyEmail, resolveRedirect, headers };
   }
+
+  it("verifies without signing in a browser signed in as someone else", async () => {
+    const signedIn = new Request(
+      "https://auth.example.com/verify-email/confirm",
+      { method: "POST", headers: { cookie: "session=victim" } },
+    );
+    const { consume, mocks, verifyEmail, resolveRedirect } = setup({
+      signedInAs: "victim@northeastern.edu",
+    });
+    const token = await live();
+    expect(await consume({ token, fields: {}, request: signedIn })).toEqual({
+      result: "done",
+    });
+    // Better Auth saw no cookie, and its auto-sign-in session was removed.
+    expect(verifyEmail.mock.calls[0]?.[0].headers.get("cookie")).toBeNull();
+    expect(mocks.session.deleteMany).toHaveBeenCalledWith({
+      where: {
+        user: { email: EMAIL },
+        createdAt: { gte: expect.any(Date) },
+      },
+    });
+    expect(resolveRedirect).not.toHaveBeenCalled();
+  });
+
+  it("signs in as usual when the browser is already the token's user", async () => {
+    const { consume, mocks, headers } = setup({ signedInAs: EMAIL });
+    const token = await live();
+    expect(await consume({ token, fields: {}, request })).toEqual({
+      result: "done",
+      headers,
+      redirectTo: "https://app.example.com/home",
+    });
+    expect(mocks.session.deleteMany).not.toHaveBeenCalled();
+  });
 
   it("verifies, then follows the resolved redirect with the session headers", async () => {
     const { consume, verifyEmail, headers } = setup();
@@ -207,6 +267,18 @@ describe("createVerifyEmailConsumer", () => {
     const token = await live();
     expect(await consume({ token, fields: {}, request })).toEqual({
       result: "used",
+    });
+    expect(mocks.usedEmailVerificationToken.createMany).not.toHaveBeenCalled();
+    expect(verifyEmail).not.toHaveBeenCalled();
+  });
+
+  it("answers a token revoked by a repeat sign-up invalid, with no claim and no verify", async () => {
+    const { consume, mocks, verifyEmail } = setup({
+      cutoff: new Date(Date.now() + 10),
+    });
+    const token = await live();
+    expect(await consume({ token, fields: {}, request })).toEqual({
+      result: "invalid",
     });
     expect(mocks.usedEmailVerificationToken.createMany).not.toHaveBeenCalled();
     expect(verifyEmail).not.toHaveBeenCalled();

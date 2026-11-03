@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getCurrentUser: vi.fn(),
+  requireFreshAuth: vi.fn(),
   limitRequest: vi.fn(),
   audit: vi.fn(),
   invalidateProductCache: vi.fn(),
@@ -14,6 +15,9 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/current-user", () => ({
   getCurrentUser: mocks.getCurrentUser,
+}));
+vi.mock("@/lib/auth/server", () => ({
+  requireFreshAuth: mocks.requireFreshAuth,
 }));
 vi.mock("@/lib/rate-limit/server", () => ({
   limitRequest: mocks.limitRequest,
@@ -31,11 +35,12 @@ vi.mock("@/lib/products", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/lib/product-admin", async () => {
-  const { ProductError } = await vi.importActual<
+  const { ProductError, routingValues } = await vi.importActual<
     typeof import("@/lib/product-admin")
   >("@/lib/product-admin");
   return {
     ProductError,
+    routingValues,
     createProduct: mocks.createProduct,
     updateProduct: mocks.updateProduct,
     deleteProduct: mocks.deleteProduct,
@@ -53,7 +58,13 @@ const admin = {
   status: "ACTIVE",
   twoFactorEnabled: true,
 };
-const product = { id: ID, slug: "test-tool" };
+const product = {
+  id: ID,
+  slug: "test-tool",
+  baseUrl: "https://tool.northeasternsga.com",
+  isActive: true,
+  loginRedirectPath: "/dashboard",
+};
 
 function serviceCalls() {
   return (
@@ -67,6 +78,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   mocks.getCurrentUser.mockResolvedValue(admin);
   mocks.limitRequest.mockResolvedValue(null);
+  mocks.requireFreshAuth.mockResolvedValue({ ok: true, session: {} });
 });
 
 describe("the authorization ladder", () => {
@@ -88,6 +100,7 @@ describe("the authorization ladder", () => {
     });
     expect(serviceCalls()).toBe(0);
     expect(mocks.limitRequest).not.toHaveBeenCalled();
+    expect(mocks.requireFreshAuth).not.toHaveBeenCalled();
   });
 
   it("returns RATE_LIMITED without calling the service", async () => {
@@ -97,6 +110,28 @@ describe("the authorization ladder", () => {
       code: "RATE_LIMITED",
     });
     expect(mocks.limitRequest).toHaveBeenCalledWith("adminMutation", "u1");
+    expect(serviceCalls()).toBe(0);
+  });
+
+  it("returns REAUTH_REQUIRED on a stale session for create, update and delete (BT14)", async () => {
+    mocks.requireFreshAuth.mockResolvedValue({
+      ok: false,
+      response: Response.json({ code: "REAUTH_REQUIRED" }, { status: 403 }),
+    });
+    const stale = { ok: false, code: "REAUTH_REQUIRED" };
+    expect(await createProduct({})).toEqual(stale);
+    expect(await updateProduct(ID, {})).toEqual(stale);
+    expect(await deleteProduct(ID, "test-tool")).toEqual(stale);
+    expect(serviceCalls()).toBe(0);
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  it("returns FORBIDDEN when the session ends before the re-auth check", async () => {
+    mocks.requireFreshAuth.mockResolvedValue({
+      ok: false,
+      response: Response.json({ code: "UNAUTHORIZED" }, { status: 401 }),
+    });
+    expect(await createProduct({})).toEqual({ ok: false, code: "FORBIDDEN" });
     expect(serviceCalls()).toBe(0);
   });
 });
@@ -136,7 +171,14 @@ describe("createProduct", () => {
       actorUserId: "u1",
       targetType: "PRODUCT",
       targetId: ID,
-      metadata: { slug: "test-tool" },
+      metadata: {
+        slug: "test-tool",
+        after: {
+          baseUrl: "https://tool.northeasternsga.com",
+          isActive: true,
+          loginRedirectPath: "/dashboard",
+        },
+      },
     });
     expect(mocks.invalidateProductCache).toHaveBeenCalledTimes(1);
   });
@@ -156,8 +198,17 @@ describe("updateProduct", () => {
     expect(serviceCalls()).toBe(0);
   });
 
-  it("audits the changed field names and invalidates", async () => {
-    mocks.updateProduct.mockResolvedValue({ product, changed: ["baseUrl"] });
+  it("audits the changed fields with old and new routing values, and invalidates (BT14)", async () => {
+    const before = {
+      ...product,
+      baseUrl: "https://old.northeasternsga.com",
+      isActive: false,
+    };
+    mocks.updateProduct.mockResolvedValue({
+      product,
+      before,
+      changed: ["name", "baseUrl", "isActive"],
+    });
     expect(await updateProduct(ID, { baseUrl: "x" })).toEqual({
       ok: true,
       id: ID,
@@ -165,14 +216,43 @@ describe("updateProduct", () => {
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "PRODUCT_UPDATED",
-        metadata: { slug: "test-tool", fields: ["baseUrl"] },
+        metadata: {
+          slug: "test-tool",
+          fields: ["name", "baseUrl", "isActive"],
+          before: {
+            baseUrl: "https://old.northeasternsga.com",
+            isActive: false,
+          },
+          after: {
+            baseUrl: "https://tool.northeasternsga.com",
+            isActive: true,
+          },
+        },
       }),
     );
     expect(mocks.invalidateProductCache).toHaveBeenCalledTimes(1);
   });
 
+  it("records field names only when no routing field changed", async () => {
+    mocks.updateProduct.mockResolvedValue({
+      product,
+      before: product,
+      changed: ["name"],
+    });
+    await updateProduct(ID, { name: "x" });
+    expect(mocks.audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { slug: "test-tool", fields: ["name"] },
+      }),
+    );
+  });
+
   it("neither audits nor invalidates when nothing changed", async () => {
-    mocks.updateProduct.mockResolvedValue({ product, changed: [] });
+    mocks.updateProduct.mockResolvedValue({
+      product,
+      before: product,
+      changed: [],
+    });
     expect(await updateProduct(ID, {})).toEqual({ ok: true, unchanged: true });
     expect(mocks.audit).not.toHaveBeenCalled();
     expect(mocks.invalidateProductCache).not.toHaveBeenCalled();
@@ -190,12 +270,19 @@ describe("deleteProduct", () => {
   });
 
   it("audits, invalidates, then redirects to the list", async () => {
-    mocks.deleteProduct.mockResolvedValue(product);
+    mocks.deleteProduct.mockResolvedValue({ ...product, isActive: false });
     await deleteProduct(ID, "test-tool");
     expect(mocks.audit).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "PRODUCT_DELETED",
-        metadata: { slug: "test-tool" },
+        metadata: {
+          slug: "test-tool",
+          before: {
+            baseUrl: "https://tool.northeasternsga.com",
+            isActive: false,
+            loginRedirectPath: "/dashboard",
+          },
+        },
       }),
     );
     expect(mocks.invalidateProductCache).toHaveBeenCalledTimes(1);

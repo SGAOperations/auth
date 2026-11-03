@@ -28,7 +28,7 @@ const messages: TokenActionPageProps["messages"] = {
   },
   invalid: {
     title: "This link isn't valid",
-    body: "It may have been copied incorrectly. Sign in to get a new verification link.",
+    body: "It may have been copied incorrectly, or a newer email replaced it. Use the latest link in your inbox, or sign in to get a new one.",
     cta: { label: "Go to sign in", href: "/" },
   },
   rate: {
@@ -74,7 +74,8 @@ export default async function VerifyEmailPage({
         view.state === "ready" ? (
           <>
             Confirm <strong>{view.email}</strong> to finish setting up your SGA
-            account.
+            account. If you didn&apos;t create this account, don&apos;t verify:
+            ignore this email.
           </>
         ) : null
       }

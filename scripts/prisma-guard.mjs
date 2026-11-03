@@ -44,6 +44,17 @@ export function hashEndpoint(id) {
 }
 
 /**
+ * The tooling variables the guards read. They sit outside the app's env
+ * schema, so prisma/seed.ts takes them from here rather than process.env.
+ */
+export function guardEnv(env = process.env) {
+  return {
+    directUrl: env.DIRECT_URL,
+    protectedHosts: env.SGAUTH_PROTECTED_DB_HOSTS,
+  };
+}
+
+/**
  * The guarded command in `args` (for example `"migrate dev"`), or `null`. The
  * pair may sit anywhere in `args`, so flags around it do not hide it.
  */

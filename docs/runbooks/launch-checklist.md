@@ -52,8 +52,12 @@ items come first.
       `SGAUTH_SIGNUP_ALLOWLIST` are **not** set in Production. The env schema
       refuses the seed keys outside `local`. Verify: they are absent from
       `vercel env ls production`.
-- [ ] `SGAUTH_CSP_MODE` is recorded, and so is whether the #78 enforce flip has
-      happened. Record: the value and the date of the flip, or "report-only".
+- [ ] `SGAUTH_CSP_MODE` is recorded. Unset, production enforces the CSP; set
+      `report-only` only as a deliberate, dated exception while a violation is
+      fixed. Verify: a production page response carries
+      `Content-Security-Policy`, not `Content-Security-Policy-Report-Only`.
+      Record: the value (or "unset, enforce") and, for `report-only`, why and
+      until when.
 
 ## 3. Neon
 

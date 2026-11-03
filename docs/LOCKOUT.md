@@ -27,9 +27,11 @@ After every completed login SGAuth sets a signed, HttpOnly, host-only cookie and
 
 - A sign-in that carries a valid cookie **for that account** is exempt from the account lock. It succeeds while an unknown browser is locked out.
 - It keeps its own counter on the `KnownDevice` row. 5 wrong passwords in 15 minutes pause that device for 15 minutes. This lock is flat, never escalates, and sends no email. It never touches the account's counter.
+- **A device that has locked is spent.** Once its own lock ends, and until it next completes a login, it keeps no exemption: it is treated like any other browser, its wrong passwords count on the account, and the account lock refuses it. So a shared or lab browser that still holds the 1-year cookie gets 5 free guesses, then reaches the escalating account lock and the owner gets the lock email (black-team BT18). `isDeviceSpent` in `lockout-policy.ts` is the rule. Someone without the cookie cannot spend it, so the owner's exemption from a remote lockout stands until someone at that browser guesses wrong 5 times.
+- A completed login from the device (sign-in, re-authentication or a password change) resets its counter and, once its own lock is over, ends the spent state. An active device lock is never cleared early.
 - It is still subject to the IP rate limits.
 - A successful login does **not** clear an active account lock: a known-device success shows the owner is present, not that the attacker stopped. Unknown browsers stay locked until the lock expires or one of the unlock paths below runs.
-- A stolen cookie and the password are both needed to use the exemption. A password reset does not revoke known devices.
+- A stolen cookie and the password are both needed to use the exemption. A password reset deletes every known device of the account, so after a reset no browser is exempt until it logs in again.
 
 ## What counts
 
@@ -39,19 +41,19 @@ Change-password is refused while locked, with `403 PASSWORD_CHANGE_LOCKED` (the 
 
 ## What resets what
 
-| Event                        | Failure counter | Active lock | Lock level | Outstanding unlock links |
-| ---------------------------- | --------------- | ----------- | ---------- | ------------------------ |
-| Successful login             | reset           | kept        | kept       | kept                     |
-| Unlock link (`/unlock`)      | reset           | cleared     | kept       | revoked                  |
-| Password reset               | reset           | cleared     | kept       | revoked                  |
-| Admin unlock (#48)           | reset           | cleared     | kept       | revoked                  |
-| 24 h clean after a lock ends | n/a             | n/a         | reset to 0 | n/a                      |
+| Event                        | Failure counter | Active lock | Lock level | Outstanding unlock links | Known devices                   |
+| ---------------------------- | --------------- | ----------- | ---------- | ------------------------ | ------------------------------- |
+| Successful login             | reset           | kept        | kept       | kept                     | that device's spent state ended |
+| Unlock link (`/unlock`)      | reset           | cleared     | kept       | revoked                  | kept                            |
+| Password reset               | reset           | cleared     | kept       | revoked                  | deleted                         |
+| Admin unlock (#48)           | reset           | cleared     | kept       | revoked                  | kept                            |
+| 24 h clean after a lock ends | n/a             | n/a         | reset to 0 | n/a                      | n/a                             |
 
 `clearAccountLock(db, { userId, now })` implements the three unlock paths and does not audit: the caller does, because the method differs. The admin endpoint (#48) and its button (#56) call it with `method: "admin"`.
 
 ## The unlock link
 
-When a failure takes the lock, one transaction writes the lock, issues a single-use unlock token valid for one hour (`UnlockToken`, hashed), and writes `ACCOUNT_LOCKED`. After it commits, two emails go out: `account-locked` (what happened and when it unlocks) and `account-unlock` (the link). Each lock sends them once, never per refused attempt, and the recipient caps in `EMAIL.md` bound them. A send that fails or is capped is logged by the mailer and the lock stands.
+When a failure takes the lock, one transaction writes the lock, issues a single-use unlock token valid for one hour (`UnlockToken`, hashed), and writes `ACCOUNT_LOCKED`. After it commits, two emails go out: `account-locked` (what happened and when it unlocks) and `account-unlock` (the link). Each lock sends them once, never per refused attempt. Both templates are exempt from the per-recipient caps in `EMAIL.md` (BT8), so a flood of other mail cannot silence them; the global daily cap still applies. A send that fails or is capped is logged by the mailer and the lock stands.
 
 The link follows the scanner-safe pattern in `EMAIL.md`: `GET /unlock?token=` only reads and shows a button, and `POST /unlock/confirm` consumes the token, clears the lock and writes `ACCOUNT_UNLOCKED` in one transaction. Unknown, used and expired tokens all show "This link isn't valid", and the response never names the account.
 

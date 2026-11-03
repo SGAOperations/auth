@@ -10,7 +10,7 @@ export const REASON_COPY: Record<AuthzDenialReason, string> = {
   SELF_MODIFICATION: "You can't change your own admin access or status.",
   NOT_SELF: "You can only do this to your own account.",
   PRIMARY_ADMIN_PROTECTED:
-    "The Primary Admin can only be changed through a Primary Admin transfer.",
+    "The Primary Admin's account is protected. Other admins can't change it, and the role moves only through a Primary Admin transfer.",
   PRIMARY_ADMIN_REQUIRED:
     "Only the Primary Admin can do this to another admin.",
   TARGET_NOT_ELIGIBLE: "This user can't be chosen for this.",

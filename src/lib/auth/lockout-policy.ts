@@ -185,9 +185,31 @@ export function applyDeviceFailure(
   };
 }
 
+/**
+ * A known device that has tripped its own lock since its last completed login
+ * keeps no exemption once that lock ends: it is treated as any other browser,
+ * so its failures count on the account and the account lock refuses it. One
+ * flat device lock is all the free guessing a shared machine gets; past it the
+ * account escalates and the owner gets the lock email (black-team BT18). An
+ * attacker without the cookie cannot spend it, so the owner's exemption from a
+ * remote lockout (A7) stands until someone at that browser guesses wrong.
+ */
+export function isDeviceSpent(device: DeviceLockState, now: Date): boolean {
+  return device.lockedUntil !== null && !isLocked(device, now);
+}
+
+/**
+ * A completed login from the device resets its counter and, once its own lock
+ * is over, restores its exemption. An active lock is never cleared, as for the
+ * account.
+ */
 export function applyDeviceSuccess(
   device: DeviceLockState,
   now: Date,
 ): DeviceLockState {
-  return { ...device, failedCount: 0, windowStartedAt: now };
+  return {
+    failedCount: 0,
+    windowStartedAt: now,
+    lockedUntil: isLocked(device, now) ? device.lockedUntil : null,
+  };
 }

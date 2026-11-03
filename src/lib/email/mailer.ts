@@ -100,7 +100,7 @@ export function createMailer({
 
     // After validation and rendering, so a bad call never spends a quota.
     const recipientHash = hashRecipient(to);
-    const decision = await caps.check(recipientHash);
+    const decision = await caps.check(recipientHash, template);
     if (!decision.allowed) {
       log.warn("email_capped", { template, recipientHash, cap: decision.cap });
       return { status: "capped", cap: decision.cap };

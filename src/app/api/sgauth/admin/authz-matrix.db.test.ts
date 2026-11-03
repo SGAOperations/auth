@@ -168,7 +168,7 @@ const ADMIN: Record<string, Row> = {
   "revoke-admin": [
     deny("SELF_MODIFICATION"),
     conflict("NOT_AN_ADMIN"),
-    OK,
+    deny("PRIMARY_ADMIN_REQUIRED"),
     deny("PRIMARY_ADMIN_PROTECTED"),
   ],
   deactivate: [
@@ -184,7 +184,7 @@ const ADMIN: Record<string, Row> = {
     deny("PRIMARY_ADMIN_REQUIRED"),
     deny("PRIMARY_ADMIN_PROTECTED"),
   ],
-  "update-profile": [OK, OK, OK, OK],
+  "update-profile": [OK, OK, OK, deny("PRIMARY_ADMIN_PROTECTED")],
   "assign-position": [OK, OK, OK, OK],
   "initiate-transfer": [
     deny("SELF_MODIFICATION"),

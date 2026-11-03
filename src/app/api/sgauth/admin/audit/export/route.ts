@@ -37,7 +37,29 @@ function fileStamp(now: Date): string {
   return `${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}`;
 }
 
+/**
+ * True unless the request started on SGAuth itself (BT25). The export has side
+ * effects, a PII download and an `AUDIT_EXPORTED` row, so a navigation from
+ * another site is refused, as `/logout` refuses one. Stricter than `/logout`:
+ * a sibling product subdomain (`same-site`) is refused too, since no product
+ * starts an export. `none` (typed or bookmarked) and a missing header (older
+ * browsers, curl) are allowed.
+ */
+function startedElsewhere(headers: Headers): boolean {
+  const site = headers.get("sec-fetch-site")?.trim().toLowerCase();
+  return site === "cross-site" || site === "same-site";
+}
+
 async function exportCsv(request: Request) {
+  if (startedElsewhere(request.headers)) {
+    logger.warn("Rejected audit export started off SGAuth");
+    return apiError(
+      403,
+      "CROSS_SITE_REQUEST",
+      "Start the export from the SGAuth audit page.",
+    );
+  }
+
   // Reads only, so no mutation limit; the export has its own policy below.
   const guard = await requireAdmin({ mutation: false, action: "accessAdmin" });
   if ("response" in guard) return guard.response;
