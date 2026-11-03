@@ -31,7 +31,7 @@ export function resolveBaseURL(input: BaseURLInput): string {
     case "production":
       return "https://auth.northeasternsga.com";
     case "dev":
-      return "https://auth-dev.northeasternsga.com";
+      return "https://dev.auth.northeasternsga.com";
     case "local":
       return "http://auth.sga.localhost:3000";
     case "preview": {
