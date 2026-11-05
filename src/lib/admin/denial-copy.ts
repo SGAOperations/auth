@@ -16,6 +16,7 @@ export const REASON_COPY: Record<AuthzDenialReason, string> = {
   TARGET_NOT_ELIGIBLE: "This user can't be chosen for this.",
   NOT_TRANSFER_RECIPIENT: "Only the transfer's recipient can do this.",
   NOT_TRANSFER_INITIATOR: "Only the transfer's sender can do this.",
+  NOT_ACCESS_SUBMITTER: "Your position can't submit access requests.",
 };
 
 export const FAILURE_COPY: Record<FailureCode, string> = {

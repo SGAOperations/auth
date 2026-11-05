@@ -47,7 +47,8 @@ export type AuthzDenialReason =
   | "TARGET_NOT_ELIGIBLE"
   | "NOT_SELF"
   | "NOT_TRANSFER_RECIPIENT"
-  | "NOT_TRANSFER_INITIATOR";
+  | "NOT_TRANSFER_INITIATOR"
+  | "NOT_ACCESS_SUBMITTER";
 
 export type AuthzDecision =
   | { allowed: true }
@@ -198,6 +199,28 @@ export function canUpdateOwnProfile(
  */
 export function canViewOrgChart(actor: AuthzSubject): AuthzDecision {
   return actor.status === "ACTIVE" ? allow : deny("ACTOR_INACTIVE");
+}
+
+/**
+ * Whether `actor` may submit an access request from Slack: they must hold at
+ * least one position on the submitter list. Admin status grants nothing, and an
+ * empty list denies everyone. Keys match exactly.
+ *
+ * Both key lists must hold active positions only. Active keys are unique
+ * (`Position_key_active_key`), so a reused key cannot match a retired position.
+ */
+export function canSubmitAccessRequest(
+  actor: AuthzSubject,
+  heldPositionKeys: readonly string[],
+  submitterPositionKeys: readonly string[],
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  const submitters = new Set(submitterPositionKeys);
+  return heldPositionKeys.some((key) => submitters.has(key))
+    ? allow
+    : deny("NOT_ACCESS_SUBMITTER");
 }
 
 /** The two people a Primary Admin transfer names. */
