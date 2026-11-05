@@ -72,6 +72,11 @@ export const serverShape = z.object({
     .string()
     .regex(/^T[A-Z0-9]{2,20}$/)
     .optional(),
+  // The SGAssist bot's signing secret, for verifying inbound slash-command
+  // requests (#341). Standalone on purpose: SGAssist may be a different Slack
+  // app from the one above, so it is not in the all-or-none Slack group.
+  // Unset means every Slack command request is refused.
+  SLACK_SIGNING_SECRET: z.string().min(1).optional(),
   SEED_PRIMARY_ADMIN_EMAIL: z
     .string()
     .trim()
