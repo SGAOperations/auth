@@ -172,14 +172,51 @@ describe("apiError", () => {
 
 describe("readJson", () => {
   const schema = z.strictObject({ a: z.string() });
-  const post = (body: string) =>
-    new Request("http://x", { method: "POST", body });
+  const post = (
+    body: string,
+    contentType: string | null = "application/json",
+  ) =>
+    new Request("http://x", {
+      method: "POST",
+      body,
+      headers: contentType === null ? {} : { "content-type": contentType },
+    });
 
   it("returns the parsed body", async () => {
     expect(await readJson(post('{"a":"b"}'), schema)).toEqual({
       data: { a: "b" },
     });
   });
+
+  it("accepts the JSON type with parameters and in any case", async () => {
+    for (const type of [
+      "application/json; charset=utf-8",
+      "Application/JSON",
+    ]) {
+      expect(await readJson(post('{"a":"b"}', type), schema), type).toEqual({
+        data: { a: "b" },
+      });
+    }
+  });
+
+  it.each([
+    ["text/plain;charset=UTF-8"],
+    ["application/x-www-form-urlencoded"],
+    ["multipart/form-data; boundary=x"],
+    ["application/jsonp"],
+    [""],
+  ])(
+    "answers 415 for a %j body, the types a cross-site page sends without a preflight",
+    async (type) => {
+      // `new Request` with a string body and no header defaults to text/plain.
+      const result = await readJson(post('{"a":"b"}', type || null), schema);
+      if (!("response" in result)) throw new Error("expected a refusal");
+      expect(result.response.status).toBe(415);
+      expect(await result.response.json()).toMatchObject({
+        code: "UNSUPPORTED_MEDIA_TYPE",
+      });
+    },
+  );
 
   it.each([["not json"], ["{}"], ['{"a":"b","c":1}'], [""]])(
     "answers 400 INVALID_INPUT for %j",

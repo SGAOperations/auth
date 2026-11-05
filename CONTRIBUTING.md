@@ -91,16 +91,31 @@ The fixtures upsert three `@e2e.invalid` users and a position, and wipe those us
 
 Run `npm run prisma:migrate-dev -- --name <change>` against a personal Neon branch (see [docs/MIGRATIONS.md](docs/MIGRATIONS.md)) and commit the new `prisma/migrations/` directory. Never edit a committed migration (see `docs/ENGINEERING.md` section 2); add a new one instead.
 
-### Neon secrets for the `test` job
+### Neon secrets
 
-The `test` job needs these repository settings, all pointing at the Neon `test` branch whose parent is `dev`:
+On `pull_request`, GitHub runs the PR's own copy of `ci.yml`, so a repository secret reaches any code a same-repo PR chooses to run, whichever step the workflow file names. The Neon secrets therefore live in GitHub Environments (Settings → Environments), never in repository or Dependabot secrets:
 
-- Secrets: `NEON_API_KEY`, `NEON_TEST_DATABASE_URL` (pooled), `NEON_TEST_DIRECT_URL` (direct).
-- Variable: `NEON_PROJECT_ID`.
+| Environment    | Used by                                                | Deployment branches          | Reviewers | Secrets                                                                                                                                           |
+| -------------- | ------------------------------------------------------ | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `neon-ci`      | `db-transfer` and `test` on pushes to `dev` and `main` | Selected: `dev`, `main` only | none      | `NEON_TEST_DATABASE_URL`, `NEON_TEST_DIRECT_URL`, and `NEON_TEST_DATABASE_URL_<n>` / `NEON_TEST_DIRECT_URL_<n>` for shards 1 to 4                 |
+| `neon-ci-pr`   | `db-transfer` and `test` on pull requests              | No restriction               | none      | the same as `neon-ci`                                                                                                                             |
+| `neon-ops`     | `neon-branch-hygiene.yml` and `neon-quota-monitor.yml` | Selected: `dev` only         | none      | `NEON_API_KEY`, `NEON_PROJECT_ID`, `RESEND_API_KEY`, `NEON_QUOTA_ALERT_TO`                                                                        |
+| `neon-preview` | `neon-preview-migrate.yml`                             | Selected: `dev` only         | none      | `PREVIEW_DIRECT_URL`: the direct URL of the Neon `preview` branch's `migration` role, with that branch's reset password and `sslmode=verify-full` |
 
-`NEON_API_KEY` should be a project-scoped key used only for CI. It is exposed to the credential check and the branch reset step only, and the reset runs the `neonctl` version pinned in `package.json`.
+The test URLs point at the Neon `test` and `ci-shard-<n>` branches and use the `runtime` and `migration` roles of **those** branches. Those roles' passwords must have been reset after the branches were created ([README](README.md#database--neon)), so a test URL opens nothing but its own branch.
 
-Fork PRs do not receive secrets, so `test` fails on them by design.
+**No Neon API key reaches CI.** A project key can reveal or reset every branch's role passwords, `main`'s included, and a PR controls the workflow it runs under, so the only way to keep a key away from PR code would be an approval on every PR. Instead, each db job empties its own branch with `scripts/ci-reset-test-db.sql`, run as that branch's `migration` role, after `scripts/ci-test-db-guard.mjs` refuses a URL on Neon `main` or `dev`. `prisma migrate deploy` (`src/test/global-setup.ts`) then rebuilds the schema, so every run starts from an empty database at the PR's migrations, not from a copy of `dev`'s data.
+
+What a PR's code can reach is accepted: it can read and write the test and shard branches. Their data is synthetic and their credentials open nothing else.
+
+How each run gets the secrets:
+
+- **Pushes to `dev` and `main`** use `neon-ci`. Its branch rule refuses every other ref.
+- **Pull requests** use `neon-ci-pr` and run straight away, with no approval.
+- **Fork PRs** get no secrets, so `test` fails on them by design.
+- **Dependabot PRs** get no Actions or Environment secrets, so `db-transfer` and `test` fail on them. After reviewing the lockfile diff, a maintainer reruns CI under their own identity by pushing an empty commit to the Dependabot branch (`gh pr checkout <n>`, `git commit --allow-empty -m "#<n> run CI"`, `git push`). Dependabot stops rebasing a branch someone else has pushed to; comment `@dependabot recreate` for a fresh one.
+
+`NEON_API_KEY` lives only in `neon-ops`, which only the default branch may deploy to. It should be a project-scoped key used for nothing else.
 
 ### Serialized test runs
 
@@ -109,7 +124,7 @@ The `test` job runs in the `neon-test-branch` concurrency group so two PRs never
 ### Dependency and code scanning
 
 - Dependabot (`.github/dependabot.yml`) opens grouped PRs against `dev` every Monday, labelled `chore`. Majors outside the `nextjs`, `react` and `prisma` groups come one per PR.
-- Dependabot PRs run CI with **Dependabot secrets, not Actions secrets**. `test` fails on them until `NEON_API_KEY`, `NEON_TEST_DATABASE_URL` and `NEON_TEST_DIRECT_URL` are also added under Settings → Secrets → Dependabot.
+- Dependabot PRs run CI with **Dependabot secrets, not Actions secrets**. Never copy a Neon secret into Dependabot secrets: `test` fails on Dependabot PRs until a maintainer reruns it as described in [Neon secrets](#neon-secrets).
 - Dependabot ignores `package.json` `overrides` (`deepmerge-ts`, `mysql2`). Remove an override by hand once its upstream pin is fixed.
 - CodeQL (`.github/workflows/codeql.yml`) runs the `security-extended` suite on every PR, on every push to `dev` and `main`, and weekly. Alerts are under Security → Code scanning. It is not a required check, and code scanning "Default setup" must stay off.
 
@@ -122,5 +137,6 @@ The rules live in the repository's `main/dev` ruleset (Settings → Rules → Ru
 - Require a pull request, with 0 required approvals and all review threads resolved.
 - Require status checks to pass: `typecheck`, `lint`, `format`, `audit`, `migrations`, `test`, `e2e`. "Require branches to be up to date" is off.
 - Block force pushes.
+- **The bypass list is empty**, repository admins included (`enforce_admins: true` in `.github/branch-protection.json`). The pipeline agents run with the operator's credentials, so an admin bypass would let a prompt-injected agent push or merge straight to `dev` or `main`; the ruleset is the control that holds whatever the local allowlist misses.
 
 When a job is added, renamed or removed in `ci.yml`, update the ruleset's required checks in the same change. `.github/branch-protection.json` records the same check list for reference; it is not applied by any command.

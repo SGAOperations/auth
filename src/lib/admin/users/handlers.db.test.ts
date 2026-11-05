@@ -570,7 +570,11 @@ describe("PATCH /:id", () => {
   it("answers 400 for a body that is not JSON, with no issues", async () => {
     const user = await createUser();
     const response = await handlers.update(
-      new Request(`${API}/${user.id}`, { method: "PATCH", body: "not json" }),
+      new Request(`${API}/${user.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: "not json",
+      }),
       ctx({ id: user.id }),
     );
     expect(response.status).toBe(400);
@@ -580,12 +584,40 @@ describe("PATCH /:id", () => {
     });
   });
 
-  it("allows an admin to edit the Primary Admin's profile and their own", async () => {
+  it("answers 415 for a JSON body sent as text/plain, and changes nothing", async () => {
+    const user = await createUser();
+    const { response, rows } = await withAudit(user.id, () =>
+      handlers.update(
+        new Request(`${API}/${user.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name: "Renamed" }),
+        }),
+        ctx({ id: user.id }),
+      ),
+    );
+    expect(response.status).toBe(415);
+    expect(await json(response)).toMatchObject({
+      code: "UNSUPPORTED_MEDIA_TYPE",
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("allows an admin to edit their own profile but not the Primary Admin's", async () => {
     const own = await patch(admin.id, { preferredName: "Me" });
     expect(own.status).toBe(200);
     await withPrimaryAdmin(async (primary) => {
-      const other = await patch(primary.id, { preferredName: "PA nickname" });
-      expect(other.status).toBe(200);
+      const { response, rows } = await withAudit(primary.id, () =>
+        patch(primary.id, { preferredName: "PA nickname" }),
+      );
+      expect(response.status).toBe(403);
+      expect(await json(response)).toMatchObject({
+        code: "PRIMARY_ADMIN_PROTECTED",
+      });
+      expect(rows).toHaveLength(0);
+
+      await signInAs(primary);
+      const self = await patch(primary.id, { preferredName: "Me" });
+      expect(self.status).toBe(200);
     });
   });
 });
@@ -678,13 +710,17 @@ describe("the eight actions", () => {
     ]);
 
     captured.clear();
-    const revoked = await withAudit(user.id, () =>
-      act(user.id, "revoke-admin"),
-    );
-    expect((await json(revoked.response)).user.isAdmin).toBe(false);
-    expect(revoked.rows.map((r) => r.type)).toEqual(["ADMIN_REVOKED"]);
-    expect(captured.sent).toHaveLength(0);
-    expect(sendTransferNotice).not.toHaveBeenCalled();
+    // Only the Primary Admin revokes an admin (BT4).
+    await withPrimaryAdmin(async (primary) => {
+      await signInAs(primary);
+      const revoked = await withAudit(user.id, () =>
+        act(user.id, "revoke-admin"),
+      );
+      expect((await json(revoked.response)).user.isAdmin).toBe(false);
+      expect(revoked.rows.map((r) => r.type)).toEqual(["ADMIN_REVOKED"]);
+      expect(captured.sent).toHaveLength(0);
+      expect(sendTransferNotice).not.toHaveBeenCalled();
+    });
   });
 
   it("revoke-sessions: deletes every session and says how many", async () => {
@@ -808,7 +844,30 @@ describe("denials", () => {
     ).toMatchObject({ status: "ACTIVE", isAdmin: true });
   });
 
-  it.each(["deactivate", "revoke-admin", "reset-mfa"])(
+  it("refuses revoke-admin on another admin by a non-Primary Admin, and changes nothing", async () => {
+    const other = await createAdmin({ twoFactorEnabled: true });
+    const { response, rows } = await withAudit(other.id, () =>
+      act(other.id, "revoke-admin"),
+    );
+    expect(response.status).toBe(403);
+    expect(await json(response)).toMatchObject({
+      code: "PRIMARY_ADMIN_REQUIRED",
+    });
+    expect(rows).toHaveLength(0);
+    expect(
+      (await prisma.user.findUniqueOrThrow({ where: { id: other.id } }))
+        .isAdmin,
+    ).toBe(true);
+  });
+
+  it.each([
+    "deactivate",
+    "revoke-admin",
+    "reset-mfa",
+    "revoke-sessions",
+    "unlock",
+    "resend-invite",
+  ])(
     "refuses %s on the Primary Admin with PRIMARY_ADMIN_PROTECTED",
     async (action) => {
       await withPrimaryAdmin(async (primary) => {
@@ -838,8 +897,9 @@ describe("denials", () => {
     });
   });
 
-  it("lets sessions be revoked and an account unlocked on the Primary Admin", async () => {
+  it("lets the Primary Admin revoke their own sessions and clear their own lock", async () => {
     await withPrimaryAdmin(async (primary) => {
+      await signInAs(primary);
       await prisma.accountLock.upsert({
         where: { userId: primary.id },
         create: {
@@ -866,11 +926,11 @@ describe("denials", () => {
     });
   });
 
-  it.each(["deactivate", "grant-admin", "revoke-admin", "reset-mfa"])(
+  it.each(["deactivate", "grant-admin", "reset-mfa"])(
     "asks for re-authentication before %s on a stale session",
     async (action) => {
       await signInAs(admin, { fresh: false });
-      const user = await createUser({ isAdmin: action === "revoke-admin" });
+      const user = await createUser();
       const { response, rows } = await withAudit(user.id, () =>
         act(user.id, action),
       );
@@ -879,6 +939,19 @@ describe("denials", () => {
       expect(rows).toHaveLength(0);
     },
   );
+
+  it("asks the Primary Admin to re-authenticate before revoke-admin on a stale session", async () => {
+    const other = await createAdmin({ twoFactorEnabled: true });
+    await withPrimaryAdmin(async (primary) => {
+      await signInAs(primary, { fresh: false });
+      const { response, rows } = await withAudit(other.id, () =>
+        act(other.id, "revoke-admin"),
+      );
+      expect(response.status).toBe(403);
+      expect(await json(response)).toMatchObject({ code: "REAUTH_REQUIRED" });
+      expect(rows).toHaveLength(0);
+    });
+  });
 
   it("asks for re-authentication before delete on a stale session", async () => {
     await signInAs(admin, { fresh: false });

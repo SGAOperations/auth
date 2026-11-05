@@ -214,37 +214,49 @@ describe.skipIf(!url)("email and password sign-in", () => {
     );
   });
 
-  it("never changes an existing account through a repeat sign-up", async () => {
+  // AUTH-T17 (red-team B2). The full flow, through the set-password link and
+  // the verify consumer, is repeat-signup.db.test.ts.
+  it("answers a repeat sign-up generically and leaves no password on an unverified account", async () => {
     const email = freshEmail();
-    const original = "original-password-A1";
-    const other = "other-password-B2!!";
-
-    const fresh = await signUp(email, original, "Original");
+    const fresh = await signUp(email, "attacker-password-A1", "Attacker");
     const user = await userByEmail(email);
-    const hash = await credentialHash(user.id);
 
-    const repeat = await signUp(email, other, "Someone Else");
+    const repeat = await signUp(email, "victim-password-B2!!", "Victim");
     expect(repeat.token).toBeNull();
     expect(Object.keys(repeat).sort()).toEqual(Object.keys(fresh).sort());
     expect(Object.keys(repeat.user).sort()).toEqual(
       Object.keys(fresh.user).sort(),
     );
+    expect(repeat.user.id).not.toBe(user.id);
+    expect(await credentialHash(user.id)).toBeNull();
+  });
 
-    expect(await credentialHash(user.id)).toBe(hash);
-    expect((await userByEmail(email)).name).toBe("Original");
-
+  it("never changes a verified account through a repeat sign-up", async () => {
+    const email = freshEmail();
+    await signUp(email, STRONG, "Original");
+    const user = await userByEmail(email);
     await verify(email);
-    expect((await signIn(email, original)).user.id).toBe(user.id);
-    await expectApiError(
-      signIn(email, other),
-      401,
-      "INVALID_EMAIL_OR_PASSWORD",
-    );
+    const hash = await credentialHash(user.id);
 
-    // Verified now: a further sign-up still changes nothing.
-    await signUp(email, "third-password-C3!!", "Third");
-    expect((await userByEmail(email)).name).toBe("Original");
+    await signUp(email, "other-password-B2!!", "Someone Else");
     expect(await credentialHash(user.id)).toBe(hash);
+    expect((await userByEmail(email)).name).toBe("Original");
+    expect((await signIn(email, STRONG)).user.id).toBe(user.id);
+  });
+
+  it("rejects a sign-up name the profile form would refuse", async () => {
+    const email = freshEmail();
+    await expectApiError(
+      signUp(email, STRONG, "Ada\r\nBcc: x@example.com"),
+      400,
+      "INVALID_NAME",
+    );
+    await expectApiError(
+      signUp(email, STRONG, "n".repeat(101)),
+      400,
+      "INVALID_NAME",
+    );
+    expect(await prisma.user.count({ where: { email } })).toBe(0);
   });
 
   it("revokes every existing session when the address is verified", async () => {

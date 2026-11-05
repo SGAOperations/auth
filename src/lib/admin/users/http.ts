@@ -64,7 +64,7 @@ export function userError(
 const DENIAL_MESSAGES: Partial<Record<AuthzDenialReason, string>> = {
   SELF_MODIFICATION: "You can't do this to your own account.",
   PRIMARY_ADMIN_PROTECTED:
-    "The Primary Admin's account can only be changed through a Primary Admin transfer.",
+    "The Primary Admin's account is protected. Other admins can't change it, and the role moves only through a Primary Admin transfer.",
   PRIMARY_ADMIN_REQUIRED:
     "Only the Primary Admin can do this to another admin.",
 };

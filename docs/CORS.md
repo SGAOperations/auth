@@ -25,5 +25,5 @@ SGAuth sends no CORS headers on `/api/auth/token`, so a direct browser `fetch` i
 - The only allowed request header is `Content-Type`. `Retry-After` is exposed, so a client can read a 429's back-off.
 - Preflights are answered with `204` and cached for 600 s.
 - From an unregistered origin the request may still reach SGAuth, but the response carries no `Access-Control-*` header, so the browser blocks the read.
-- `Origin` enforcement on mutations is separate: Better Auth covers `/api/auth/*`, and the origin guard covers `/api/sgauth/*`.
+- `Origin` enforcement on mutations is separate. Better Auth covers `/api/auth/*` against the full registry, so `POST /api/auth/sign-out` works from a product. The origin guard covers `/api/sgauth/*` and accepts SGAuth's own origin only: no product may call a mutating `/api/sgauth/*` route, from a browser or a server (BT5). The list above is the whole of what a product calls cross-origin.
 - Preview gate 401s and origin guard 403s come from the proxy without CORS headers. A browser sees them as network errors, so treat them as "SGAuth unreachable", not as signed out.

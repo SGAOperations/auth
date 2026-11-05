@@ -46,6 +46,7 @@ describe.skipIf(!url)("consuming a set-password link", () => {
   function post(
     token: string,
     fields: { password?: string; confirmPassword?: string } = {},
+    cookie?: string,
   ) {
     const password = fields.password ?? NEW_PASSWORD;
     return new Request(`${BASE_URL}/set-password/confirm`, {
@@ -53,6 +54,7 @@ describe.skipIf(!url)("consuming a set-password link", () => {
       headers: {
         "content-type": "application/x-www-form-urlencoded",
         origin: BASE_URL,
+        ...(cookie ? { cookie } : {}),
       },
       body: new URLSearchParams({
         token,
@@ -144,6 +146,29 @@ describe.skipIf(!url)("consuming a set-password link", () => {
         body: { email: user.email, password: NEW_PASSWORD },
       }),
     ).toMatchObject({ user: { id: user.id } });
+  });
+
+  it("sets the password but keeps a browser signed in as someone else", async () => {
+    const other = await h.createWithPassword();
+    const { headers } = await h.auth.api.signInEmail({
+      body: { email: other.email, password: STRONG },
+      returnHeaders: true,
+    });
+    const cookie = headers
+      .getSetCookie()
+      .map((entry) => entry.split(";")[0])
+      .join("; ");
+    const user = await h.createPasswordless();
+    const token = await issue(user.id);
+
+    const response = await handle(post(token, {}, cookie));
+    expect(result(response)).toBe("done");
+    expect(location(response).searchParams.get("signedIn")).toBeNull();
+    expect(response.headers.getSetCookie().join(";")).not.toContain(
+      "session_token",
+    );
+    expect(await credential(user.id)).toHaveLength(1);
+    expect(await events("LOGIN_SUCCESS", user.id)).toBe(0);
   });
 
   it("answers a second POST with the same token invalid and keeps the password", async () => {

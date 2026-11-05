@@ -24,6 +24,37 @@ export type OriginVerdict =
   | { ok: true }
   | { ok: false; reason: OriginRejection };
 
+/**
+ * `pathname` percent-decoded once, the form Next's router matches routes on,
+ * or null when the encoding is malformed. Path checks run on this, never on
+ * the raw path: `/api/%73gauth/x` and `/%61pi/sgauth/x` reach
+ * `/api/sgauth/x`'s route but do not start with `/api/sgauth` (BT6). Dot
+ * segments and backslashes that an encoded `/` or `\` hid are then resolved,
+ * so `/api/auth%2F..%2Fsgauth/x` is checked as `/api/sgauth/x`. For prefix
+ * checks only: never route or redirect on the result.
+ */
+export function decodePathname(pathname: string): string | null {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+  if (decoded === pathname) return pathname;
+  // Leading slashes collapse to one, or `//api/...` would parse as a host.
+  return new URL(decoded.replace(/^[/\\]+/, "/"), "http://path.invalid")
+    .pathname;
+}
+
+/** 400 for a path whose percent-encoding is malformed: no route can be matched safely. */
+export function malformedPathResponse(): Response {
+  return Response.json(
+    { code: "INVALID_PATH", message: "Invalid path." },
+    { status: 400, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+/** Takes a decoded path (see decodePathname). */
 export function isOriginEnforcedPath(pathname: string): boolean {
   return (
     pathname === ORIGIN_ENFORCED_PREFIX ||
@@ -129,7 +160,8 @@ export function createOriginGuard({ trustedOrigins, log }: OriginGuardDeps) {
     request: Request,
   ): Promise<Response | null> {
     if (SAFE_METHODS.has(request.method.toUpperCase())) return null;
-    const { pathname } = new URL(request.url);
+    const pathname = decodePathname(new URL(request.url).pathname);
+    if (pathname === null) return malformedPathResponse();
     if (!isOriginEnforcedPath(pathname)) return null;
 
     let verdict: OriginVerdict;

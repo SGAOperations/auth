@@ -5,6 +5,7 @@ import {
   PROTECTED_ENDPOINTS,
   checkPrismaCommand,
   endpointId,
+  guardEnv,
   guardedCommand,
   hashEndpoint,
 } from "./prisma-guard.mjs";
@@ -169,6 +170,21 @@ test("a missing, empty or invalid DIRECT_URL is refused without leaking", () => 
       assert.ok(!error.message.includes(secret), secret);
     }
   }
+});
+
+test("guardEnv reads only the two tooling variables", () => {
+  assert.deepEqual(
+    guardEnv({
+      DIRECT_URL: "postgresql://x",
+      SGAUTH_PROTECTED_DB_HOSTS: "ep-a",
+      DATABASE_URL: "postgresql://y",
+    }),
+    { directUrl: "postgresql://x", protectedHosts: "ep-a" },
+  );
+  assert.deepEqual(guardEnv({}), {
+    directUrl: undefined,
+    protectedHosts: undefined,
+  });
 });
 
 test("unguarded commands are never blocked", () => {

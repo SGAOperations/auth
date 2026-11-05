@@ -45,6 +45,9 @@ import type { Mailer } from "@/lib/email/mailer";
 import { createRateLimiter, type RateLimiter } from "@/lib/rate-limit/limiter";
 import { createMemoryBackend } from "@/lib/rate-limit/memory-backend";
 import { setRequestUserId } from "@/lib/log/context";
+import { checkDisplayName } from "@/lib/auth/display-name";
+import { reclaimUnverifiedAccount } from "@/lib/auth/repeat-signup";
+import { createSecurityNoticeHooks } from "@/lib/auth/security-notices";
 import { hasPassword } from "@/lib/set-password/service";
 import { tokenLinkUrl } from "@/lib/token-links/actions";
 import { uuidv7 } from "@/lib/uuid-v7";
@@ -111,6 +114,8 @@ const sessionResult = z.looseObject({
   user: z.looseObject({ id: z.string(), status: z.string() }),
 });
 
+const sessionList = z.array(z.looseObject({ token: z.unknown() }));
+
 // Never 403: the sign-up endpoint turns a 403 from user creation into its
 // generic duplicate-account success.
 function domainNotAllowed() {
@@ -155,6 +160,10 @@ export function buildAuthOptions({
     auditHooks,
     lockoutHooks,
     rateLimiter,
+  });
+  const securityNotices = createSecurityNoticeHooks({
+    prisma,
+    mailer: lockout.mailer,
   });
 
   // Runs only after a successful sign-in, so a wrong, unverified or
@@ -249,12 +258,23 @@ export function buildAuthOptions({
       }),
       // Better Auth has already answered with its generic duplicate response
       // and runs this in the background, so nothing here can change the
-      // answer.
+      // answer. An unverified account first loses its password, sessions,
+      // passkeys and verify links (repeat-signup.ts, AUTH-T17), which leaves it
+      // password-less, so the set-password link below goes to its mailbox.
       onExistingUserSignUp: async ({
         user,
       }: {
         user: { id: string; email: string; name: string };
       }) => {
+        try {
+          await reclaimUnverifiedAccount(prisma, { userId: user.id });
+        } catch (error) {
+          // The name only: the error can carry the address.
+          logger.error("Failed to reclaim unverified account", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+          return;
+        }
         if (!onPasswordlessSignUp) return;
         try {
           const row = await prisma.user.findUnique({
@@ -326,6 +346,11 @@ export function buildAuthOptions({
         if (ctx.path === CHANGE_PASSWORD_PATH) {
           return passwordChange.before(ctx, await getSessionFromCtx(ctx));
         }
+        // Throws INVALID_NAME; the trimmed name replaces the one sent.
+        const named = checkDisplayName(ctx.path, ctx.body);
+        if (ctx.path === "/update-user") {
+          return named ? { context: { body: named } } : undefined;
+        }
         const parsed = credentialsBody.safeParse(ctx.body);
         if (!parsed.success) return;
         const normalized = normalizeEmail(parsed.data.email);
@@ -342,7 +367,7 @@ export function buildAuthOptions({
         }
 
         return {
-          context: { body: { ...parsed.data, email: normalized } },
+          context: { body: { ...parsed.data, ...named, email: normalized } },
         };
       }),
       after: createAuthMiddleware(async (ctx) => {
@@ -365,6 +390,20 @@ export function buildAuthOptions({
         if (ctx.path === "/sign-in/email") {
           await lockoutHooks.afterSignIn(ctx);
           await rehashAfterSignIn(ctx);
+        }
+        await securityNotices.afterEndpoint(ctx);
+        if (ctx.path === "/list-sessions") {
+          // Each raw token is a bearer credential for that session. SGAuth's
+          // own session list never uses this endpoint (lib/sessions).
+          const sessions = sessionList.safeParse(ctx.context.returned);
+          if (!sessions.success) return;
+          return ctx.json(
+            sessions.data.map((session) => {
+              const copy = { ...session };
+              delete copy.token;
+              return copy;
+            }),
+          );
         }
         if (ctx.path !== "/get-session") return;
         const parsed = sessionResult.safeParse(ctx.context.returned);
@@ -398,7 +437,10 @@ export function buildAuthOptions({
           },
         },
         update: {
-          after: auditHooks.userUpdated,
+          after: async (user, ctx) => {
+            await auditHooks.userUpdated(user, ctx);
+            await securityNotices.userUpdated(user, ctx);
+          },
         },
       },
       session: {

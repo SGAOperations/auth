@@ -40,10 +40,10 @@ as needed. Tell a second operator before every production rotation.
 | Secret                                      | Lives in                                                       | Consumers                                                     | Effect of rotating                                                        | Procedure                                   |
 | ------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------- |
 | `BETTER_AUTH_SECRET`, `BETTER_AUTH_SECRETS` | Vercel (per scope)                                             | Session and preview-gate cookies, encrypted Jwks and 2FA data | All users sign in again                                                   | [Better Auth secret](#better_auth_secret)   |
-| `RESEND_API_KEY`                            | Vercel, and the Actions secret used by the quota monitor       | Transactional email                                           | Email fails until the redeploy if the old key is revoked first            | [Resend key](#resend-key)                   |
+| `RESEND_API_KEY`                            | Vercel, and the `neon-ops` Environment (quota monitor)         | Transactional email                                           | Email fails until the redeploy if the old key is revoked first            | [Resend key](#resend-key)                   |
 | `UPSTASH_REDIS_REST_TOKEN`                  | Vercel (per scope)                                             | Rate limiting                                                 | Rate limiting fails open until the redeploy                               | [Upstash token](#upstash-token)             |
 | Neon `runtime` and `migration` passwords    | Vercel (`DATABASE_URL`, `DIRECT_URL`) and the password manager | The app and every script                                      | Database errors until the redeploy                                        | [Neon role passwords](#neon-role-passwords) |
-| `CRON_SECRET`                               | Vercel and the Actions secret for the job workflows (#50)      | `/api/jobs/*` and its callers                                 | Scheduled jobs fail between the two updates                               | [CRON_SECRET](#cron_secret)                 |
+| `CRON_SECRET`                               | Vercel and the `cron-*` GitHub Environments (#50)              | `/api/jobs/*` and its callers                                 | Scheduled jobs fail between the two updates                               | [CRON_SECRET](#cron_secret)                 |
 | JWKS signing key                            | The `Jwks` table, published at `/.well-known/jwks.json`        | Every Supabase-backed product                                 | None for users, if the steps run in order                                 | [JWKS rotation](#jwks-rotation)             |
 | Vercel bypass secrets                       | Vercel                                                         | Automation                                                    | See [ENVIRONMENTS.md](../ENVIRONMENTS.md#deployment-protection-exception) | Procedure in ENVIRONMENTS.md                |
 
@@ -91,7 +91,8 @@ seeds. A re-encryption script is a follow-up.
 
 1. In SGAuth's own Resend account, create a new sending-only key restricted to
    `auth.northeasternsga.com`.
-2. Update `RESEND_API_KEY` in the Vercel scope(s) and in the Actions secret.
+2. Update `RESEND_API_KEY` in the Vercel scope(s) and in the `neon-ops`
+   GitHub Environment (the quota monitor's copy).
 3. Redeploy and send a test email (a password-reset request for a synthetic
    account).
 4. Revoke the old key.
@@ -114,13 +115,62 @@ rate limiting **fails open** until the redeploy, so do it in a low-usage window.
 2. Update the matching `DATABASE_URL` or `DIRECT_URL` in Vercel and in the
    password manager. Keep `sslmode=verify-full`.
 3. Redeploy right away. Expect database errors until it is live.
-4. Rotate the `dev` and `test` branch roles the same way and update the CI
-   secrets listed in [CONTRIBUTING.md](../../CONTRIBUTING.md).
+4. Rotate the `dev`, `preview`, `test` and `ci-shard-*` branch roles the same
+   way and update the GitHub Environment secrets listed in
+   [CONTRIBUTING.md](../../CONTRIBUTING.md#neon-secrets).
+
+### After creating a branch
+
+**Hard step.** Neon copies roles, passwords included, into every new branch.
+A branch made from `main` therefore accepts production's `runtime` and
+`migration` passwords, and a branch made from `dev` accepts `dev`'s. Nothing
+else separates them: whoever holds the child branch's connection string holds
+the parent's credential once they swap in the parent's host.
+
+Right after creating **any** non-production branch (`dev`, `preview`, `test`,
+`ci-shard-*`, a personal `dev-*` branch, a restore's `main_old_*` evidence
+branch), and before anyone copies its connection strings:
+
+1. Reset `runtime` on the new branch, then `migration`: Neon console → the
+   branch → Roles → Reset password, or
+   `POST /projects/{id}/branches/{branch_id}/roles/{role}/reset_password`
+   with an operator's own API key. `neonctl` 8.4 has no command for it.
+2. Store the new strings in the password manager and in the consumer that
+   needs them (a Vercel scope, a GitHub Environment secret, your own `.env`).
+3. Run the check below for both roles.
+
+The same applies after `neonctl branches reset <branch> --parent` and after a
+restore, until it is confirmed that a reset keeps the branch's own passwords:
+run the check after the first CI run that resets `test`, and on `preview`
+after each refresh.
+
+**Check** (no password is displayed or compared by eye). Take the child
+branch's direct connection string for the role from the password manager, and
+replace only its host with the **parent's** direct host (for `dev`, use
+`main`'s). Then, from your own machine:
+
+```sh
+psql "<child string with the parent host>" -c "select 1"
+```
+
+Pass: `password authentication failed for user "<role>"`. Fail: the query
+returns `1`, meaning the child still holds the parent's password. Reset it
+again and repeat. Never paste the string into an issue or chat, and clear it
+from your shell history afterwards.
+
+**Once, now:** run the reset and the check on `dev`, `test`, every
+`ci-shard-*`, `preview` (when it is created) and every existing personal
+branch, against `main`. Record the date in the [rotation log](#rotation-log).
+If any check fails on `dev` or a CI branch, treat production's `runtime` and
+`migration` passwords as exposed and rotate them on `main` too, by the steps
+above.
 
 ## `CRON_SECRET`
 
 1. Pick a moment between scheduled runs.
-2. Update the Vercel scope and the Actions secret together, then redeploy.
+2. Update the Vercel scope and the matching GitHub Environment secret
+   (`CRON_SECRET_PRODUCTION` in `cron-production`, `CRON_SECRET_DEV` in
+   `cron-dev`) together, then redeploy.
 3. Re-run any job that failed in between by hand (`workflow_dispatch`).
 
 ## JWKS rotation

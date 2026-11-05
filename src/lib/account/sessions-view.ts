@@ -42,10 +42,19 @@ export function formatSessionMeta(
   return parts.join(" · ");
 }
 
-export type RevokeOutcome = "revoked" | "gone" | "signed-out" | "failed";
+export type RevokeOutcome =
+  | "revoked"
+  | "gone"
+  | "signed-out"
+  | "reauth"
+  | "failed";
 
-/** What a DELETE /api/sgauth/sessions/:id status means for the page. */
-export function revokeOutcome(status: number): RevokeOutcome {
+/**
+ * What a DELETE /api/sgauth/sessions/:id answer means for the page. `error` is
+ * the `error` field of a JSON body, read only for a 403: the route answers 403
+ * both for a bad origin and for a session that must re-authenticate first.
+ */
+export function revokeOutcome(status: number, error?: unknown): RevokeOutcome {
   switch (status) {
     case 204:
       return "revoked";
@@ -53,6 +62,8 @@ export function revokeOutcome(status: number): RevokeOutcome {
       return "gone";
     case 401:
       return "signed-out";
+    case 403:
+      return error === "REAUTH_REQUIRED" ? "reauth" : "failed";
     default:
       return "failed";
   }

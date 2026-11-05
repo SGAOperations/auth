@@ -6,7 +6,10 @@ import {
   type Product,
   type ProductVisibility as PrismaProductVisibility,
 } from "@/generated/prisma/client";
-import type { ProductAuditField } from "@/lib/audit-catalog";
+import {
+  PRODUCT_ROUTING_FIELDS,
+  type ProductAuditField,
+} from "@/lib/audit-catalog";
 import { logger } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import {
@@ -241,15 +244,43 @@ export async function createProduct(
   }
 }
 
+export type ProductRoutingField = (typeof PRODUCT_ROUTING_FIELDS)[number];
+
+export type ProductRoutingValues = Partial<Pick<Product, ProductRoutingField>>;
+
+/**
+ * The routing fields of `product` whose values the audit keeps (BT14), limited
+ * to `fields` when given. The result is the audit metadata's `before` or
+ * `after`.
+ */
+export function routingValues(
+  product: Pick<Product, ProductRoutingField>,
+  fields: readonly string[] = PRODUCT_ROUTING_FIELDS,
+): ProductRoutingValues {
+  const values: ProductRoutingValues = {};
+  for (const field of PRODUCT_ROUTING_FIELDS) {
+    if (!fields.includes(field)) continue;
+    if (field === "isActive") values.isActive = product.isActive;
+    else if (field === "baseUrl") values.baseUrl = product.baseUrl;
+    else values.loginRedirectPath = product.loginRedirectPath;
+  }
+  return values;
+}
+
 /**
  * Updates a product. A body that carries `slug` fails parsing: slugs are
  * permanent. When nothing changed, nothing is written and `changed` is empty.
+ * `before` is the row as it was read, for the audit's old values.
  */
 export async function updateProduct(
   id: string,
   input: unknown,
   { db = prisma }: { db?: Db } = {},
-): Promise<{ product: Product; changed: ProductAuditField[] }> {
+): Promise<{
+  product: Product;
+  before: Product;
+  changed: ProductAuditField[];
+}> {
   const parsed = productUpdateSchema.safeParse(input);
   if (!parsed.success) throw invalidInput(parsed.error);
 
@@ -257,12 +288,12 @@ export async function updateProduct(
     const row = await tx.product.findUnique({ where: { id } });
     if (!row) throw new ProductError("NOT_FOUND", "Product not found");
     const changed = changedProductFields(row, parsed.data);
-    if (changed.length === 0) return { product: row, changed };
+    if (changed.length === 0) return { product: row, before: row, changed };
     const product = await tx.product.update({
       where: { id },
       data: parsed.data,
     });
-    return { product, changed };
+    return { product, before: row, changed };
   });
 }
 

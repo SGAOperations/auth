@@ -7,8 +7,9 @@ Endpoint reference for the admin UI (#60) and for product owners. The handlers l
 - Every `/api/sgauth/admin/*` route goes through `requireAdmin` in `src/lib/admin-api.ts`. It checks the session, reads the actor fresh from the database, runs the gate `can(actor, action)`, then applies the rate limit to mutations. Add options to that guard; do not write a second one.
 - **Every admin route requires the calling admin to have MFA enrolled.** An admin without it gets 403 `MFA_REQUIRED` with `enrollmentUrl`, on reads and mutations alike. Resetting an admin's MFA therefore locks them out of the admin API until they enroll again.
 - Requests use the session cookie. Responses are JSON with `Cache-Control: no-store`.
-- Non-browser callers must send a registered `Origin` header on every non-GET request. The proxy enforces it (#77); the routes add no check of their own.
-- A mutation passes, in order: the guard, input validation, loading the target, `can(actor, action, target)`, fresh re-authentication where the table says so, then the change and its single audit row in one transaction. Email goes out after the commit and never changes the status code: its outcome (`sent`, `capped`, `failed` or `skipped`) is in `email`.
+- **A request with a body must send `Content-Type: application/json`** (parameters such as `charset` are fine). Anything else is 415 `UNSUPPORTED_MEDIA_TYPE` before the body is read. This forces a CORS preflight, so a cross-site page cannot post `text/plain` JSON (BT5).
+- **Non-GET requests are accepted from SGAuth's own origin only.** The proxy (#77) checks `Origin` (or the `Referer`'s origin) against SGAuth's base URL, not the product registry: no product mutates `/api/sgauth/*` from a browser (BT5). A non-browser caller must send `Origin: <SGAuth's origin>`. The routes add no check of their own.
+- A mutation passes, in order: the guard, input validation, loading the target, `can(actor, action, target)`, fresh re-authentication where the table says so, then the transaction. Inside it the actor and target rows are locked (`FOR UPDATE`, after any in-flight Primary Admin transfer to the target) and `can()` runs again on what they hold now, so a grant or revoke that lands in between cannot be used to get round a rule (BT26). Then the change and its single audit row commit together. Email goes out after the commit and never changes the status code: its outcome (`sent`, `capped`, `failed` or `skipped`) is in `email`.
 - `can()` runs before the re-auth check, so an action that is never allowed does not ask for re-authentication.
 - A denied or conflicting request writes nothing and no audit row.
 
@@ -31,6 +32,15 @@ All paths are under `/api/sgauth/admin/users`.
 | `POST /:id/unlock`          | `unlock`             | no         | `ACCOUNT_UNLOCKED { method: "admin" }`                 | 200 `{ user }`                         |
 | `POST /:id/reset-mfa`       | `resetMfa`           | yes        | `MFA_RESET`                                            | 200 `{ user, email }`                  |
 | `POST /:id/resend-invite`   | `resendInvite`       | no         | `USER_INVITED`                                         | 200 `{ user, email }`                  |
+
+### Who may act on whom
+
+`src/lib/authz.ts` decides; `src/lib/authz.test.ts` lists every actor, action and target.
+
+- **Only the Primary Admin revokes admin.** `revoke-admin` on an admin target by anyone else is 403 `PRIMARY_ADMIN_REQUIRED`. Revoke, then reset MFA and change the email of the now non-admin, was an admin-on-admin takeover (BT4). On a non-admin target any admin gets 409 `NOT_AN_ADMIN`.
+- **On another admin, only the Primary Admin** may also reset MFA or change the email (`PRIMARY_ADMIN_REQUIRED`).
+- **Nobody else may act on the Primary Admin** (`PRIMARY_ADMIN_PROTECTED`): grant or revoke admin, deactivate, reactivate, delete, reset MFA, change the email, revoke sessions, unlock, edit the profile or resend an invite. The Primary Admin may do the last five to themselves; their MFA reset is break-glass only, and the role moves only through a transfer (BT13).
+- **Position assignment is open to every admin, on themselves included.** Admins already create accounts and assign any position to them, so refusing self-assignment would stop nothing; it stays allowed and audited (`POSITION_ASSIGNED`, actor and target the same user) so a reviewer can see it (BT27). The Primary Admin is assigned and unassigned like any other user.
 
 ### Changing a user's email
 
@@ -84,28 +94,30 @@ Password hashes, session tokens, TOTP secrets, backup codes and verification val
 
 Every error body is `{ code, message }`, plus the extra fields noted. A 500 is logged as `admin_user_action_failed` with the action and the error name only.
 
-| Status | `code`                                               | When                                                                        |
-| ------ | ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| 400    | `INVALID_INPUT` (plus `issues: { path, message }[]`) | bad body or query; a body that is not JSON has `issues: []`                 |
-| 401    | `UNAUTHENTICATED`                                    | no session, or the session's user is gone                                   |
-| 403    | `NOT_ADMIN`, `ACTOR_INACTIVE`                        | the gate: the caller is not an active admin                                 |
-| 403    | `MFA_REQUIRED` (plus `enrollmentUrl`)                | the calling admin has not enrolled MFA                                      |
-| 403    | `REAUTH_REQUIRED`                                    | a fresh-auth action more than 10 minutes after re-authentication            |
-| 403    | `SELF_MODIFICATION`                                  | `can()`: deactivate, reactivate, delete, grant or revoke admin on yourself  |
-| 403    | `PRIMARY_ADMIN_PROTECTED`                            | `can()`: the Primary Admin as target of a protected action                  |
-| 403    | `PRIMARY_ADMIN_REQUIRED`                             | `can()`: reset MFA on another admin by someone who is not the Primary Admin |
-| 404    | `USER_NOT_FOUND`                                     | unknown or malformed id                                                     |
-| 404    | `UNKNOWN_ACTION`                                     | the `[action]` segment is not one of the eight                              |
-| 409    | `EMAIL_TAKEN`                                        | create: the address exists, in any case                                     |
-| 409    | `USER_DELETED`                                       | any mutation on a tombstone                                                 |
-| 400    | `EMAIL_UNCHANGED`                                    | email change: the address is the user's current one                         |
-| 409    | `EMAIL_UNAVAILABLE`                                  | email change: the address is in use by any account                          |
-| 429    | `EMAIL_SEND_LIMITED`                                 | email change: the mail caps refused the verification link                   |
-| 409    | `ALREADY_DEACTIVATED`, `NOT_DEACTIVATED`             | deactivate, reactivate                                                      |
-| 409    | `ALREADY_ADMIN`, `NOT_AN_ADMIN`                      | grant-admin, revoke-admin                                                   |
-| 409    | `NOT_LOCKED`                                         | unlock: no live lock                                                        |
-| 409    | `MFA_NOT_ENROLLED`                                   | reset-mfa: the user has no MFA                                              |
-| 409    | `PASSWORD_ALREADY_SET`, `USER_DEACTIVATED`           | resend-invite                                                               |
-| 429    | `TOO_MANY_REQUESTS`                                  | the admin mutation limit (100 a minute per admin)                           |
-| 429    | `INVITE_LIMIT`                                       | resend-invite: 3 invites a day to one user                                  |
-| 500    | `INTERNAL_ERROR`                                     | unexpected                                                                  |
+| Status | `code`                                               | When                                                                           |
+| ------ | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 400    | `INVALID_INPUT` (plus `issues: { path, message }[]`) | bad body or query; a body that is not JSON has `issues: []`                    |
+| 415    | `UNSUPPORTED_MEDIA_TYPE`                             | a body sent without `Content-Type: application/json`                           |
+| 403    | `INVALID_ORIGIN`                                     | the proxy: a non-GET request whose origin is not SGAuth's own                  |
+| 401    | `UNAUTHENTICATED`                                    | no session, or the session's user is gone                                      |
+| 403    | `NOT_ADMIN`, `ACTOR_INACTIVE`                        | the gate: the caller is not an active admin                                    |
+| 403    | `MFA_REQUIRED` (plus `enrollmentUrl`)                | the calling admin has not enrolled MFA                                         |
+| 403    | `REAUTH_REQUIRED`                                    | a fresh-auth action more than 10 minutes after re-authentication               |
+| 403    | `SELF_MODIFICATION`                                  | `can()`: deactivate, reactivate, delete, grant or revoke admin on yourself     |
+| 403    | `PRIMARY_ADMIN_PROTECTED`                            | `can()`: another admin acting on the Primary Admin (see above)                 |
+| 403    | `PRIMARY_ADMIN_REQUIRED`                             | `can()`: revoke admin, reset MFA or change email on another admin, by a non-PA |
+| 404    | `USER_NOT_FOUND`                                     | unknown or malformed id                                                        |
+| 404    | `UNKNOWN_ACTION`                                     | the `[action]` segment is not one of the eight                                 |
+| 409    | `EMAIL_TAKEN`                                        | create: the address exists, in any case                                        |
+| 409    | `USER_DELETED`                                       | any mutation on a tombstone                                                    |
+| 400    | `EMAIL_UNCHANGED`                                    | email change: the address is the user's current one                            |
+| 409    | `EMAIL_UNAVAILABLE`                                  | email change: the address is in use by any account                             |
+| 429    | `EMAIL_SEND_LIMITED`                                 | email change: the mail caps refused the verification link                      |
+| 409    | `ALREADY_DEACTIVATED`, `NOT_DEACTIVATED`             | deactivate, reactivate                                                         |
+| 409    | `ALREADY_ADMIN`, `NOT_AN_ADMIN`                      | grant-admin, revoke-admin                                                      |
+| 409    | `NOT_LOCKED`                                         | unlock: no live lock                                                           |
+| 409    | `MFA_NOT_ENROLLED`                                   | reset-mfa: the user has no MFA                                                 |
+| 409    | `PASSWORD_ALREADY_SET`, `USER_DEACTIVATED`           | resend-invite                                                                  |
+| 429    | `TOO_MANY_REQUESTS`                                  | the admin mutation limit (100 a minute per admin)                              |
+| 429    | `INVITE_LIMIT`                                       | resend-invite: 3 invites a day to one user                                     |
+| 500    | `INTERNAL_ERROR`                                     | unexpected                                                                     |

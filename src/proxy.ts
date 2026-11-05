@@ -10,7 +10,6 @@ import {
   isGatePath,
   verifyGateCookie,
 } from "@/lib/preview-gate";
-import { getTrustedOrigins } from "@/lib/products";
 import { REDIRECT_ENTRY_PATHS, captureRedirect } from "@/lib/redirect/cookie";
 import { isCorsPreflight } from "@/lib/security/cors";
 import {
@@ -20,7 +19,11 @@ import {
   cspHeaderName,
   generateNonce,
 } from "@/lib/security/csp";
-import { createOriginGuard } from "@/lib/security/origin";
+import {
+  createOriginGuard,
+  decodePathname,
+  malformedPathResponse,
+} from "@/lib/security/origin";
 import { scannerResponse } from "@/lib/token-links/scanner";
 
 // A bad environment throws at import, so every request fails closed.
@@ -28,10 +31,15 @@ const settings = toAuthSettings(env);
 const key = settings.previewGate
   ? deriveGateKey(settings.secret, settings.previewGate.password)
   : null;
+const ownOrigin = new URL(settings.baseURL).origin;
 
-// Passing the request keeps SGAUTH_ENV=local echoing *.sga.localhost origins.
+// Mutations on /api/sgauth/* come from SGAuth's own pages only (BT5). No
+// product mutates /api/sgauth/* from a browser: its cross-origin calls are the
+// session GETs and POST /api/auth/sign-out (docs/CORS.md), and Better Auth
+// checks /api/auth/* against the full registry itself. Trusting every product
+// origin here let XSS on any product drive the admin API.
 const guardOrigin = createOriginGuard({
-  trustedOrigins: (request) => getTrustedOrigins(request),
+  trustedOrigins: async () => [ownOrigin],
   log: logger,
 });
 
@@ -110,7 +118,10 @@ export async function proxy(request: NextRequest) {
   );
   if (scanned) return scanned;
 
-  if (pathname.startsWith("/api/")) {
+  // Decoded before the /api test, or `/%61pi/...` would skip the guard (BT6).
+  const decoded = decodePathname(pathname);
+  if (decoded === null) return malformedPathResponse();
+  if (decoded.startsWith("/api/")) {
     const rejected = await guardOrigin(request);
     if (rejected) return rejected;
     return NextResponse.next();

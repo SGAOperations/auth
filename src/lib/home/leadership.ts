@@ -2,6 +2,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
+import { canViewLeadershipResources } from "@/lib/authz";
 
 /**
  * The one place the leadership pages decide access. Signed-out users go to
@@ -14,5 +15,7 @@ export async function loadLeadershipViewer(
   const user = await requireUser(path);
   const overview = await loadAccountOverview(user.id);
   if (!overview) redirect("/login");
-  return { isLeadership: overview.isLeadership };
+  return {
+    isLeadership: canViewLeadershipResources(user, overview).allowed,
+  };
 }

@@ -5,6 +5,7 @@ import {
   can,
   canActOnTransfer,
   canUpdateOwnProfile,
+  canViewLeadershipResources,
   canViewOrgChart,
   type AuthzDenialReason,
   type AuthzSubject,
@@ -55,6 +56,13 @@ const adminSelfProtected: Row = [
   "allow",
   "PRIMARY_ADMIN_PROTECTED",
 ];
+// BT13: another admin may not do these to the Primary Admin.
+const adminPaProtected: Row = [
+  "allow",
+  "allow",
+  "allow",
+  "PRIMARY_ADMIN_PROTECTED",
+];
 const paSelfProtected: Row = [
   "SELF_MODIFICATION",
   "allow",
@@ -70,16 +78,23 @@ const MATRIX: Record<ActorName, Partial<Record<UserAction, Row>>> = {
   ),
   admin: {
     grantAdmin: adminSelfProtected,
-    revokeAdmin: adminSelfProtected,
+    // BT4: only the Primary Admin revokes another admin.
+    revokeAdmin: [
+      "SELF_MODIFICATION",
+      "allow",
+      "PRIMARY_ADMIN_REQUIRED",
+      "PRIMARY_ADMIN_PROTECTED",
+    ],
     deactivate: adminSelfProtected,
     reactivate: adminSelfProtected,
     delete: adminSelfProtected,
+    // Self-assignment is allowed on purpose: see docs/ADMIN-API.md (BT27).
     assignPosition: all("allow"),
     unassignPosition: all("allow"),
-    updateProfile: all("allow"),
-    revokeSessions: all("allow"),
-    unlock: all("allow"),
-    resendInvite: all("allow"),
+    updateProfile: adminPaProtected,
+    revokeSessions: adminPaProtected,
+    unlock: adminPaProtected,
+    resendInvite: adminPaProtected,
     changeEmail: [
       "PRIMARY_ADMIN_REQUIRED",
       "allow",
@@ -326,6 +341,37 @@ describe("canViewOrgChart", () => {
         allowed: false,
         reason: "ACTOR_INACTIVE",
       });
+    }
+  });
+});
+
+describe("canViewLeadershipResources", () => {
+  const leader = { isLeadership: true };
+  const notLeader = { isLeadership: false };
+
+  it("lets an active leader view", () => {
+    expect(canViewLeadershipResources(user, leader)).toEqual({ allowed: true });
+  });
+
+  it("denies an active non-leader", () => {
+    expect(canViewLeadershipResources(user, notLeader)).toEqual({
+      allowed: false,
+      reason: "NOT_LEADERSHIP",
+    });
+  });
+
+  it("does not let admin status stand in for a leadership position", () => {
+    expect(canViewLeadershipResources(admin, notLeader)).toEqual({
+      allowed: false,
+      reason: "NOT_LEADERSHIP",
+    });
+  });
+
+  it("denies deactivated and deleted leaders", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canViewLeadershipResources(subject("gone", { status }), leader),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
     }
   });
 });

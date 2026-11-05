@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { checkOrigin, createOriginGuard, isOriginEnforcedPath } from "./origin";
+import {
+  checkOrigin,
+  createOriginGuard,
+  decodePathname,
+  isOriginEnforcedPath,
+} from "./origin";
 
 const OWN = "https://auth.northeasternsga.com";
 const PRODUCT = "https://product.northeasternsga.com";
@@ -22,6 +27,38 @@ describe("isOriginEnforcedPath", () => {
     "does not enforce %s",
     (path) => {
       expect(isOriginEnforcedPath(path)).toBe(false);
+    },
+  );
+});
+
+describe("decodePathname (BT6)", () => {
+  it.each([
+    ["/api/%73gauth/admin/users", "/api/sgauth/admin/users"],
+    ["/%61pi/sgauth/admin/users", "/api/sgauth/admin/users"],
+    ["/%61%70%69/%73%67auth", "/api/sgauth"],
+    ["/api/auth%2F..%2Fsgauth/admin", "/api/sgauth/admin"],
+    ["/%2Fapi/sgauth/admin", "/api/sgauth/admin"],
+    ["/api%5Csgauth%5Cadmin", "/api/sgauth/admin"],
+  ])("decodes %s to %s", (raw, decoded) => {
+    expect(decodePathname(raw)).toBe(decoded);
+    expect(isOriginEnforcedPath(decodePathname(raw) ?? "")).toBe(true);
+  });
+
+  it("leaves a plain path as it is", () => {
+    expect(decodePathname("/api/sgauth/admin/users")).toBe(
+      "/api/sgauth/admin/users",
+    );
+  });
+
+  it("decodes once, as the router does", () => {
+    // The router sees `/api/%73gauth`, which matches no route.
+    expect(decodePathname("/api/%2573gauth")).toBe("/api/%73gauth");
+  });
+
+  it.each(["/api/%E0%A4%A", "/api/sgauth/%", "/%zz"])(
+    "answers null for the malformed %s",
+    (raw) => {
+      expect(decodePathname(raw)).toBeNull();
     },
   );
 });
@@ -209,6 +246,36 @@ describe("createOriginGuard", () => {
     );
     expect(response).toBeNull();
     expect(state.warns).toEqual([]);
+  });
+
+  it.each([
+    `${OWN}/api/%73gauth/admin/users`,
+    `${OWN}/%61pi/sgauth/admin/users`,
+  ])(
+    "BT6: enforces the percent-encoded %s like the plain path",
+    async (url) => {
+      const { guard, state } = setup();
+      const response = await guard(
+        post(url, { Origin: "https://unregistered.northeasternsga.com" }),
+      );
+      expect(response?.status).toBe(403);
+      expect(state.warns[0]?.fields?.path).toBe("/api/sgauth/admin/users");
+      expect(
+        await guard(post(url, { Origin: PRODUCT })),
+        "a trusted origin still passes",
+      ).toBeNull();
+    },
+  );
+
+  it("BT6: answers 400 for a malformed encoding without loading the registry", async () => {
+    const { guard, state } = setup();
+    const response = await guard(post(`${OWN}/api/sgauth/%E0%A4%A`, {}));
+    expect(response?.status).toBe(400);
+    expect(await response?.json()).toEqual({
+      code: "INVALID_PATH",
+      message: "Invalid path.",
+    });
+    expect(state.calls).toBe(0);
   });
 
   it("logs only the origin of a Referer, never its path or query", async () => {

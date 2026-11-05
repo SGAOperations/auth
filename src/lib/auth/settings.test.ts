@@ -30,7 +30,7 @@ describe("resolveBaseURL", () => {
 
   it("resolves dev to the fixed URL", () => {
     expect(resolveBaseURL({ sgauthEnv: "dev" })).toBe(
-      "https://auth-dev.northeasternsga.com",
+      "https://dev.auth.northeasternsga.com",
     );
   });
 
@@ -48,7 +48,7 @@ describe("resolveBaseURL", () => {
 
   it("never reads Vercel URLs for dev", () => {
     expect(resolveBaseURL(inputWithThrowingVercelFields("dev"))).toBe(
-      "https://auth-dev.northeasternsga.com",
+      "https://dev.auth.northeasternsga.com",
     );
   });
 
@@ -318,7 +318,7 @@ describe("parseAuthEnv passkey", () => {
 
   it.each([
     ["production", "auth.northeasternsga.com", "https://"],
-    ["dev", "auth-dev.northeasternsga.com", "https://"],
+    ["dev", "dev.auth.northeasternsga.com", "https://"],
     ["local", "auth.sga.localhost", "http://"],
   ])("uses the auth host as the relying party in %s", (env, host, scheme) => {
     expect(parseAuthEnv({ ...base, SGAUTH_ENV: env }).passkey).toEqual({

@@ -15,7 +15,7 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 | `passkey-options:ip:1m`       | `/api/auth/passkey/generate-authenticate-options` (any method)         | IP            | 30    | 1 minute   |
 | `sign-up:ip:1h`               | `POST /api/auth/sign-up/email`                                         | IP            | 5     | 1 hour     |
 | `reset:ip:10m`                | `POST /api/auth/request-password-reset`                                | IP            | 3     | 10 minutes |
-| `reset:email:10m`             | `POST /api/auth/request-password-reset`                                | email         | 3     | 10 minutes |
+| `reset:email:1h`              | `POST /api/auth/request-password-reset`                                | email         | 3     | 1 hour     |
 | `verify:email:1h`             | `POST /api/auth/send-verification-email`                               | email         | 3     | 1 hour     |
 | `token:session:1m`            | `/api/auth/token` (any method)                                         | session token | 60    | 1 minute   |
 | `session-lookup:session:1m`   | `GET /api/sgauth/session` and `/minimal` (in-memory only, never Redis) | session token | 120   | 1 minute   |
@@ -33,6 +33,7 @@ Every number lives in `POLICIES` in `src/lib/rate-limit/policies.ts`. Tune limit
 | `email-otp-send:ip:1h`        | emailed sign-in code request (#112)                                    | IP            | 10    | 1 hour     |
 | `email-otp-sign-in:email:15m` | emailed sign-in code sign-in (#112)                                    | email         | 10    | 15 minutes |
 | `email-otp-sign-in:ip:1h`     | emailed sign-in code sign-in (#112)                                    | IP            | 20    | 1 hour     |
+| `csp-report:ip:1m`            | `POST /api/csp-report`                                                 | IP            | 30    | 1 minute   |
 
 - A request is blocked when any rule of its policy denies it. The response is `429` with `Retry-After` (whole seconds, at least 1), `Cache-Control: no-store` and the body `{"code":"TOO_MANY_REQUESTS","message":"Too many requests. Try again later."}`. The request never reaches Better Auth.
 - Emails are normalised (`normalizeEmail`) and hashed with SHA-256, and session tokens are hashed, before they become part of a key. IPs and user ids are used as they are. Per-email buckets count a request whether or not the account exists, so the 429 is identical either way.

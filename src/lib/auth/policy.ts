@@ -27,6 +27,11 @@ export const AUTH_ERROR_CODES = {
     code: "NEW_PASSWORD_SAME_AS_CURRENT",
     message: "Choose a password you aren't already using.",
   },
+  INVALID_NAME: {
+    code: "INVALID_NAME",
+    message:
+      "Enter a name of 100 characters or fewer, with no control characters.",
+  },
 } as const;
 
 const PASSWORD_LENGTH_MESSAGE = `Use ${PASSWORD_MIN_LENGTH} to ${PASSWORD_MAX_LENGTH} characters.`;

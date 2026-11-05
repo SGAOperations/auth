@@ -27,6 +27,7 @@ const session: PasswordChangeSession = {
 const tx = {
   session: { deleteMany: vi.fn() },
   user: { update: vi.fn() },
+  $executeRaw: vi.fn(),
 };
 const prisma = {
   $transaction: vi.fn((fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
@@ -286,6 +287,9 @@ describe("after", () => {
       expect(tx.session.deleteMany).toHaveBeenCalledWith({
         where: { userId: "u1", id: { not: "s-current" } },
       });
+      // The user's outstanding reset links, inside the same transaction.
+      expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(tx.$executeRaw.mock.calls[0]?.slice(1)).toEqual(["u1"]);
       expect(tx.user.update).toHaveBeenCalledWith({
         where: { id: "u1" },
         data: { passwordChangedAt: NOW },

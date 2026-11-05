@@ -86,7 +86,7 @@ async function plan(tx: Prisma.TransactionClient, request: RecoveryInput) {
 
 describe("break-glass recovery against the database", () => {
   it(
-    "moves the flag, signs out the old Primary Admin and writes one audit row",
+    "moves the flag, signs out both Primary Admins and writes one audit row",
     async () => {
       await inRollback(async (tx) => {
         const oldPa = await createPrimaryAdmin({}, tx);
@@ -112,10 +112,10 @@ describe("break-glass recovery against the database", () => {
         expect(old.isAdmin).toBe(true);
         expect(await tx.session.count({ where: { userId: oldPa.id } })).toBe(0);
         expect(await tx.session.count({ where: { userId: target.id } })).toBe(
-          1,
+          0,
         );
 
-        expect(result.sessionsRevoked).toBe(2);
+        expect(result.sessionsRevoked).toBe(3);
         expect(result.recipients).toEqual(
           expect.arrayContaining([oldPa.email, target.email]),
         );
@@ -136,7 +136,7 @@ describe("break-glass recovery against the database", () => {
             reason: "Primary Admin unreachable",
             previousPrimaryAdminId: oldPa.id,
             previousAdminRevoked: false,
-            sessionsRevoked: 2,
+            sessionsRevoked: 3,
           },
         });
         await expect(verifyRecovery(tx, result)).resolves.toEqual({

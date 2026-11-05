@@ -54,6 +54,24 @@ export async function isResetTokenUsable(
   return row !== null;
 }
 
+/**
+ * Deletes every outstanding reset link of the user, so a completed reset or
+ * password change leaves no older link alive. Reset rows are hashed, so they
+ * are found by their value, the user id, and the shape of the stored
+ * identifier: exactly 43 base64url characters (`resetTokenStoredIdentifier`).
+ * Every other row that carries a user id has a readable prefix and another
+ * length (`2fa-`, `trust-device-`, `set-password:`), so none of them matches.
+ */
+export async function revokeResetTokens(
+  db: Pick<PrismaClient, "$executeRaw">,
+  userId: string,
+): Promise<number> {
+  return db.$executeRaw`
+    DELETE FROM "Verification"
+    WHERE "value" = ${userId}
+      AND "identifier" ~ '^[A-Za-z0-9_-]{43}$'`;
+}
+
 const resetUser = z.looseObject({
   email: z.string(),
   name: z.string().nullish(),
@@ -114,6 +132,9 @@ interface ResetHookUser {
  * Better Auth's `onPasswordReset`, which runs before its own session
  * revocation. A throw there would skip it, so every session is deleted first.
  * The reset is unauthenticated, so "all other sessions" means all of them.
+ * Better Auth has already consumed the link used; the user's other reset links
+ * go next. Known devices go too: a reset is the recovery from a compromise, so
+ * no browser keeps the lockout exemption (docs/LOCKOUT.md) past it.
  *
  * Failing before the password-changed stamp is safe: the sessions are already
  * gone. After it, `afterReset` (audit, lock clear, analytics) logs and
@@ -125,7 +146,10 @@ export function createOnPasswordReset({
   afterReset,
   now = () => new Date(),
 }: {
-  prisma: Pick<PrismaClient, "session" | "user">;
+  prisma: Pick<
+    PrismaClient,
+    "session" | "user" | "knownDevice" | "$executeRaw"
+  >;
   mailer: Pick<Mailer, "sendEmail">;
   afterReset: (
     data: { user: ResetHookUser },
@@ -139,6 +163,8 @@ export function createOnPasswordReset({
   ): Promise<void> {
     const { user } = data;
     await prisma.session.deleteMany({ where: { userId: user.id } });
+    await revokeResetTokens(prisma, user.id);
+    await prisma.knownDevice.deleteMany({ where: { userId: user.id } });
 
     const at = now();
     await prisma.user.update({

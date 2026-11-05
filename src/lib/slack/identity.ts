@@ -1,6 +1,5 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
-import { z } from "zod";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import type { SlackLinkSource } from "@/generated/prisma/client";
 
@@ -12,10 +11,7 @@ import type { SlackLinkSource } from "@/generated/prisma/client";
 // SGAuth (SLACK_COMMAND); the person signs in with Slack from the account page
 // (SLACK_OPENID, #314); or the one-time import of Chambers' links (IMPORT, #315).
 
-/** A Slack workspace id. Enterprise Grid org ids (E…) are not workspaces. */
-export const slackTeamIdSchema = z.string().regex(/^T[A-Z0-9]{2,20}$/);
-/** A Slack user id: U… for members, W… for Enterprise Grid members. */
-export const slackUserIdSchema = z.string().regex(/^[UW][A-Z0-9]{2,20}$/);
+export { slackTeamIdSchema, slackUserIdSchema } from "./ids";
 
 /** Fifteen minutes, the lifetime of the DM'd link Chambers used before. */
 export const SLACK_LINK_TOKEN_TTL_MS = 15 * 60 * 1000;

@@ -92,6 +92,12 @@ describe("signUpSchema", () => {
     );
   });
 
+  it("rejects a name with a control character, as the server does", () => {
+    expect(
+      signUpSchema.safeParse({ ...valid, name: "Husky\nDog" }).success,
+    ).toBe(false);
+  });
+
   it("enforces 12 to 128 characters", () => {
     for (const length of [11, 129]) {
       expect(
@@ -309,6 +315,10 @@ describe("mapSignUpError", () => {
     expect(mapSignUpError({ status: 400, code: "PASSWORD_TOO_LONG" })).toEqual({
       field: "password",
       message: AUTH_COPY.passwordTooLong,
+    });
+    expect(mapSignUpError({ status: 400, code: "INVALID_NAME" })).toEqual({
+      field: "name",
+      message: AUTH_ERROR_CODES.INVALID_NAME.message,
     });
   });
 

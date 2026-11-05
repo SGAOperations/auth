@@ -62,6 +62,9 @@ export function classifySecondFactor(code: string): "totp" | "backup_code" {
 export const FRESH_AUTH_AUTH_PATHS: readonly string[] = [
   // Changing the password.
   "/change-password",
+  // Revoking one session. Ungated, a stolen cookie signs the owner out
+  // everywhere one session at a time.
+  "/revoke-session",
   // Revoking every session, this one included.
   "/revoke-sessions",
   // Revoking every session but this one.

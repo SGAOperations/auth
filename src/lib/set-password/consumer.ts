@@ -94,7 +94,30 @@ interface SetPasswordAuth {
       headers: Headers;
       returnHeaders: true;
     }): Promise<{ headers: Headers; response: unknown }>;
+    getSession(context: {
+      headers: Headers;
+      query: { disableRefresh: true };
+    }): Promise<{ user: { id: string } } | null>;
   };
+}
+
+/** Whether the request carries a live session for a user other than `userId`. */
+async function signedInAsOther(
+  auth: SetPasswordAuth,
+  headers: Headers,
+  userId: string,
+): Promise<boolean> {
+  try {
+    const session = await auth.api.getSession({
+      headers,
+      query: { disableRefresh: true },
+    });
+    return session !== null && session.user.id !== userId;
+  } catch (error) {
+    // A deactivated user surfaces as an APIError from the after-hook.
+    if (isAPIError(error)) return false;
+    throw error;
+  }
 }
 
 /**
@@ -120,7 +143,7 @@ export function createSetPasswordConsumer({
     const hash = await (await auth.$context).password.hash(password);
 
     const at = now();
-    const email = await withAuditTransaction(prisma, async (tx) => {
+    const set = await withAuditTransaction(prisma, async (tx) => {
       const userId = await consumeSetPasswordToken(tx, token, at);
       if (userId === null) return null;
 
@@ -172,9 +195,17 @@ export function createSetPasswordConsumer({
         },
         { headers: request.headers },
       );
-      return user.email;
+      return { email: user.email, userId };
     });
-    if (email === null) return { result: "invalid" };
+    if (set === null) return { result: "invalid" };
+    const { email, userId } = set;
+
+    // A browser signed in as someone else keeps that session (black-team
+    // BT20): signing it in here would be login CSRF through another account's
+    // link. The password is set either way.
+    if (await signedInAsOther(auth, request.headers, userId)) {
+      return { result: "done", redirectTo: "/set-password?result=done" };
+    }
 
     // Through Better Auth, so the deactivation check, `lastLoginAt` and
     // `LOGIN_SUCCESS` all run. The password is set whatever happens here, so a

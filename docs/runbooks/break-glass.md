@@ -74,7 +74,8 @@ command exits 1 before connecting.
    ```
 
 The target must be an active user. A transfer makes them admin and PA, cancels
-any in-flight transfer, and signs the old PA out everywhere. The old PA stays an
+any in-flight transfer, and signs both the old PA and the new PA out everywhere,
+so the new authority starts from a fresh sign-in. The old PA stays an
 admin unless `--demote-previous` is set.
 
 ## Reading the output
@@ -86,6 +87,7 @@ Break-glass: transfer Primary Admin
 - clear Primary Admin from old@northeastern.edu (stays admin)
 + make new@northeastern.edu admin and Primary Admin
 x sign out old@northeastern.edu (3 sessions)
+x sign out new@northeastern.edu (1 session)
 warning: new@northeastern.edu has no MFA; they must enrol TOTP before any admin action
 Type TRANSFER PRIMARY ADMIN to continue:
 ```

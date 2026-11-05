@@ -131,6 +131,7 @@ Tune the numbers in `src/lib/email/caps.ts`, nowhere else.
 | Per recipient | 30                                     | UTC day             |
 | Global        | `SGAUTH_EMAIL_DAILY_CAP` (default 500) | UTC day             |
 
+- **Security-critical templates skip the per-recipient caps** (`RECIPIENT_CAP_EXEMPT_TEMPLATES` in `caps.ts`): reset-password, account-locked, account-unlock, email-change-notice, security-notice, security-alert and the PA-transfer templates. They still count toward, and can be refused by, the global cap. Otherwise a flood of reset requests could silence a user's unlock link or the PA's transfer-cancel link for a day (black-team BT8).
 - A send over a cap is **refused, not thrown**: `sendEmail` returns `capped` and logs `email_capped`. A recipient refusal leaves the global count alone.
 - Counters are `INCR` plus `EXPIRE` pairs on the existing Upstash database, under the environment namespace (`sgauth:prod:`, `sgauth:dev:`): `email:rcpt:1h:<hash>:<yyyymmddHH>`, `email:rcpt:1d:<hash>:<yyyymmdd>` and `email:global:1d:<yyyymmdd>`. `<hash>` is the SHA-256 of the normalised address. Without Upstash (local, preview) the counters sit in memory, per instance.
 - Fixed windows allow up to twice a cap across a boundary, and the UTC day resets at 8 PM ET. That is fine for bounding abuse, and it lets each alert fire once a day.

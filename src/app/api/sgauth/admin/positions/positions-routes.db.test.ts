@@ -173,8 +173,18 @@ describe("deleting a position (AC 2)", () => {
     });
 
     const url = `${BASE}/${position.id}`;
-    const noBody = await deletePositionRoute(
+    // Without a JSON Content-Type the body is never read (BT5).
+    const notJson = await deletePositionRoute(
       new NextRequest(url, { method: "DELETE" }),
+      ctx(position.id),
+    );
+    expect(notJson.status).toBe(415);
+
+    const noBody = await deletePositionRoute(
+      new NextRequest(url, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+      }),
       ctx(position.id),
     );
     expect(noBody.status).toBe(400);
