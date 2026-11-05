@@ -85,6 +85,19 @@ describe("toHomeProducts", () => {
     expect(byslug.senateportal).toMatchObject({ tone: "red", letter: "S" });
   });
 
+  it("styles the Go to button as primary for Aplio and by tone otherwise", () => {
+    const byslug = Object.fromEntries(
+      toHomeProducts(
+        [...tools, tool("aplio", "Aplio"), tool("budget-tool", "budget tool")],
+        viewer,
+        OWN_ORIGIN,
+      ).map((p) => [p.slug, p]),
+    );
+    expect(byslug.aplio).toMatchObject({ tone: "green", goTo: "primary" });
+    expect(byslug.vaultz.goTo).toBe("tone");
+    expect(byslug["budget-tool"].goTo).toBe("tone");
+  });
+
   it("falls back to neutral and the first letter for an unknown slug", () => {
     const [other] = toHomeProducts(
       [tool("budget-tool", "budget tool")],

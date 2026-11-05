@@ -27,13 +27,17 @@ export function ResourceItemRow({ item }: { item: ResourceItem }) {
         <>
           <a
             href={item.href}
-            rel="noreferrer"
+            target="_blank"
+            rel="noopener noreferrer"
             className={cn(
               "inline-flex min-h-11 items-center gap-1.5 underline-offset-4 hover:underline",
               focusRing,
             )}
           >
-            <span className="break-words">{item.label}</span>
+            <span className="break-words">
+              {item.label}
+              <span className="sr-only"> (opens in a new tab)</span>
+            </span>
             <ArrowUpRight
               aria-hidden="true"
               className="size-3.5 shrink-0 text-muted-foreground"

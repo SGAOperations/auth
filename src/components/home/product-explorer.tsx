@@ -195,11 +195,18 @@ export function ProductExplorer({ products }: { products: HomeProduct[] }) {
               </h3>
               <a
                 href={selected.href}
-                className={cn(
-                  buttonVariants({ variant: "secondary", size: "lg" }),
-                  "w-fit",
-                  TONE_BUTTON[selected.tone],
-                )}
+                className={
+                  selected.goTo === "primary"
+                    ? cn(
+                        buttonVariants({ variant: "default", size: "lg" }),
+                        "w-fit",
+                      )
+                    : cn(
+                        buttonVariants({ variant: "secondary", size: "lg" }),
+                        "w-fit",
+                        TONE_BUTTON[selected.tone],
+                      )
+                }
               >
                 Go to {selected.name}
               </a>
