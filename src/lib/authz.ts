@@ -47,7 +47,8 @@ export type AuthzDenialReason =
   | "TARGET_NOT_ELIGIBLE"
   | "NOT_SELF"
   | "NOT_TRANSFER_RECIPIENT"
-  | "NOT_TRANSFER_INITIATOR";
+  | "NOT_TRANSFER_INITIATOR"
+  | "NOT_LEADERSHIP";
 
 export type AuthzDecision =
   | { allowed: true }
@@ -198,6 +199,22 @@ export function canUpdateOwnProfile(
  */
 export function canViewOrgChart(actor: AuthzSubject): AuthzDecision {
   return actor.status === "ACTIVE" ? allow : deny("ACTOR_INACTIVE");
+}
+
+/**
+ * Whether `actor` may see the leadership resources and guides: an ACTIVE user
+ * who holds at least one non-deleted leadership position. Admin status does not
+ * grant access. `viewer.isLeadership` comes from `loadAccountOverview`, which
+ * counts non-deleted positions only.
+ */
+export function canViewLeadershipResources(
+  actor: AuthzSubject,
+  viewer: { isLeadership: boolean },
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  return viewer.isLeadership ? allow : deny("NOT_LEADERSHIP");
 }
 
 /** The two people a Primary Admin transfer names. */

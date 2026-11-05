@@ -48,51 +48,113 @@ export const SGA_LINKS = {
   },
 } as const;
 
+// One document, two rows: the Self comment doc and the Website text changes
+// doc keep their own labels and notes and share this URL.
+const WEBSITE_TEXT_DOC_HREF =
+  "https://docs.google.com/document/d/1_BtUxCKoy4aSAUhTtcBXioXvBjeTnZdZXy3O0ubBbMA/edit";
+
+// One form, two rows: the Office access request form and the SGA Office
+// (Curry 332) access form.
+const OFFICE_ACCESS_HREF = "https://forms.gle/NApzZh3Jtft1CYw28";
+
+// Items that appear in more than one list are written once and referenced.
+const FINANCIAL_ALLOCATION_SHEET: ResourceItem = {
+  label: "Financial Allocation FY27 sheet",
+  href: "https://docs.google.com/spreadsheets/d/1MCeuA3Jgps5v7O3Lg1BmryZQC97xoTzQGlxKNBBBARg/edit?gid=0#gid=0",
+};
+
+const WEBSITE_TEXT_CHANGES_DOC: ResourceItem = {
+  label: "Website text changes doc",
+  href: WEBSITE_TEXT_DOC_HREF,
+  note: "For text changes.",
+};
+
+const WEBSITE_VISUAL_CHANGE_FORM: ResourceItem = {
+  label: "Website visual change / new page request form",
+  href: "https://docs.google.com/forms/d/e/1FAIpQLSeGfAufyxtPTCy72MKA8E-xBWq9kNTwWth33VvnPLr2T7e8Gg/viewform",
+  note: "For visual changes and new pages.",
+};
+
+const CONTENT_CREATION_FORM: ResourceItem = {
+  label: "Content creation request form",
+  href: "https://docs.google.com/forms/d/e/1FAIpQLSfDyV6VQ-wK4QNyEpEnImKPpaLYgfgnCemAbOQ6ipR2bQ_OtA/viewform",
+};
+
+const APLIO_PROCESS_INTRO =
+  "Follow the common application portal rules when you post or review an application.";
+
+const APLIO_PROCESS_STEPS = [
+  "Message the VP of Operational Affairs and the Executive Vice President before opening a position.",
+  "The VP of Operational Affairs helps with the logistical creation of the position.",
+  "The Executive Vice President must review the position before it can be opened to the public.",
+  "Add an application to the portal.",
+  "Review applications in the portal.",
+];
+
+const REIMBURSEMENT_STEPS = [
+  "Set up your Concur account.",
+  "Keep your receipts for SABO.",
+  "Submit your reimbursement in Concur.",
+];
+
 export const GENERAL_RESOURCES: ResourceGroup[] = [
   {
-    id: "key-links",
-    title: "Key links",
+    id: "operational-links",
+    title: "Operational Links",
     items: [
-      { label: "Account access form", href: null },
-      { label: "Roster update form", href: null },
-      { label: "SGA Office access request form, Curry 332", href: null },
-      { label: "Website text changes doc", href: null },
-      { label: "Content creation request form", href: null },
-    ],
-  },
-  {
-    id: "leadership",
-    title: "Leadership",
-    items: [
-      { label: "Leadership Summit slides", href: null },
-      { label: "Leadership Handbook", href: null, comingSoon: true },
-      { label: "Advocacy project start guide", href: null },
-    ],
-  },
-  {
-    id: "media",
-    title: "Media training",
-    intro: "Tell the VP of External Affairs before you engage with media.",
-    items: [
+      FINANCIAL_ALLOCATION_SHEET,
+      WEBSITE_TEXT_CHANGES_DOC,
+      CONTENT_CREATION_FORM,
+      { label: "Office access request form", href: OFFICE_ACCESS_HREF },
+      { label: "Self comment doc", href: WEBSITE_TEXT_DOC_HREF },
       {
-        label: "Media training guidance",
-        href: "https://tinyurl.com/SGAmediatraining",
+        label: "SGA Slack invite",
+        href: SGA_LINKS.slack.href,
+        note: SGA_LINKS.slack.note,
       },
-      { label: "SGA media training one-pager", href: null },
     ],
+  },
+  {
+    id: "finances",
+    title: "Finances",
+    intro:
+      "Purchases go through the VP of Operational Affairs. E-Board reimbursement goes through Concur, and you keep your receipts for SABO.",
+    items: [],
+    steps: REIMBURSEMENT_STEPS,
+  },
+  {
+    id: "aplio",
+    title: "Common Application Portal (Aplio)",
+    intro: APLIO_PROCESS_INTRO,
+    items: [],
+    steps: APLIO_PROCESS_STEPS,
   },
   {
     id: "events",
     title: "Events",
-    intro: "Start planning 6 to 7 weeks ahead.",
+    items: [CONTENT_CREATION_FORM],
+  },
+  {
+    id: "events-media",
+    title: "Events and media",
+    intro:
+      "Start planning 6 to 7 weeks ahead. Media training comes from External Affairs. Tell the VP of External Affairs before you engage with media.",
     items: [
       { label: "Event request form", href: null },
-      { label: "Content creation request form", href: null },
+      {
+        label: "Media training guidance",
+        href: "https://tinyurl.com/SGAmediatraining",
+        note: "tinyurl.com/SGAmediatraining",
+      },
+      {
+        label: "SGA media training one-pager",
+        href: "https://docs.google.com/document/d/1I7WYosOjQWQZmD-FosszjM8JkIvTqkKClDMZbBONk-4/edit?tab=t.0",
+      },
     ],
     steps: [
       "Book a room (Chambers room request).",
       "Hold a planning meeting.",
-      "Submit the Engage form and the Facilities Event Management form: 4 weeks out.",
+      "Submit your event forms: 4 weeks out.",
       "Start promotion and send content requests: 3 weeks out.",
       "Make purchases: 3 weeks out.",
       "Confirm final details: 2 weeks out.",
@@ -101,11 +163,49 @@ export const GENERAL_RESOURCES: ResourceGroup[] = [
     ],
   },
   {
+    id: "website",
+    title: "Website changes",
+    intro:
+      "Each leader owns their committee or board pages. VPs own their division pages.",
+    items: [WEBSITE_TEXT_CHANGES_DOC, WEBSITE_VISUAL_CHANGE_FORM],
+  },
+  {
+    id: "leadership",
+    title: "Leadership",
+    items: [
+      {
+        label: "SGA Leadership Summit slides",
+        href: "https://canva.link/dh05lflhw8fnmg0",
+      },
+      {
+        label: "Advocacy project start guide",
+        href: "https://docs.google.com/document/d/18zhiMQ94Yi51lxY-UhmbnEepf0XgW3E06JxRRZ6URx0/preview?usp=sharing",
+      },
+      { label: "Leadership Handbook", href: null, comingSoon: true },
+    ],
+  },
+  {
     id: "records",
     title: "Minutes and templates",
     items: [
-      { label: "Meeting minutes tracker", href: null },
-      { label: "Email signature templates", href: null },
+      {
+        label: "Meeting minutes tracker sheet",
+        href: "https://docs.google.com/spreadsheets/d/1QClskxoWKwttC4rW5wYvegjeUZ8374mAzdiFy2HoyP4/edit?gid=668936491#gid=668936491",
+      },
+      {
+        label: "Email signature templates",
+        href: "https://docs.google.com/document/d/1tflqeIVxa3W4qZwV7hNggNnv5diXB0nHsOf6RYGv1E0/edit?tab=t.0",
+      },
+    ],
+  },
+  {
+    id: "office-access",
+    title: "Office access",
+    items: [
+      {
+        label: "SGA Office (Curry 332) access form",
+        href: OFFICE_ACCESS_HREF,
+      },
     ],
   },
 ];
@@ -118,26 +218,11 @@ export const PRODUCT_GUIDES: Record<GuideSlug, ProductGuide> = {
     summary: "SGA's common application portal.",
     groups: [
       {
-        id: "apply",
-        title: "Apply",
-        items: [
-          {
-            label: "Apply on Aplio",
-            href: "https://apply.northeasternsga.com",
-            note: "apply.northeasternsga.com",
-          },
-        ],
-      },
-      {
         id: "process",
         title: "Rules and process",
-        intro:
-          "Follow the common application portal rules when you post or review an application.",
+        intro: APLIO_PROCESS_INTRO,
         items: [],
-        steps: [
-          "Add an application to the portal.",
-          "Review applications in the portal.",
-        ],
+        steps: APLIO_PROCESS_STEPS,
       },
     ],
   },
@@ -151,12 +236,14 @@ export const PRODUCT_GUIDES: Record<GuideSlug, ProductGuide> = {
         id: "rooms",
         title: "Rooms",
         intro: "Book and cancel SGA rooms in Chambers.",
+        items: [],
+      },
+      // PLACEHOLDER (#348): the operator writes the Chambers usage tutorial. Replace this item with the tutorial's intro and steps. Do not fill it in without the operator's text.
+      {
+        id: "tutorial",
+        title: "How to use Chambers",
         items: [
-          {
-            label: "Open Chambers",
-            href: "https://chambers.northeasternsga.com",
-            note: "chambers.northeasternsga.com",
-          },
+          { label: "Chambers usage tutorial", href: null, comingSoon: true },
         ],
       },
     ],
@@ -170,30 +257,22 @@ export const PRODUCT_GUIDES: Record<GuideSlug, ProductGuide> = {
       {
         id: "budgets",
         title: "Budgets",
-        items: [
-          { label: "FY26 division budgets sheet", href: null },
-          {
-            label: "Candy budget",
-            href: null,
-            note: "Covers communal tabling candy and the President's Corner.",
-          },
-        ],
+        items: [FINANCIAL_ALLOCATION_SHEET],
       },
       {
         id: "purchasing",
         title: "Purchasing",
-        intro: "Purchases go through the VP of Operational Affairs.",
+        intro:
+          "Purchases go through the VP of Operational Affairs. For an event, make your purchases 3 weeks out.",
         items: [],
       },
       {
         id: "reimbursement",
         title: "E-Board reimbursement",
+        intro:
+          "E-Board reimbursement goes through Concur, and you keep your receipts for SABO.",
         items: [],
-        steps: [
-          "Set up your Concur account.",
-          "Keep your receipts for SABO.",
-          "Submit your reimbursement in Concur.",
-        ],
+        steps: REIMBURSEMENT_STEPS,
       },
     ],
   },
@@ -207,18 +286,7 @@ export const PRODUCT_GUIDES: Record<GuideSlug, ProductGuide> = {
       {
         id: "changes",
         title: "Requesting changes",
-        items: [
-          {
-            label: "Website text changes doc",
-            href: null,
-            note: "For text changes.",
-          },
-          {
-            label: "Website visual change / new page request form",
-            href: null,
-            note: "For visual changes and new pages.",
-          },
-        ],
+        items: [WEBSITE_TEXT_CHANGES_DOC, WEBSITE_VISUAL_CHANGE_FORM],
       },
       {
         id: "ownership",

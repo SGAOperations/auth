@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
 import { toAuthSettings } from "@/lib/auth/settings";
+import { canViewLeadershipResources } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { toHomeProducts } from "@/lib/home/products";
 import { SGA_LINKS } from "@/lib/home/resources";
@@ -21,7 +22,8 @@ export default async function HomePage() {
   const user = await requireUser("/");
   const overview = await loadAccountOverview(user.id);
   if (!overview) redirect("/login");
-  const { profile, isLeadership } = overview;
+  const { profile } = overview;
+  const canViewResources = canViewLeadershipResources(user, overview).allowed;
   // Leadership content is attached here, on the server, so a non-leader's page
   // never carries it.
   const products = toHomeProducts(
@@ -86,7 +88,7 @@ export default async function HomePage() {
             title={SGA_LINKS.slack.label}
             description={SGA_LINKS.slack.note}
           />
-          {isLeadership ? (
+          {canViewResources ? (
             <LinkTile
               href="/resources"
               title="Leadership resources"

@@ -67,9 +67,9 @@ The rays sit outside the widest content (`(app)` `main` is `max-w-5xl`, a 32rem 
 - **Tiles and lines.** Each tile has one glowing, gently swaying branch. Every branch roots at the top of the tree on the primary left backdrop ray (tangent to it), fades in over the first 24px, and ends on the tile's left edge. There are no free lines and no strands of their own: the ray is the trunk. The geometry is `src/lib/home/tree.ts`. The tile list's Tailwind spacing (`pt-10 gap-5 pl-[5.5rem]`) must equal `PAD_Y`, `ROW_GAP` and `TREE_WIDTH` there, or the branches miss the tiles. The branch SVG starts at the ray (`--ray-gap` left of the tile column) and stretches horizontally to the tile.
 - **Waving.** SMIL `d` morphing between a `rest` and a `peak` curve that share every node and both end points, so the tile ends stay fixed while the rest sways. `tree.test.ts` pins that the two curves have the same command sequence.
 - **Tile icon.** The icon fills the 56px tile and carries its own padding; the tile never insets it. A glyph-only icon (VaultZ) uses a square canvas with about 60% glyph width over the tile's tone; a full-bleed icon (Chambers, Aplio) uses the whole canvas.
-- **Tile tone.** Each product's tone token and letter are in `PRODUCT_TILES` (`src/lib/home/products.ts`). An unknown slug gets `neutral` and the first letter of its name.
+- **Tile tone.** Each product's tone token and letter are in `PRODUCT_TILES` (`src/lib/home/products.ts`). An unknown slug gets `neutral` and the first letter of its name. The primary **Go to** button is `--primary-foreground` on `--primary`; it is not a tile colour.
 - **Selection.** A group of toggle buttons (`aria-pressed`), not ARIA tabs. Nothing is selected at first. Selecting a tile greys out the others (hover or focus restores them); selecting it again clears the selection. Below `md` the panel sits under the tiles and scrolls into view without moving focus.
-- **Panel.** After the vertical divider, in order: the product name, a **Go to** button in the tile's tone linking to the registry base URL, the description, then, for leaders only, **Leadership information** and a link to the full guide.
+- **Panel.** After the vertical divider, in order: the product name, a **Go to** button in the tile's tone linking to the registry base URL (unless `PRODUCT_TILES` sets `goTo: "primary"`, as Aplio's does: then it is the white `default` (primary) button), the description, then, for leaders only, **Leadership information** and a link to the full guide.
 - **Leadership is attached on the server only.** `toHomeProducts` adds the leadership groups and guide path only when the viewer is a leader, so a non-leader's page never contains them.
 - **Empty.** With no visible tools the page shows the empty copy; the "Around SGA" links still render.
 
@@ -77,9 +77,12 @@ The rays sit outside the widest content (`(app)` `main` is `max-w-5xl`, a 32rem 
 
 `/resources` (the general resources) and `/guides/[slug]` (Aplio, Chambers, VaultZ, SGA website) are for people who hold a leadership position. `loadLeadershipViewer` is the one place that decides access. A non-leader sees the `LeadershipOnly` empty state and nothing else.
 
-- **Link states.** A linked item shows an arrow and opens in the same tab. An item marked `comingSoon` shows a "Coming soon" badge. An item with no URL shows "Link coming soon" and is not focusable.
+- **Link states.** A linked item shows an arrow and opens in a new tab, with a screen-reader-only "(opens in a new tab)" after the label and `rel="noopener noreferrer"`. An item marked `comingSoon` shows a "Coming soon" badge. An item with no URL shows "Link coming soon" and is not focusable.
 - **Content lives only in `src/lib/home/resources.ts`.** No link without a source: an item with no URL ships as `href: null`.
-- Leadership gating is listing-level, not authorization. It mirrors `canViewProduct`: the content is internal links, and the decision is made server-side.
+- **Access is authorization.** The page rule is `canViewLeadershipResources` in `src/lib/authz.ts`: an ACTIVE user who holds at least one non-deleted leadership position. Admin status does not grant access. `loadLeadershipViewer` is its only caller for the pages, and the home "Leadership resources" tile uses the same function.
+- **Home-panel attachment is listing-level.** Attaching leadership groups to a product in `toHomeProducts` mirrors `canViewProduct`: the content is internal links, and the decision is made server-side.
+- **Topics on `/resources`,** in order: Operational Links, Finances, Common Application Portal (Aplio), Events, Events and media, Website changes, Leadership, Minutes and templates, Office access. The product guides follow.
+- **No product links.** A product guide does not repeat the product's own link: the panel's **Go to** button is that link. `/resources` does not link to a product either.
 
 ## Motion and accessibility
 
