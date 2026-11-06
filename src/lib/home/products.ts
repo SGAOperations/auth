@@ -7,13 +7,18 @@ import { guideForProduct, type ResourceGroup } from "@/lib/home/resources";
 
 export type TileTone = "violet" | "blue" | "red" | "green" | "neutral";
 
-export const PRODUCT_TILES: Record<string, { tone: TileTone; letter: string }> =
-  {
-    vaultz: { tone: "violet", letter: "Z" },
-    chambers: { tone: "blue", letter: "C" },
-    senateportal: { tone: "red", letter: "S" },
-    aplio: { tone: "green", letter: "A" },
-  };
+/** How the panel's "Go to" button is coloured: the tile's tone, or the primary button. */
+export type GoToStyle = "tone" | "primary";
+
+export const PRODUCT_TILES: Record<
+  string,
+  { tone: TileTone; letter: string; goTo?: GoToStyle }
+> = {
+  vaultz: { tone: "violet", letter: "Z" },
+  chambers: { tone: "blue", letter: "C" },
+  senateportal: { tone: "red", letter: "S" },
+  aplio: { tone: "green", letter: "A", goTo: "primary" },
+};
 
 /** SGAuth's own registry row is the page you are on, so it gets no tile. */
 export const SELF_PRODUCT_SLUG = "sgauth";
@@ -25,6 +30,7 @@ export interface HomeProduct {
   href: string;
   tone: TileTone;
   letter: string;
+  goTo: GoToStyle;
   /** An absolute same-origin URL of the product's icon, or null for the letter. */
   iconSrc: string | null;
   leadership: ResourceGroup[] | null;
@@ -32,7 +38,7 @@ export interface HomeProduct {
 }
 
 // An own-property lookup, so a slug like "__proto__" gets the fallback.
-function tileFor(slug: string): { tone: TileTone; letter: string } | null {
+function tileFor(slug: string): (typeof PRODUCT_TILES)[string] | null {
   return Object.hasOwn(PRODUCT_TILES, slug) ? PRODUCT_TILES[slug] : null;
 }
 
@@ -77,6 +83,7 @@ export function toHomeProducts(
         href: toolHref(tool.baseUrl),
         tone: tile?.tone ?? "neutral",
         letter: tile?.letter ?? toolLetter(tool.name),
+        goTo: tile?.goTo ?? "tone",
         iconSrc: sameOriginIconSrc(tool.iconUrl, ownOrigin),
         leadership: guide ? guide.groups : null,
         guidePath: guide ? guide.path : null,

@@ -6,6 +6,7 @@ import {
   canActOnTransfer,
   canSubmitAccessRequest,
   canUpdateOwnProfile,
+  canViewLeadershipResources,
   canViewOrgChart,
   type AuthzDenialReason,
   type AuthzSubject,
@@ -408,6 +409,37 @@ describe("canSubmitAccessRequest", () => {
       allowed: false,
       reason: "NOT_ACCESS_SUBMITTER",
     });
+  });
+});
+
+describe("canViewLeadershipResources", () => {
+  const leader = { isLeadership: true };
+  const notLeader = { isLeadership: false };
+
+  it("lets an active leader view", () => {
+    expect(canViewLeadershipResources(user, leader)).toEqual({ allowed: true });
+  });
+
+  it("denies an active non-leader", () => {
+    expect(canViewLeadershipResources(user, notLeader)).toEqual({
+      allowed: false,
+      reason: "NOT_LEADERSHIP",
+    });
+  });
+
+  it("does not let admin status stand in for a leadership position", () => {
+    expect(canViewLeadershipResources(admin, notLeader)).toEqual({
+      allowed: false,
+      reason: "NOT_LEADERSHIP",
+    });
+  });
+
+  it("denies deactivated and deleted leaders", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canViewLeadershipResources(subject("gone", { status }), leader),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
   });
 });
 
