@@ -270,6 +270,7 @@ model Position {
   holders              UserPosition[]
   retired              RetiredPositionKey?
   slackChannelMappings SlackChannelMapping[]
+  accessSubmitter      AccessSubmitterPosition?
 
   @@index([deletedAt])
   @@index([managerPositionId])
@@ -395,6 +396,15 @@ model SlackChannelMapping {
   createdAt      DateTime @default(now())
 
   @@unique([positionId, slackTeamId, slackChannelId])
+}
+
+/// The row allows the holders of this position to submit access requests from
+/// Slack (src/lib/access-submitters.ts). Rows of soft-deleted positions are
+/// ignored on read, and the next replace removes them.
+model AccessSubmitterPosition {
+  positionId String   @id
+  position   Position @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  addedAt    DateTime @default(now())
 }
 
 /// A single-use link a product DMs to a Slack user. Only the SHA-256 of the

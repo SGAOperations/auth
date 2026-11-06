@@ -634,6 +634,48 @@ describe("product lifecycle metadata", () => {
   });
 });
 
+describe("ACCESS_SUBMITTERS_UPDATED metadata", () => {
+  const event = (metadata: unknown, extra: object = {}) => ({
+    type: "ACCESS_SUBMITTERS_UPDATED",
+    actorType: "USER",
+    actorUserId: "u1",
+    metadata,
+    ...extra,
+  });
+
+  it.each([
+    [{ before: [], after: ["president"] }],
+    [{ before: ["president"], after: [] }],
+    [{ before: ["president"], after: ["president", "vp-finance"] }],
+    [{ before: ["president", "vp-finance"], after: ["president", "senator"] }],
+  ])("accepts %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).not.toThrow();
+  });
+
+  it.each([
+    [{}],
+    [{ before: [], after: [] }],
+    [{ before: ["a-b", "c-d"], after: ["c-d", "a-b"] }],
+    [{ before: [], after: ["president"], extra: 1 }],
+    [{ before: [], after: ["VP-Finance"] }],
+    [{ before: [], after: Array.from({ length: 51 }, (_, i) => `pos-${i}`) }],
+    [{ after: ["president"] }],
+  ])("rejects %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+
+  it("rejects a target", () => {
+    expect(() =>
+      parseAuditEvent(
+        event(
+          { before: [], after: ["president"] },
+          { targetType: "POSITION", targetId: "p1" },
+        ),
+      ),
+    ).toThrow(ZodError);
+  });
+});
+
 describe("PA_TRANSFER_CANCELLED metadata", () => {
   const event = (metadata: unknown) => ({
     type: "PA_TRANSFER_CANCELLED",
