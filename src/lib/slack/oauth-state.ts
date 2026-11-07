@@ -1,5 +1,10 @@
 import "server-only";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { toAuthSettings } from "@/lib/auth/settings";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
@@ -39,6 +44,14 @@ export const stateCookieSecure = (): boolean => isHttps();
 export const sha256Hex = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 
+/**
+ * The identifier a stored state is keyed by. It is keyed with the auth secret,
+ * so a leaked Verification table alone cannot be turned into valid states. The
+ * state is 256 random bits, so this is an index key, not a password hash.
+ */
+const stateDigest = (state: string) =>
+  createHmac("sha256", env.BETTER_AUTH_SECRET).update(state).digest("hex");
+
 export function sameString(a: string, b: string): boolean {
   const left = Buffer.from(sha256Hex(a), "hex");
   const right = Buffer.from(sha256Hex(b), "hex");
@@ -58,7 +71,7 @@ export async function createOAuthState(
   const state = randomBytes(32).toString("base64url");
   await prisma.verification.create({
     data: {
-      identifier: `${prefix}${sha256Hex(state)}`,
+      identifier: `${prefix}${stateDigest(state)}`,
       value: JSON.stringify({ userId, ...extra }),
       expiresAt: new Date(now.getTime() + OAUTH_STATE_TTL_MS),
     },
@@ -82,7 +95,7 @@ export async function consumeOAuthState(
 
   const row = await prisma.verification.findFirst({
     where: {
-      identifier: `${prefix}${sha256Hex(state)}`,
+      identifier: `${prefix}${stateDigest(state)}`,
       expiresAt: { gt: now },
     },
     select: { id: true, value: true },
