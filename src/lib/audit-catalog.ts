@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { positionKeySchema } from "./position-key";
 
 // Pure on purpose: loads in Next, Vitest and the ops scripts under plain Node,
 // where `server-only` throws. Runtime helpers live in audit.ts.
@@ -37,6 +38,7 @@ export const AUDIT_EVENT_TYPES = [
   "PRODUCT_DELETED",
   "PRODUCT_API_KEY_CREATED",
   "PRODUCT_API_KEY_REVOKED",
+  "ACCESS_SUBMITTERS_UPDATED",
   "PA_TRANSFER_INITIATED",
   "PA_TRANSFER_ACCEPTED",
   "PA_TRANSFER_CANCELLED",
@@ -202,6 +204,18 @@ const productApiKeyMetadata = productSlugMetadata.extend({
   keyId: z.uuid(),
   prefix: z.string().regex(/^[a-z0-9]{12}$/),
 });
+
+// The position keys allowed to submit access requests (#340). Keys are not PII.
+const submitterKeyList = z.array(positionKeySchema).max(50);
+
+const accessSubmittersMetadata = z
+  .strictObject({ before: submitterKeyList, after: submitterKeyList })
+  .refine(
+    ({ before, after }) =>
+      before.length !== after.length ||
+      !before.every((key) => after.includes(key)),
+    { message: "an update must change the list" },
+  );
 
 const hasChange = (changes: Record<string, unknown>) =>
   Object.keys(changes).length > 0;
@@ -431,6 +445,11 @@ export const AUDIT_CATALOG = {
   PRODUCT_API_KEY_REVOKED: {
     targetType: "PRODUCT",
     metadata: productApiKeyMetadata,
+  },
+  // The list is global, so the event has no target.
+  ACCESS_SUBMITTERS_UPDATED: {
+    targetType: null,
+    metadata: accessSubmittersMetadata,
   },
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,

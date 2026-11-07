@@ -50,8 +50,8 @@ function slackConsentConfig(): SlackConsentConfig | null {
 }
 
 /** The user's status and whether they hold an active leadership position. */
-async function loadGrantor(userId: string) {
-  const user = await prisma.user.findUnique({
+async function loadGrantor(db: Pick<typeof prisma, "user">, userId: string) {
+  const user = await db.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -72,7 +72,7 @@ async function loadGrantor(userId: string) {
 }
 
 async function mayGrant(userId: string): Promise<boolean> {
-  const grantor = await loadGrantor(userId);
+  const grantor = await loadGrantor(prisma, userId);
   return (
     grantor !== null &&
     canGrantSlackProfileAccess(grantor.subject, grantor).allowed
@@ -163,6 +163,18 @@ export async function finishSlackProfileAccess(
 
   const actor = { actorType: "USER", actorUserId: userId } as const;
   const result = await withAuditTransaction(prisma, async (tx) => {
+    // Lock the user row, then re-check leadership and status here, so a
+    // deactivation or position change that lands after the pre-check above
+    // cannot leave a token stored for someone who may no longer grant it.
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    const grantor = await loadGrantor(tx, userId);
+    if (
+      grantor === null ||
+      !canGrantSlackProfileAccess(grantor.subject, grantor).allowed
+    ) {
+      return { outcome: "not_leadership" } as const;
+    }
+
     const identity = await tx.slackIdentity.findUnique({
       where: { userId },
       select: { slackTeamId: true, slackUserId: true },

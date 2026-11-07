@@ -5,6 +5,7 @@ import {
   can,
   canActOnTransfer,
   canGrantSlackProfileAccess,
+  canSubmitAccessRequest,
   canUpdateOwnProfile,
   canViewLeadershipResources,
   canViewOrgChart,
@@ -343,6 +344,72 @@ describe("canViewOrgChart", () => {
         reason: "ACTOR_INACTIVE",
       });
     }
+  });
+});
+
+describe("canSubmitAccessRequest", () => {
+  const listed = ["president", "vp-finance"];
+
+  it("allows a holder of a listed position", () => {
+    expect(canSubmitAccessRequest(user, ["president"], listed)).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("allows a holder of several positions when only one is listed", () => {
+    expect(
+      canSubmitAccessRequest(user, ["senator", "vp-finance", "member"], listed),
+    ).toEqual({ allowed: true });
+  });
+
+  it("denies a user who holds no positions", () => {
+    expect(canSubmitAccessRequest(user, [], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+  });
+
+  it("denies a user whose positions are all unlisted", () => {
+    expect(canSubmitAccessRequest(user, ["senator", "member"], listed)).toEqual(
+      { allowed: false, reason: "NOT_ACCESS_SUBMITTER" },
+    );
+  });
+
+  it("denies everyone when the list is empty", () => {
+    expect(canSubmitAccessRequest(user, ["president"], [])).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+  });
+
+  it("denies an inactive actor who holds a listed position", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canSubmitAccessRequest(
+          subject("gone", { status }),
+          ["president"],
+          ["president"],
+        ),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
+  });
+
+  it("grants an admin nothing without a listed position", () => {
+    expect(canSubmitAccessRequest(pa, ["senator"], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+    expect(canSubmitAccessRequest(admin, [], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+  });
+
+  it("matches keys exactly, with no case folding", () => {
+    expect(canSubmitAccessRequest(user, ["VP-Finance"], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
   });
 });
 
