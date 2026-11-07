@@ -423,6 +423,26 @@ describe("parseServerEnv", () => {
       expect(message).not.toContain(bad);
     });
   });
+
+  describe("Slack signing secret", () => {
+    it("is optional", () => {
+      expect(parseServerEnv(valid).SLACK_SIGNING_SECRET).toBeUndefined();
+    });
+
+    it("counts empty as unset", () => {
+      expect(
+        parseServerEnv({ ...valid, SLACK_SIGNING_SECRET: "" })
+          .SLACK_SIGNING_SECRET,
+      ).toBeUndefined();
+    });
+
+    it("is not part of the Connect Slack group", () => {
+      expect(
+        parseServerEnv({ ...valid, SLACK_SIGNING_SECRET: "signing-secret" })
+          .SLACK_SIGNING_SECRET,
+      ).toBe("signing-secret");
+    });
+  });
 });
 
 describe("parseVersionedSecrets", () => {
