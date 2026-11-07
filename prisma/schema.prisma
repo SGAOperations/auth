@@ -64,7 +64,8 @@ model User {
   productApiKeysCreated          ProductApiKey[]
   slackIdentity                  SlackIdentity?
   slackUserToken                 SlackUserToken?
-  slackChannelMappingsCreated   SlackChannelMapping[]  @relation("SlackChannelMappingCreatedBy")
+  slackChannelMappingsCreated    SlackChannelMapping[]  @relation("SlackChannelMappingCreatedBy")
+  accessRequests                 AccessRequest[]
   primaryAdminTransfersFrom      PrimaryAdminTransfer[] @relation("PrimaryAdminTransferFrom")
   primaryAdminTransfersTo        PrimaryAdminTransfer[] @relation("PrimaryAdminTransferTo")
   primaryAdminTransfersCancelled PrimaryAdminTransfer[] @relation("PrimaryAdminTransferCancelledBy")
@@ -440,6 +441,29 @@ model SlackLinkToken {
   createdAt   DateTime  @default(now())
 
   @@index([expiresAt])
+}
+
+/// A request for access to an external product, made from Slack. Rows are never
+/// edited; the tombstone clears `requesterId` and keeps the row for the audit
+/// trail. The position is a snapshot, not an FK: positions are soft-deleted and
+/// their keys can be reused. The access_request migration adds the CHECKs
+/// `AccessRequest_product_length_check`, `AccessRequest_access_length_check`
+/// and `AccessRequest_position_snapshot_check`, which Prisma cannot express;
+/// the limits mirror src/lib/access-requests/limits.ts.
+model AccessRequest {
+  id           String   @id @default(uuid(7))
+  requesterId  String?
+  requester    User?    @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  positionKey  String
+  positionName String
+  /// free text: the external product asked about
+  product      String
+  /// free text: the access asked for
+  access       String
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([requesterId])
 }
 
 /// At most one transfer may be PENDING_ACCEPTANCE or COOLING, enforced by the

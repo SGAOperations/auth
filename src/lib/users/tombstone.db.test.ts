@@ -23,6 +23,14 @@ import type { PrismaClient } from "@/generated/prisma/client";
 const actorOf = (user: { id: string }) =>
   ({ actorType: "USER", actorUserId: user.id }) as const;
 
+const ACCESS_REQUEST_ROW = (requesterId: string, product: string) => ({
+  requesterId,
+  positionKey: "president",
+  positionName: "President",
+  product,
+  access: "Editor",
+});
+
 async function richUser() {
   const user = await createUser({
     password: "correct-horse-battery-staple",
@@ -70,6 +78,12 @@ async function richUser() {
         linkedVia: "IMPORT",
       },
     }),
+    prisma.accessRequest.createMany({
+      data: [
+        ACCESS_REQUEST_ROW(user.id, "Aplio"),
+        ACCESS_REQUEST_ROW(user.id, "Events"),
+      ],
+    }),
     prisma.verification.createMany({
       data: [
         {
@@ -100,6 +114,16 @@ describe("tombstoneUser", () => {
 
   it("scrubs the row, removes what hangs off it and keeps the id", async () => {
     const { user, positions } = await richUser();
+    const requestIds = (
+      await prisma.accessRequest.findMany({
+        where: { requesterId: user.id },
+        select: { id: true },
+      })
+    ).map((r) => r.id);
+    const other = await createUser();
+    const otherRequest = await prisma.accessRequest.create({
+      data: ACCESS_REQUEST_ROW(other.id, "Aplio"),
+    });
     const priorEvent = await prisma.auditEvent.create({
       data: {
         type: "LOGIN_SUCCESS",
@@ -143,6 +167,27 @@ describe("tombstoneUser", () => {
     expect(await prisma.accountLock.count({ where })).toBe(0);
     expect(await prisma.userPosition.count({ where })).toBe(0);
     expect(await prisma.slackIdentity.count({ where })).toBe(0);
+
+    // The requests stay, with only the link to the person gone.
+    const requests = await prisma.accessRequest.findMany({
+      where: { id: { in: requestIds } },
+      orderBy: { product: "asc" },
+    });
+    expect(requests).toHaveLength(2);
+    for (const request of requests) {
+      expect(request).toMatchObject({
+        requesterId: null,
+        positionKey: "president",
+        positionName: "President",
+        access: "Editor",
+      });
+    }
+    expect(requests.map((r) => r.product)).toEqual(["Aplio", "Events"]);
+    expect(
+      await prisma.accessRequest.findUniqueOrThrow({
+        where: { id: otherRequest.id },
+      }),
+    ).toMatchObject({ requesterId: other.id, product: "Aplio" });
     expect(
       await prisma.verification.count({
         where: { OR: [{ value: user.id }, { identifier: user.email }] },
