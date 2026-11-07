@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { betterAuth } from "better-auth";
 
 const mocks = vi.hoisted(() => ({
@@ -48,6 +48,7 @@ import { prisma } from "@/lib/prisma";
 import { createRateLimiter } from "@/lib/rate-limit/limiter";
 import { createMemoryBackend } from "@/lib/rate-limit/memory-backend";
 import { createSetPasswordService } from "@/lib/set-password/service";
+import { encryptSlackToken } from "@/lib/slack/user-token";
 import {
   buildSessionEndpointDeps,
   createSessionEndpoint,
@@ -645,6 +646,89 @@ describe("the eight actions", () => {
       targetType: "USER",
       metadata: { revokedSessions: 2 },
       ip: IP,
+    });
+  });
+
+  describe("deactivate and the Slack title token (#358)", () => {
+    const slackFetch = vi.fn<typeof fetch>();
+
+    async function userWithToken(overrides: { status?: "DEACTIVATED" } = {}) {
+      const user = await createUser(overrides);
+      await prisma.slackUserToken.create({
+        data: {
+          userId: user.id,
+          slackTeamId: "T0TEST",
+          slackUserId: `U${user.id.replaceAll("-", "").slice(-8).toUpperCase()}`,
+          scopes: "users.profile:write,users.profile:read",
+          token: await encryptSlackToken("xoxp-handlers-test"),
+        },
+      });
+      return user;
+    }
+
+    beforeEach(() => {
+      slackFetch.mockReset();
+      slackFetch.mockImplementation(async () =>
+        Response.json({ ok: true, revoked: true }),
+      );
+      vi.stubGlobal("fetch", slackFetch);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("deletes the token, audits it as the admin and revokes it after the commit", async () => {
+      const user = await userWithToken();
+      const { response, rows } = await withAudit(user.id, () =>
+        act(user.id, "deactivate"),
+      );
+      expect(response.status).toBe(200);
+      expect(
+        await prisma.slackUserToken.count({ where: { userId: user.id } }),
+      ).toBe(0);
+      expect(rows.map((row) => row.type).sort()).toEqual([
+        "SLACK_TOKEN_REVOKED",
+        "USER_DEACTIVATED",
+      ]);
+      expect(
+        rows.find((row) => row.type === "SLACK_TOKEN_REVOKED"),
+      ).toMatchObject({
+        actorUserId: admin.id,
+        metadata: { reason: "deactivated", slackTeamId: "T0TEST" },
+      });
+      expect(slackFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = slackFetch.mock.calls[0];
+      expect(url).toBe("https://slack.com/api/auth.revoke");
+      expect(init?.headers).toEqual({
+        Authorization: "Bearer xoxp-handlers-test",
+      });
+    });
+
+    it("keeps the token, and revokes nothing, when the deactivation does not happen", async () => {
+      const user = await userWithToken({ status: "DEACTIVATED" });
+      const response = await act(user.id, "deactivate");
+      expect(response.status).toBe(409);
+      expect(
+        await prisma.slackUserToken.count({ where: { userId: user.id } }),
+      ).toBe(1);
+      expect(slackFetch).not.toHaveBeenCalled();
+    });
+
+    it("audits a failed revoke against the admin and still deactivates", async () => {
+      slackFetch.mockImplementation(async () =>
+        Response.json({ ok: false, error: "ratelimited" }),
+      );
+      const user = await userWithToken();
+      const { response, rows } = await withAudit(user.id, () =>
+        act(user.id, "deactivate"),
+      );
+      expect(response.status).toBe(200);
+      expect(
+        rows.find((row) => row.type === "SLACK_TOKEN_REVOKE_FAILED"),
+      ).toMatchObject({
+        actorUserId: admin.id,
+        metadata: { reason: "deactivated", slackError: "ratelimited" },
+      });
     });
   });
 

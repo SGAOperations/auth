@@ -63,6 +63,7 @@ model User {
   productsCreated                Product[]
   productApiKeysCreated          ProductApiKey[]
   slackIdentity                  SlackIdentity?
+  slackUserToken                 SlackUserToken?
   slackChannelMappingsCreated    SlackChannelMapping[]  @relation("SlackChannelMappingCreatedBy")
   accessRequests                 AccessRequest[]
   primaryAdminTransfersFrom      PrimaryAdminTransfer[] @relation("PrimaryAdminTransferFrom")
@@ -359,6 +360,7 @@ model ProductApiKey {
 enum SlackLinkSource {
   SLACK_COMMAND
   SLACK_OPENID
+  SLACK_OAUTH
   IMPORT
 }
 
@@ -375,6 +377,23 @@ model SlackIdentity {
   productId   String?
   product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   linkedAt    DateTime        @default(now())
+
+  @@unique([slackTeamId, slackUserId])
+}
+
+/// The xoxp- user token a leader granted with `users.profile:write`
+/// (src/lib/slack/user-token.ts). `token` is the encrypted envelope, never the
+/// token. A row exists only while the user's SlackIdentity names the same Slack
+/// user; every path that ends the grant deletes it and writes an audit row.
+model SlackUserToken {
+  id          String   @id @default(uuid(7))
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slackTeamId String
+  slackUserId String
+  scopes      String
+  token       String
+  grantedAt   DateTime @default(now())
 
   @@unique([slackTeamId, slackUserId])
 }

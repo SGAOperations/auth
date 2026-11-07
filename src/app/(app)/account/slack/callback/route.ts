@@ -3,11 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { limitRequest } from "@/lib/rate-limit/server";
 import { slackResultPath } from "@/lib/slack/result";
-import {
-  finishSlackConnect,
-  slackStateCookieName,
-  slackStateCookieSecure,
-} from "@/lib/slack/service";
+import { stateCookieName, stateCookieSecure } from "@/lib/slack/oauth-state";
+import { finishSlackConnect } from "@/lib/slack/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,9 +18,9 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(new URL(path, request.url), 303);
     // Set rather than delete(): a __Host- cookie is only cleared by a
     // Set-Cookie that is itself Secure with path=/.
-    response.cookies.set(slackStateCookieName(), "", {
+    response.cookies.set(stateCookieName("connect"), "", {
       httpOnly: true,
-      secure: slackStateCookieSecure(),
+      secure: stateCookieSecure(),
       sameSite: "lax",
       path: "/",
       maxAge: 0,
@@ -48,7 +45,7 @@ export async function GET(request: NextRequest) {
   const outcome = await finishSlackConnect(user.id, {
     state,
     code,
-    cookieState: (await cookies()).get(slackStateCookieName())?.value,
+    cookieState: (await cookies()).get(stateCookieName("connect"))?.value,
   });
   return back(slackResultPath(outcome));
 }

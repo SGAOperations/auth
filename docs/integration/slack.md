@@ -4,7 +4,7 @@ How a product's Slack app finds out which SGAuth user is behind a Slack user (#3
 
 ## What SGAuth stores
 
-`SlackIdentity`: one Slack account per SGAuth user, and one SGAuth user per Slack account, in one workspace (`SLACK_TEAM_ID`). It records how the link was made (`SLACK_COMMAND`, `SLACK_OPENID` or `IMPORT`) and, for a link token, which product issued it. Unlinking or deleting the user removes it. A deactivated user's link stays, but no product can see it until the user is reactivated.
+`SlackIdentity`: one Slack account per SGAuth user, and one SGAuth user per Slack account, in one workspace (`SLACK_TEAM_ID`). It records how the link was made (`SLACK_COMMAND`, `SLACK_OPENID`, `SLACK_OAUTH` or `IMPORT`) and, for a link token, which product issued it. Unlinking or deleting the user removes it. A deactivated user's link stays, but no product can see it until the user is reactivated.
 
 ## How a person links Slack
 
@@ -63,6 +63,22 @@ Answers `{ "url": "https://auth.northeasternsga.com/account/slack/link?token=…
 
 1. Create a Slack app for SGAuth in the SGA workspace. Under **OAuth & Permissions**, add the redirect URL `https://<sgauth host>/account/slack/callback` for each environment, and the user scope `openid`.
 2. Set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` and `SLACK_TEAM_ID` per Vercel scope ([ENVIRONMENTS.md](../ENVIRONMENTS.md)).
+
+## Slack title updates (#358)
+
+A separate consent from Connect Slack, for leaders only. **Allow Slack title updates** on the account page runs Slack's OAuth v2 install on the same Slack app, asking for the user scopes `users.profile:write` and `users.profile:read` and no bot scope, so Slack issues no bot token. Slack returns an `xoxp-` token in `authed_user.access_token`. SGAuth accepts it only when all of these hold: the workspace is `SLACK_TEAM_ID`, `token_type` is `user`, both scopes were granted, and the response carries no `refresh_token` or `expires_in` (token rotation is not supported, so a rotating token is refused). A token SGAuth receives and does not keep is revoked at once.
+
+The token is stored encrypted in `SlackUserToken` (see [DATA_HANDLING.md](../DATA_HANDLING.md)). If the user has no linked Slack account, the consent links the one that approved it (`SLACK_LINKED` with `via: slack_oauth`). An approval from a different Slack account than the linked one stores nothing.
+
+It is deleted, audited as `SLACK_TOKEN_REVOKED` in the same transaction, and revoked at Slack with `auth.revoke` after the commit, when the user stops title updates, unlinks Slack, links a different Slack account, is deactivated, or is deleted. Losing a leadership position does not revoke it: clearing the title needs the token. A failed `auth.revoke` writes `SLACK_TOKEN_REVOKE_FAILED`, which means a live token may remain at Slack. Remove the app's authorization for that person in Slack admin.
+
+### Setting it up
+
+In addition to Connect Slack's setup, under **OAuth & Permissions** of the same Slack app:
+
+1. Add the redirect URL `https://<sgauth host>/account/slack/profile-access/callback` for each environment.
+2. Add the **User Token Scopes** `users.profile:write` and `users.profile:read`. Add no bot scope.
+3. Leave **Token Rotation** off. Slack does not allow turning it off once on, and SGAuth refuses a rotating token.
 
 ## Moving a product's existing links
 

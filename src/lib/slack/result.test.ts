@@ -19,6 +19,17 @@ describe("slack results", () => {
     }
   });
 
+  it.each([
+    "title_updates_allowed",
+    "title_updates_stopped",
+    "consent_declined",
+    "different_account",
+    "not_leadership",
+    "missing_scope",
+  ])("has copy for the title-update outcome %s", (key) => {
+    expect(slackResultMessage(key)?.message).toBeTruthy();
+  });
+
   it.each([undefined, "", "constructor", "toString", "nope"])(
     "shows nothing for %s",
     (value) => {
