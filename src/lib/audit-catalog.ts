@@ -57,6 +57,9 @@ export const AUDIT_EVENT_TYPES = [
   "PASSKEY_REMOVED",
   "SLACK_LINKED",
   "SLACK_UNLINKED",
+  "SLACK_TOKEN_GRANTED",
+  "SLACK_TOKEN_REVOKED",
+  "SLACK_TOKEN_REVOKE_FAILED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
   "AUDIT_EXPORTED",
@@ -101,6 +104,19 @@ const transferTarget = {
 } as const;
 const noTarget = { targetType: null, metadata: noMetadata } as const;
 const sessionTarget = { targetType: "SESSION", metadata: noMetadata } as const;
+
+/** Why a stored Slack user token was deleted and revoked. */
+export const SLACK_TOKEN_REASONS = [
+  "withdrawn",
+  "unlinked",
+  "relinked",
+  "deactivated",
+  "deleted",
+] as const;
+
+export type SlackTokenReason = (typeof SLACK_TOKEN_REASONS)[number];
+
+const slackTokenReason = z.enum(SLACK_TOKEN_REASONS);
 
 const positionOnUser = {
   targetType: "USER",
@@ -512,7 +528,7 @@ export const AUDIT_CATALOG = {
   SLACK_LINKED: {
     targetType: "USER",
     metadata: z.strictObject({
-      via: z.enum(["slack_command", "slack_openid"]),
+      via: z.enum(["slack_command", "slack_openid", "slack_oauth"]),
       slackTeamId: z.string().min(1).max(32),
       slackUserId: z.string().min(1).max(32),
       productSlug: z.string().min(2).max(64).optional(),
@@ -525,6 +541,34 @@ export const AUDIT_CATALOG = {
     metadata: z.strictObject({
       slackTeamId: z.string().min(1).max(32),
       slackUserId: z.string().min(1).max(32),
+    }),
+  },
+  // The user let SGAuth edit their Slack profile (#358). Never carries the
+  // token or any part of it; `replaced` says an earlier grant was overwritten.
+  SLACK_TOKEN_GRANTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      slackTeamId: z.string().min(1).max(32),
+      slackUserId: z.string().min(1).max(32),
+      scopes: z.array(z.string().min(1).max(64)).max(16),
+      replaced: z.boolean(),
+    }),
+  },
+  // The stored token was deleted. `reason` is the path that ended the grant.
+  SLACK_TOKEN_REVOKED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: slackTokenReason,
+      slackTeamId: z.string().min(1).max(32),
+    }),
+  },
+  // Slack's auth.revoke failed after the row was deleted, so a live token may
+  // remain at Slack. `slackError` is Slack's error code, or `network`.
+  SLACK_TOKEN_REVOKE_FAILED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: slackTokenReason,
+      slackError: z.string().min(1).max(64),
     }),
   },
   // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
@@ -596,6 +640,7 @@ export const AUDIT_PII_METADATA_FIELDS = {
   EMAIL_CHANGED: ["fromEmail", "toEmail"],
   SLACK_LINKED: ["slackUserId"],
   SLACK_UNLINKED: ["slackUserId"],
+  SLACK_TOKEN_GRANTED: ["slackUserId"],
 } as const satisfies Partial<Record<AuditEventType, readonly string[]>>;
 
 export type AuditMetadata<T extends AuditEventType> = z.input<

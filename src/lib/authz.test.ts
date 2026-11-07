@@ -4,6 +4,7 @@ import {
   USER_ACTIONS,
   can,
   canActOnTransfer,
+  canGrantSlackProfileAccess,
   canUpdateOwnProfile,
   canViewLeadershipResources,
   canViewOrgChart,
@@ -371,6 +372,32 @@ describe("canViewLeadershipResources", () => {
     for (const status of ["DEACTIVATED", "DELETED"] as const) {
       expect(
         canViewLeadershipResources(subject("gone", { status }), leader),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
+  });
+});
+
+describe("canGrantSlackProfileAccess", () => {
+  const leader = { isLeadership: true };
+  const notLeader = { isLeadership: false };
+
+  it("lets an active leader grant", () => {
+    expect(canGrantSlackProfileAccess(user, leader)).toEqual({ allowed: true });
+  });
+
+  it("denies an active non-leader, admin or not", () => {
+    for (const actor of [user, admin, pa]) {
+      expect(canGrantSlackProfileAccess(actor, notLeader)).toEqual({
+        allowed: false,
+        reason: "NOT_LEADERSHIP",
+      });
+    }
+  });
+
+  it("denies deactivated and deleted leaders", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canGrantSlackProfileAccess(subject("gone", { status }), leader),
       ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
     }
   });

@@ -217,6 +217,19 @@ export function canViewLeadershipResources(
   return viewer.isLeadership ? allow : deny("NOT_LEADERSHIP");
 }
 
+/**
+ * Whether `actor` may let SGAuth edit their Slack profile (#358): an ACTIVE
+ * user who holds a non-deleted leadership position, the same rule as the
+ * leadership resources. Only the grant is gated. Withdrawing is self-only and
+ * never checks leadership, so consent can always be taken back.
+ */
+export function canGrantSlackProfileAccess(
+  actor: AuthzSubject,
+  viewer: { isLeadership: boolean },
+): AuthzDecision {
+  return canViewLeadershipResources(actor, viewer);
+}
+
 /** The two people a Primary Admin transfer names. */
 export type TransferParties = { fromUserId: string; toUserId: string };
 
