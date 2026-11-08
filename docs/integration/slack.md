@@ -98,6 +98,17 @@ In the SGAssist Slack app, under **Slash Commands**, for each environment:
 2. Under the same command, turn on **Escape channels, users, and links sent to your app**. Without it a mention arrives as plain text and gets the usage reply.
 3. Set `SLACK_SIGNING_SECRET` for the environment ([ENVIRONMENTS.md](../ENVIRONMENTS.md)). Every request is refused while it is unset.
 
+## Title sync (#359)
+
+A scheduled job writes each consenting leader's title to their own Slack profile. Run it with the [runbook](../runbooks/slack-title-sync.md).
+
+- **Who.** Holders of a `SlackUserToken` in `SLACK_TITLE_SYNC_TEAM_ID` whose user is active and holds at least one active leadership position. Everyone else is skipped; clearing titles on loss of leadership is #360.
+- **What is written.** The leadership position names joined with `|`, to both the Slack **Title** and a custom text field labelled `Active Leadership`. A workspace admin must create that field as a text field members can edit. If it is missing, the run fails before any write.
+- **Read-back.** After every write the profile is read again. The person counts as synced only when both values match what was sent (after undoing Slack's escaping of `&`, `<` and `>`). Otherwise it is a mismatch: logged, audited as `SLACK_TITLE_MISMATCH`, and not counted as synced. A match is audited as `SLACK_TITLE_SET`.
+- **Revoked tokens.** When Slack reports a token dead, the `SlackUserToken` row is deleted and `SLACK_TOKEN_REVOKED` is audited with reason `revoked_at_slack`. The run counts it as `unlinked`, not as an error. The `SlackIdentity` stays: the person lost title consent, not their Slack link.
+- **Pacing.** One Slack call at a time, at least 750 ms apart, and 1.5 s between writes. An HTTP 429 stops the run, and so does a 35 s time budget. Each run starts with the least recently checked people, so later runs finish the rest.
+- **Off by default.** The job does nothing, and does not touch the database, unless `SLACK_TITLE_SYNC_TEAM_ID` is set.
+
 ## Moving a product's existing links
 
 A product that already linked Slack users exports `{ sgauthUserId, slackUserId }` pairs and an operator imports them with `npm run import:slack-links`. See [slack-link-import.md](../runbooks/slack-link-import.md).

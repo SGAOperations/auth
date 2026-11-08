@@ -330,6 +330,13 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     module: "src/lib/users/tombstone.ts",
     events: ["USER_DELETED"],
   },
+  // The title sync writes SLACK_TITLE_SET or SLACK_TITLE_MISMATCH for each person
+  // it writes, and SLACK_TOKEN_REVOKED when Slack says a token is dead.
+  "src/app/api/jobs/slack-titles/route.ts": {
+    kind: "job",
+    module: "src/lib/slack/title-sync.ts",
+    events: ["SLACK_TITLE_SET", "SLACK_TITLE_MISMATCH", "SLACK_TOKEN_REVOKED"],
+  },
 };
 
 const NO_SOCIAL = "no social providers are configured";

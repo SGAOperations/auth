@@ -59,6 +59,8 @@ const EXEMPT: Record<string, string> = {
     "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
   "src/app/api/jobs/retention/route.ts":
     "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
+  "src/app/api/jobs/slack-titles/route.ts":
+    "Scheduled job called by GitHub Actions; jobRoute requires the CRON_SECRET bearer token, and the job acts on system state, not on a caller",
 };
 
 // Thin route binders whose logic lives in a handler module. A binder counts as

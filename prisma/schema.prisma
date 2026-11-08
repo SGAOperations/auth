@@ -386,14 +386,19 @@ model SlackIdentity {
 /// token. A row exists only while the user's SlackIdentity names the same Slack
 /// user; every path that ends the grant deletes it and writes an audit row.
 model SlackUserToken {
-  id          String   @id @default(uuid(7))
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  slackTeamId String
-  slackUserId String
-  scopes      String
-  token       String
-  grantedAt   DateTime @default(now())
+  id             String    @id @default(uuid(7))
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slackTeamId    String
+  slackUserId    String
+  scopes         String
+  token          String
+  grantedAt      DateTime  @default(now())
+  /// The last title sync run that processed this person, whatever the outcome.
+  /// Written by the job only; orders the next run's candidates.
+  titleCheckedAt DateTime?
+  /// The last time the title sync's read-back matched what it wrote.
+  titleSyncedAt  DateTime?
 
   @@unique([slackTeamId, slackUserId])
 }
