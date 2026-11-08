@@ -208,6 +208,13 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
       "PRODUCT_API_KEY_REVOKED",
     ],
   },
+  // The access-submitter positions admin screen (#343). The service writes the
+  // row in the same transaction as the list change; a no-op save writes none.
+  "src/app/(app)/admin/access-submitters/actions.ts": {
+    kind: "audited",
+    events: ["ACCESS_SUBMITTERS_UPDATED"],
+    emittedIn: ["src/lib/access-submitters.ts"],
+  },
   // Slack linking on the account page (#313, #314) and the title-update consent
   // (#358). The services write each row in the same transaction as the link,
   // unlink, grant or withdrawal.
