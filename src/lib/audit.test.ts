@@ -1166,3 +1166,32 @@ describe("audit", () => {
     expect(create).not.toHaveBeenCalled();
   });
 });
+
+describe("SLACK_MANDATE_BLOCKED metadata", () => {
+  const event = (metadata: unknown, extra: object = {}) => ({
+    type: "SLACK_MANDATE_BLOCKED",
+    actorType: "SYSTEM",
+    targetType: "USER",
+    targetId: "u1",
+    metadata,
+    ...extra,
+  });
+
+  it.each(["session", "token"])("accepts surface %s", (surface) => {
+    expect(() => parseAuditEvent(event({ surface }))).not.toThrow();
+  });
+
+  it.each([
+    [{ surface: "admin" }],
+    [{}],
+    [{ surface: "session", userId: "u1" }],
+  ])("rejects %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+
+  it("targets a user", () => {
+    expect(() =>
+      parseAuditEvent(event({ surface: "token" }, { targetType: "POSITION" })),
+    ).toThrow(ZodError);
+  });
+});

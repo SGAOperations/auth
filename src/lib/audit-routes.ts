@@ -518,6 +518,6 @@ export const AUTH_ENDPOINT_AUDIT: Record<string, AuditCoverage> = {
   "/token": {
     kind: "exempt",
     reason:
-      "mints a 10-minute JWT from an existing session; no state change; refreshed about every 9 minutes, so auditing it would flood the append-only table",
+      "mints a 10-minute JWT from an existing session; no state change; refreshed about every 9 minutes, so auditing it would flood the append-only table; a Slack mandate refusal writes the deduplicated SLACK_MANDATE_BLOCKED from src/lib/slack/mandate.ts",
   },
 };

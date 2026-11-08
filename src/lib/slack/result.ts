@@ -32,6 +32,11 @@ export function slackResultPath(result: SlackResult): string {
   return `/account?slack=${result}#slack`;
 }
 
+/** Where a finished step lands when the flow started on /login (#361). */
+export function slackLoginResultPath(result: SlackResult): string {
+  return `/login?slack=${result}`;
+}
+
 /** The message for a `?slack=` value, or null for none or an unknown one. */
 export function slackResultMessage(
   value: string | string[] | undefined,

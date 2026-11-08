@@ -346,6 +346,99 @@ describe("GET /api/sgauth/session against the database", () => {
     }, 300_000);
   });
 
+  describe("with the Slack mandate on", () => {
+    const blocked: string[] = [];
+    const mandateEndpoint = createSessionEndpoint(
+      buildSessionEndpointDeps({
+        auth,
+        prisma,
+        limiter: createRateLimiter({
+          backend: createMemoryBackend(),
+          log: { error: () => undefined },
+        }),
+        log: { warn: () => undefined },
+        slackMandate: {
+          enabled: true,
+          recordBlock: async (userId) => {
+            blocked.push(userId);
+          },
+        },
+      }),
+    );
+
+    async function signedInLeader() {
+      const signedIn = await signedInUser();
+      const position = await createPosition({ isLeadership: true });
+      await prisma.userPosition.create({
+        data: { userId: signedIn.user.id, positionId: position.id },
+      });
+      return signedIn;
+    }
+
+    it("answers a leader without a SlackUserToken 401, then 200 once one is stored", async () => {
+      const { user, cookie } = await signedInLeader();
+
+      await expectUnauthenticated(
+        await mandateEndpoint.full(sessionRequest(cookie)),
+      );
+      await expectUnauthenticated(
+        await mandateEndpoint.minimal(sessionRequest(cookie)),
+      );
+      expect(blocked.filter((id) => id === user.id)).toHaveLength(2);
+
+      await prisma.slackUserToken.create({
+        data: {
+          userId: user.id,
+          slackTeamId: "T0MANDATE",
+          slackUserId: `U${user.id.slice(-10).toUpperCase()}`,
+          scopes: "users.profile:write,users.profile:read",
+          token: "ciphertext-not-a-real-token",
+        },
+      });
+
+      const response = await mandateEndpoint.full(sessionRequest(cookie));
+      expect(response.status).toBe(200);
+      const raw: unknown = await response.json();
+      const body = sessionResponseSchema.parse(raw);
+      expect(Object.keys(body.user).sort()).toEqual([
+        "email",
+        "id",
+        "isAdmin",
+        "isPrimaryAdmin",
+        "name",
+        "preferredName",
+      ]);
+      expect(Object.keys(body).sort()).toEqual([
+        "positions",
+        "session",
+        "user",
+      ]);
+      expect(JSON.stringify(raw)).not.toMatch(/slack|leadership/i);
+    });
+
+    it("never blocks a non-leader without a Slack link", async () => {
+      const { user, cookie } = await signedInUser();
+
+      const response = await mandateEndpoint.full(sessionRequest(cookie));
+      expect(response.status).toBe(200);
+      expect(blocked).not.toContain(user.id);
+    });
+
+    it("ignores a leadership position that was deleted", async () => {
+      const { user, cookie } = await signedInUser();
+      const position = await createPosition({
+        isLeadership: true,
+        deletedAt: new Date(),
+      });
+      await prisma.userPosition.create({
+        data: { userId: user.id, positionId: position.id },
+      });
+
+      const response = await mandateEndpoint.full(sessionRequest(cookie));
+      expect(response.status).toBe(200);
+    });
+  });
+
   describe("accepts the cookie header only", () => {
     it("ignores a token in the query string", async () => {
       const { user } = await signedInUser();

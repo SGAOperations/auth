@@ -139,6 +139,18 @@ A scheduled job writes each consenting leader's title to their own Slack profile
 - **Pacing.** One Slack call at a time, at least 750 ms apart, and 1.5 s between writes. An HTTP 429 stops the run, and so does a 35 s time budget. Each run starts with the least recently checked people, so later runs finish the rest.
 - **Off by default.** The job does nothing, and does not touch the database, unless `SLACK_TITLE_SYNC_TEAM_ID` is set.
 
+## The leadership Slack mandate (#361)
+
+A policy gate, off by default (`SGAUTH_SLACK_MANDATE_ENABLED`). When on, anyone holding a non-deleted leadership position must have allowed Slack title updates, which means a stored `SlackUserToken`. A plain Connect Slack link does not satisfy it. Admin status grants nothing, and non-leaders are never blocked by it.
+
+It blocks only the two endpoints products get identity from: `GET /api/sgauth/session` (and `/minimal`), and Better Auth's `GET /api/auth/token`. SGAuth's own pages never block, so a leader can always reach the fix.
+
+- **Session endpoint.** A blocked leader gets the existing `401 {"error":"unauthenticated"}`, byte-identical to signed out. The `200` body and the published schemas do not change.
+- **Token endpoint.** A blocked leader gets `401` with the code `SLACK_LINK_REQUIRED`.
+- **What the user sees.** The SDK treats a `401` as signed out and sends the browser to SGAuth's `/login?redirect=<product>`. For a blocked leader, `/login` shows "Allow Slack title updates to continue" instead of "You're signed in". After the consent it returns to `/login`, where **Continue** spends the redirect.
+
+Products need no change. The SDK caches a `200` for up to 60 seconds and a `401` for 10, so a flip, a grant or a withdrawal reaches products up to a minute late. Each block is audited as `SLACK_MANDATE_BLOCKED`, at most once per user per day plus once after each grant. Turning it on or off is [runbooks/slack-mandate.md](../runbooks/slack-mandate.md).
+
 ## Moving a product's existing links
 
 A product that already linked Slack users exports `{ sgauthUserId, slackUserId }` pairs and an operator imports them with `npm run import:slack-links`. See [slack-link-import.md](../runbooks/slack-link-import.md).

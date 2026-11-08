@@ -24,7 +24,11 @@ const subject: SessionSubject = {
   isPrimaryAdmin: false,
   status: "ACTIVE",
   positions: [{ key: "a-1", name: "A One" }],
+  isLeadership: false,
+  hasSlackProfileAccess: false,
 };
+
+const blockedLeader: SessionSubject = { ...subject, isLeadership: true };
 
 const sessionRow = {
   id: "0190a1b2-c3d4-7e5f-8a6b-7c8d9e0f1a2c",
@@ -34,8 +38,20 @@ const sessionRow = {
   absoluteExpiresAt: new Date("2026-04-01T00:00:00Z"),
 };
 
-function makeDeps(overrides: Partial<SessionEndpointDeps> = {}) {
+function makeDeps(
+  overrides: Partial<Omit<SessionEndpointDeps, "slackMandate">> & {
+    mandateEnabled?: boolean;
+    recordBlock?: SessionEndpointDeps["slackMandate"]["recordBlock"];
+  } = {},
+) {
+  const recordBlock = vi.fn<SessionEndpointDeps["slackMandate"]["recordBlock"]>(
+    overrides.recordBlock ?? (async () => undefined),
+  );
   return {
+    slackMandate: {
+      enabled: overrides.mandateEnabled ?? false,
+      recordBlock,
+    },
     cookieNames: vi.fn<SessionEndpointDeps["cookieNames"]>(async () => [
       TOKEN,
       DONT_REMEMBER,
@@ -224,6 +240,95 @@ describe("session endpoint", () => {
         }),
       );
       await expectUnauthenticated(await endpoint.full(request(`${TOKEN}=a`)));
+    });
+  });
+
+  describe("Slack mandate", () => {
+    const leaderWithToken = { ...blockedLeader, hasSlackProfileAccess: true };
+
+    it("answers a blocked leader with the exact 401 and audits once", async () => {
+      const deps = makeDeps({
+        mandateEnabled: true,
+        loadSubject: async () => blockedLeader,
+      });
+      const endpoint = createSessionEndpoint(deps);
+      await expectUnauthenticated(await endpoint.full(request(`${TOKEN}=a`)));
+      expect(deps.slackMandate.recordBlock).toHaveBeenCalledTimes(1);
+      expect(deps.slackMandate.recordBlock).toHaveBeenCalledWith(
+        sessionRow.userId,
+      );
+    });
+
+    it("gates the minimal shape too", async () => {
+      const deps = makeDeps({
+        mandateEnabled: true,
+        loadSubject: async () => blockedLeader,
+      });
+      const endpoint = createSessionEndpoint(deps);
+      await expectUnauthenticated(
+        await endpoint.minimal(request(`${TOKEN}=a`)),
+      );
+      expect(deps.slackMandate.recordBlock).toHaveBeenCalledTimes(1);
+    });
+
+    it("never blocks a non-leader, and never audits one", async () => {
+      const deps = makeDeps({ mandateEnabled: true });
+      const endpoint = createSessionEndpoint(deps);
+      expect((await endpoint.full(request(`${TOKEN}=a`))).status).toBe(200);
+      expect((await endpoint.minimal(request(`${TOKEN}=a`))).status).toBe(200);
+      expect(deps.slackMandate.recordBlock).not.toHaveBeenCalled();
+    });
+
+    it("lets a leader without a token through while the flag is off", async () => {
+      const deps = makeDeps({
+        mandateEnabled: false,
+        loadSubject: async () => blockedLeader,
+      });
+      const endpoint = createSessionEndpoint(deps);
+      expect((await endpoint.full(request(`${TOKEN}=a`))).status).toBe(200);
+      expect(deps.slackMandate.recordBlock).not.toHaveBeenCalled();
+    });
+
+    it("lets a leader with a token through", async () => {
+      const deps = makeDeps({
+        mandateEnabled: true,
+        loadSubject: async () => leaderWithToken,
+      });
+      const endpoint = createSessionEndpoint(deps);
+      const response = await endpoint.full(request(`${TOKEN}=a`));
+      expect(response.status).toBe(200);
+      expect(deps.slackMandate.recordBlock).not.toHaveBeenCalled();
+    });
+
+    it("keeps the mandate facts out of both bodies", async () => {
+      const endpoint = createSessionEndpoint(
+        makeDeps({
+          mandateEnabled: true,
+          loadSubject: async () => leaderWithToken,
+        }),
+      );
+      for (const respond of [endpoint.full, endpoint.minimal]) {
+        const text = JSON.stringify(
+          await (await respond(request(`${TOKEN}=a`))).json(),
+        );
+        expect(text).not.toMatch(/leadership|slack/i);
+      }
+    });
+
+    it("still answers 401 when the audit write throws", async () => {
+      const deps = makeDeps({
+        mandateEnabled: true,
+        loadSubject: async () => blockedLeader,
+        recordBlock: async () => {
+          throw new Error("audit down");
+        },
+      });
+      const endpoint = createSessionEndpoint(deps);
+      await expectUnauthenticated(await endpoint.full(request(`${TOKEN}=a`)));
+      expect(deps.log.warn).toHaveBeenCalledWith(
+        "slack_mandate_block_unaudited",
+        { surface: "session" },
+      );
     });
   });
 

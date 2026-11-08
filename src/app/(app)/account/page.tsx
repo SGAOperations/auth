@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
+import { slackMandateEnabled } from "@/lib/slack/mandate";
 import { getOwnSlackProfileAccess } from "@/lib/slack/profile-access";
 import { slackResultMessage } from "@/lib/slack/result";
 import { getOwnSlackIdentity, slackOpenIdConfig } from "@/lib/slack/service";
@@ -98,6 +99,7 @@ export default async function AccountPage({
         identity={slackIdentity}
         canConnect={slackOpenIdConfig() !== null}
         isLeadership={overview.isLeadership}
+        mandateRequired={slackMandateEnabled() && overview.isLeadership}
         profileAccess={slackProfileAccess}
         result={slackResultMessage((await searchParams).slack)}
       />

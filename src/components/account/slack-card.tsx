@@ -25,12 +25,15 @@ export function SlackCard({
   identity,
   canConnect,
   isLeadership,
+  mandateRequired,
   profileAccess,
   result,
 }: {
   identity: { slackTeamId: string; slackUserId: string; linkedAt: Date } | null;
   canConnect: boolean;
   isLeadership: boolean;
+  /** The Slack mandate is on and this user is a leader (#361). */
+  mandateRequired: boolean;
   profileAccess: { grantedAt: Date } | null;
   result: { result: SlackResult; message: string } | null;
 }) {
@@ -68,7 +71,9 @@ export function SlackCard({
               </div>
               {profileAccess && (
                 <p className="text-muted-foreground">
-                  Unlinking also stops Slack title updates.
+                  {mandateRequired
+                    ? "Unlinking also stops Slack title updates and closes SGA tools to you."
+                    : "Unlinking also stops Slack title updates."}
                 </p>
               )}
             </form>
@@ -102,10 +107,21 @@ export function SlackCard({
                   SGAuth can update your Slack title. Allowed on{" "}
                   {dateFormat.format(profileAccess.grantedAt)}.
                 </p>
-                <form action={stopSlackTitleUpdates}>
-                  <Button type="submit" variant="outline">
-                    Stop title updates
-                  </Button>
+                <form
+                  action={stopSlackTitleUpdates}
+                  className="flex flex-col gap-2"
+                >
+                  <div>
+                    <Button type="submit" variant="outline">
+                      Stop title updates
+                    </Button>
+                  </div>
+                  {mandateRequired && (
+                    <p className="text-muted-foreground">
+                      While you hold a leadership position, stopping also closes
+                      SGA tools to you.
+                    </p>
+                  )}
                 </form>
               </>
             ) : (
@@ -116,6 +132,12 @@ export function SlackCard({
                   profile.
                   {identity ? "" : " This also links your Slack account."}
                 </p>
+                {mandateRequired && (
+                  <p className="text-muted-foreground">
+                    Required for leadership positions: SGA tools stay closed to
+                    you until you allow this.
+                  </p>
+                )}
                 <form action={allowSlackTitleUpdates}>
                   <Button type="submit">Allow Slack title updates</Button>
                 </form>

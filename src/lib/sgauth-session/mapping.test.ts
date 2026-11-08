@@ -91,6 +91,8 @@ const subject: SessionSubject = {
   isPrimaryAdmin: false,
   status: "ACTIVE",
   positions: [{ key: "vp-finance", name: "Vice President of Finance" }],
+  isLeadership: true,
+  hasSlackProfileAccess: true,
 };
 
 const session = {

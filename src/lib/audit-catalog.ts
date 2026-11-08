@@ -65,6 +65,7 @@ export const AUDIT_EVENT_TYPES = [
   "SLACK_TOKEN_REVOKE_FAILED",
   "SLACK_TITLE_SET",
   "SLACK_TITLE_MISMATCH",
+  "SLACK_MANDATE_BLOCKED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
   "AUDIT_EXPORTED",
@@ -626,6 +627,13 @@ export const AUDIT_CATALOG = {
       titleMatched: z.boolean(),
       fieldMatched: z.boolean(),
     }),
+  },
+  // A leadership holder without Slack title access was refused by the mandate
+  // (#361). `surface` is the endpoint that refused. Written best-effort, at most
+  // one per user per day (src/lib/slack/mandate.ts). No PII.
+  SLACK_MANDATE_BLOCKED: {
+    targetType: "USER",
+    metadata: z.strictObject({ surface: z.enum(["session", "token"]) }),
   },
   // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
   // and one per admin CSV import.

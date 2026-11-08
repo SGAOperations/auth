@@ -8,6 +8,10 @@ import {
   buildSessionEndpointDeps,
   createSessionEndpoint,
 } from "@/lib/sgauth-session/handler";
+import {
+  recordSlackMandateBlock,
+  slackMandateEnabled,
+} from "@/lib/slack/mandate";
 
 // Always in memory, never Upstash: this is a hot path, so it makes no Redis
 // call (docs/RATE-LIMITING.md). Limits are per instance.
@@ -17,5 +21,14 @@ const limiter = createRateLimiter({
 });
 
 export const sessionEndpoint = createSessionEndpoint(
-  buildSessionEndpointDeps({ auth, prisma, limiter, log: logger }),
+  buildSessionEndpointDeps({
+    auth,
+    prisma,
+    limiter,
+    log: logger,
+    slackMandate: {
+      enabled: slackMandateEnabled(),
+      recordBlock: (userId) => recordSlackMandateBlock(userId, "session"),
+    },
+  }),
 );

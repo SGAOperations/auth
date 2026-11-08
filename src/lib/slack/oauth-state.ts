@@ -39,6 +39,14 @@ const isHttps = () => new URL(baseURL).protocol === "https:";
 export const stateCookieName = (flow: SlackFlow): string =>
   `${isHttps() ? "__Host-" : ""}sgauth.${COOKIE_NAMES[flow]}`;
 
+/**
+ * Set beside the consent state cookie when the flow started from the /login
+ * interstitial (#361), so the callback returns there. It only ever selects
+ * between two fixed internal paths.
+ */
+export const consentReturnCookieName = (): string =>
+  `${isHttps() ? "__Host-" : ""}sgauth.slack-consent-return`;
+
 export const stateCookieSecure = (): boolean => isHttps();
 
 export const sha256Hex = (value: string) =>

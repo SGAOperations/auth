@@ -9,6 +9,7 @@ import {
   canSubmitAccessRequest,
   canUpdateOwnProfile,
   canViewAccessRequests,
+  canUseProducts,
   canViewLeadershipResources,
   canUseWhoIs,
   canViewOrgChart,
@@ -534,6 +535,69 @@ describe("canGrantSlackProfileAccess", () => {
       expect(
         canGrantSlackProfileAccess(subject("gone", { status }), leader),
       ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
+  });
+});
+
+describe("canUseProducts", () => {
+  const on = { slackMandateEnabled: true };
+  const off = { slackMandateEnabled: false };
+  const viewer = (isLeadership: boolean, hasSlackProfileAccess: boolean) => ({
+    isLeadership,
+    hasSlackProfileAccess,
+  });
+
+  it("allows every leader and token combination while the flag is off", () => {
+    for (const isLeadership of [true, false]) {
+      for (const hasToken of [true, false]) {
+        expect(
+          canUseProducts(user, viewer(isLeadership, hasToken), off),
+        ).toEqual({ allowed: true });
+      }
+    }
+  });
+
+  it("never blocks a non-leader, with or without a Slack link", () => {
+    for (const hasToken of [true, false]) {
+      expect(canUseProducts(user, viewer(false, hasToken), on)).toEqual({
+        allowed: true,
+      });
+    }
+  });
+
+  it("allows a leader who has allowed title updates", () => {
+    expect(canUseProducts(user, viewer(true, true), on)).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("blocks a leader without title access", () => {
+    expect(canUseProducts(user, viewer(true, false), on)).toEqual({
+      allowed: false,
+      reason: "SLACK_LINK_REQUIRED",
+    });
+  });
+
+  it("does not let admin status stand in for the Slack link", () => {
+    for (const actor of [admin, pa]) {
+      expect(canUseProducts(actor, viewer(true, false), on)).toEqual({
+        allowed: false,
+        reason: "SLACK_LINK_REQUIRED",
+      });
+    }
+  });
+
+  it("denies deactivated and deleted users first, flag on or off", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      for (const policy of [on, off]) {
+        expect(
+          canUseProducts(
+            subject("gone", { status }),
+            viewer(false, false),
+            policy,
+          ),
+        ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+      }
     }
   });
 });

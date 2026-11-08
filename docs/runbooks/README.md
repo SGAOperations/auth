@@ -16,6 +16,7 @@ events it produces, so you can confirm the result in the audit log.
 | Semester turnover                  | Officers change at the end of a semester      | The Primary Admin              | [semester-turnover.md](semester-turnover.md)            |
 | Restore the Neon `main` branch     | Production data needs a point-in-time restore | Neon org Admin                 | [neon-restore.md](neon-restore.md)                      |
 | Email sign-in codes                | Deciding on, or flipping, the code sign-in    | Admins with env access         | [email-otp.md](email-otp.md)                            |
+| Slack mandate for leaders          | Deciding on, or flipping, the Slack gate      | Admins with env access         | [slack-mandate.md](slack-mandate.md)                    |
 
 Other runbooks: [neon-upgrade.md](neon-upgrade.md), [on-call.md](on-call.md),
 [positions-sync.md](positions-sync.md), [legacy-bcrypt.md](legacy-bcrypt.md),
