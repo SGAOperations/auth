@@ -20,6 +20,7 @@ import { prisma } from "@/lib/prisma";
 import { displayName } from "@/lib/user-display";
 import { AccountActions } from "./account-actions";
 import { AuditTimeline } from "./audit-timeline";
+import { SlackTitleAccess } from "./slack-title-access";
 import { DeleteUser } from "./delete-user";
 import { EmailChangeForm } from "./email-change-form";
 import { PositionsEditor } from "./positions-editor";
@@ -79,6 +80,14 @@ export default async function UserDetailPage({
           }),
       deleted ? null : getPendingEmailChange(prisma, id, now),
     ]);
+
+  // Read-only here: the admin can stop title updates, but never grant them.
+  const titleGrant = deleted
+    ? null
+    : await prisma.slackUserToken.findUnique({
+        where: { userId: id },
+        select: { grantedAt: true },
+      });
 
   const positionIds = [
     ...new Set(
@@ -237,6 +246,19 @@ export default async function UserDetailPage({
         status={user.status === "DEACTIVATED" ? "DEACTIVATED" : "ACTIVE"}
         reasons={reasons}
       />
+      {deleted ? null : (
+        <SlackTitleAccess
+          userId={user.id}
+          name={shown}
+          grantedAt={titleGrant?.grantedAt ?? null}
+          reason={
+            decide("stopSlackTitleUpdates") ??
+            (titleGrant
+              ? null
+              : "This user hasn't allowed SGAuth to update their Slack title.")
+          }
+        />
+      )}
       <SessionsTable
         userId={user.id}
         name={shown}

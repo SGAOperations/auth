@@ -211,6 +211,13 @@ export async function resendInvite(id: unknown): Promise<ActionResult> {
   return runUserAction(id, "resend-invite");
 }
 
+/** Admin only: takes back the user's Slack title consent. */
+export async function stopSlackTitleUpdates(
+  id: unknown,
+): Promise<ActionResult> {
+  return runUserAction(id, "stop-title-updates");
+}
+
 /** "Force re-login": ends every session of the user. */
 export async function forceRelogin(id: unknown): Promise<ActionResult> {
   return runUserAction(id, "revoke-sessions");

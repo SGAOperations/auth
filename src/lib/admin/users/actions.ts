@@ -213,6 +213,23 @@ const resendInvite: Run = async ({ tx, target, now }, deps) => {
 };
 
 /**
+ * The admin takes back a user's Slack title consent. Only the admin route runs
+ * this; the user's own account page has no such control. The grant's audit row
+ * records the admin as the actor, and Slack is revoked after the commit.
+ */
+const stopSlackTitleUpdates: Run = async ({ tx, actor, target }) => {
+  if (await isGone(tx, target.id)) return { fail: "USER_DELETED" };
+  const taken = await takeSlackUserToken(tx, target.id, "withdrawn", {
+    actor: { actorType: "USER", actorUserId: actor.id },
+  });
+  if (!taken) return { fail: "NOT_GRANTED" };
+  return {
+    userId: target.id,
+    afterCommit: () => revokeTakenToken(taken),
+  };
+};
+
+/**
  * `authz` is the per-target `can()` action. Re-authentication is asked only for
  * the actions that need it, and only after `can()` has allowed them.
  */
@@ -232,5 +249,10 @@ export const ACTION_SPECS: Record<AdminUserAction, MutationSpec> = {
     authz: "resendInvite",
     freshAuth: false,
     run: resendInvite,
+  },
+  "stop-title-updates": {
+    authz: "stopSlackTitleUpdates",
+    freshAuth: false,
+    run: stopSlackTitleUpdates,
   },
 };

@@ -11,10 +11,7 @@ import {
   stateCookieName,
   stateCookieSecure,
 } from "@/lib/slack/oauth-state";
-import {
-  startSlackProfileAccess,
-  withdrawSlackProfileAccess,
-} from "@/lib/slack/profile-access";
+import { startSlackProfileAccess } from "@/lib/slack/profile-access";
 import {
   slackLoginResultPath,
   slackResultPath,
@@ -106,13 +103,6 @@ export async function allowSlackTitleUpdatesToContinue(): Promise<void> {
   jar.set(stateCookieName("consent"), started.state, consentCookie());
   jar.set(consentReturnCookieName(), "login", consentCookie());
   redirect(started.url);
-}
-
-/** Stop title updates: always allowed, whatever the user's positions are now. */
-export async function stopSlackTitleUpdates(): Promise<void> {
-  const user = await signedInUser("/account");
-  const stopped = await withdrawSlackProfileAccess(user.id);
-  redirect(slackResultPath(stopped ? "title_updates_stopped" : "unchanged"));
 }
 
 /** Unlink on the account page. */

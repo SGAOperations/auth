@@ -101,6 +101,7 @@ const MATRIX: Record<ActorName, Partial<Record<UserAction, Row>>> = {
     revokeSessions: adminPaProtected,
     unlock: adminPaProtected,
     resendInvite: adminPaProtected,
+    stopSlackTitleUpdates: adminPaProtected,
     changeEmail: [
       "PRIMARY_ADMIN_REQUIRED",
       "allow",
@@ -132,6 +133,12 @@ const MATRIX: Record<ActorName, Partial<Record<UserAction, Row>>> = {
     revokeSessions: all("allow"),
     unlock: all("allow"),
     resendInvite: all("allow"),
+    stopSlackTitleUpdates: [
+      "PRIMARY_ADMIN_PROTECTED",
+      "allow",
+      "allow",
+      "PRIMARY_ADMIN_PROTECTED",
+    ],
     changeEmail: all("allow"),
     resetMfa: [
       "PRIMARY_ADMIN_PROTECTED",

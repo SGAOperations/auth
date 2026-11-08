@@ -24,6 +24,7 @@ export const USER_ACTIONS = [
   "revokeSessions",
   "unlock",
   "resendInvite",
+  "stopSlackTitleUpdates",
   "initiateTransfer",
 ] as const;
 
@@ -84,6 +85,7 @@ const PA_PROTECTED: ReadonlySet<UserAction> = new Set([
   "unlock",
   "updateProfile",
   "resendInvite",
+  "stopSlackTitleUpdates",
 ]);
 
 /** The PA_PROTECTED actions the Primary Admin may still do to themselves. */

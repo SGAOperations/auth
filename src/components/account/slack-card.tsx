@@ -9,7 +9,6 @@ import {
 import {
   allowSlackTitleUpdates,
   connectSlack,
-  stopSlackTitleUpdates,
   unlinkSlack,
 } from "@/app/(app)/account/slack/actions";
 import type { SlackResult } from "@/lib/slack/result";
@@ -37,8 +36,8 @@ export function SlackCard({
   profileAccess: { grantedAt: Date } | null;
   result: { result: SlackResult; message: string } | null;
 }) {
-  // Withdrawing needs no Slack settings and no leadership, so a held grant
-  // always shows its Stop button.
+  // A held grant shows its status. Only an administrator can stop it (from the
+  // admin user profile), so there is no control here to withdraw it.
   const showTitleUpdates =
     profileAccess !== null || (isLeadership && canConnect);
   return (
@@ -102,28 +101,11 @@ export function SlackCard({
               Slack title
             </h3>
             {profileAccess ? (
-              <>
-                <p>
-                  SGAuth can update your Slack title. Allowed on{" "}
-                  {dateFormat.format(profileAccess.grantedAt)}.
-                </p>
-                <form
-                  action={stopSlackTitleUpdates}
-                  className="flex flex-col gap-2"
-                >
-                  <div>
-                    <Button type="submit" variant="outline">
-                      Stop title updates
-                    </Button>
-                  </div>
-                  {mandateRequired && (
-                    <p className="text-muted-foreground">
-                      While you hold a leadership position, stopping also closes
-                      SGA tools to you.
-                    </p>
-                  )}
-                </form>
-              </>
+              <p>
+                SGAuth can update your Slack title. Allowed on{" "}
+                {dateFormat.format(profileAccess.grantedAt)}. Only an
+                administrator can stop this.
+              </p>
             ) : (
               <>
                 <p className="text-muted-foreground">
