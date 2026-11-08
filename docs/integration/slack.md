@@ -98,6 +98,36 @@ In the SGAssist Slack app, under **Slash Commands**, for each environment:
 2. Under the same command, turn on **Escape channels, users, and links sent to your app**. Without it a mention arrives as plain text and gets the usage reply.
 3. Set `SLACK_SIGNING_SECRET` for the environment ([ENVIRONMENTS.md](../ENVIRONMENTS.md)). Every request is refused while it is unset.
 
+### `/access` command (#342)
+
+`/access <product> | <access you need>` records a request for access to an external product. **Nothing is granted automatically**: SGAuth keeps the request, writes `ACCESS_REQUEST_SUBMITTED` on the requester, and replies with a one-line string the person copies into an email or a sheet. Requests appear on the access page (#344).
+
+The command is called by Slack, not by a product, so there is **no product API key**. Slack signs the request, and the signature is the only credential.
+
+### Endpoint
+
+`POST https://<sgauth host>/api/slack/commands/access`, a Slack-signed form body (`application/x-www-form-urlencoded`). SGAuth verifies `X-Slack-Signature` against `SLACK_SIGNING_SECRET` with a five-minute window. Any failure (secret unset, missing headers, stale, bad signature) answers one `401 { "error": "unauthorized" }`. A body that is not a `/access` command, or whose `response_url` is not `https://hooks.slack.com/...`, answers `400`. The route sits outside `/api/sgauth` (so no `Origin` header is needed) and is exempt from the preview gate. Responses are `Cache-Control: no-store`.
+
+The person is identified only by the signed `team_id` and `user_id`, resolved through their `SlackIdentity` link. Nothing in the text can name another user.
+
+### What it does
+
+Every reply is ephemeral, so only the person who ran the command sees it. A refusal writes no row and no audit event.
+
+- **Success.** The text is split on the first `|`. The row records the requester, the position they submitted as, and the product and access text. A person holding several listed positions is recorded under the one with the lowest key.
+- **Not linked.** The reply points to **Connect Slack** on the SGAuth account page.
+- **Account not active, or not on the submitter list.** Only holders of a position on the admin-managed submitter list (#340, #343) may submit. Admin status grants nothing, and an empty list refuses everyone.
+- **Bad input.** Empty text, `help` or no `|` shows the usage. Both parts are required, the product is at most 100 characters and the access at most 500, and backticks and control characters are refused.
+- **Another workspace.** A `team_id` other than `SLACK_TEAM_ID` (when set) is refused.
+
+Slack drops a command that is not answered within three seconds. The handler waits up to two seconds for the work and replies inline. If the work is slower (a cold database, for example), it replies "Submitting your access request…" and posts the final reply to Slack's `response_url`, replacing the first. A failure of the work answers "Something went wrong and your request was not recorded", and the log line carries the error name only.
+
+### Setting it up
+
+1. In the SGAssist app, create the slash command `/access` with the request URL `https://<sgauth host>/api/slack/commands/access`, one per environment.
+2. Leave **Escape channels, users, and links** off.
+3. Set `SLACK_SIGNING_SECRET` to the SGAssist app's signing secret. While it is unset, every request is refused with `401`, so the command is dormant, not open.
+
 ## Title sync (#359)
 
 A scheduled job writes each consenting leader's title to their own Slack profile. Run it with the [runbook](../runbooks/slack-title-sync.md).

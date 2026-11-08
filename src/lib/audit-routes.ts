@@ -249,6 +249,13 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     reason:
       "a POST because Slack sends commands as POST; reads and changes nothing, and lookups are not audited (#349)",
   },
+  // Called by Slack's `/access` command (#342); submit.ts writes the row with
+  // the request, in its transaction.
+  "src/app/api/slack/commands/access/route.ts": {
+    kind: "audited",
+    events: ["ACCESS_REQUEST_SUBMITTED"],
+    emittedIn: ["src/lib/access-requests/submit.ts"],
+  },
   // Admin user pages (AUTH-T48). Each action calls the admin user handlers
   // in-process, which write their own audit rows; revoking one session writes
   // SESSION_REVOKED in the same transaction as the delete.

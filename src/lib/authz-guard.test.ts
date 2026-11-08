@@ -51,6 +51,8 @@ const EXEMPT: Record<string, string> = {
     "Machine route called by a product's server; requires a product API key, has no cookie, and only reads",
   "src/app/api/slack/commands/who-is/route.ts":
     "Machine route called by Slack; requires a valid Slack request signature, has no cookie, and only reads; loadWhoIs gates the caller with canUseWhoIs",
+  "src/app/api/slack/commands/access/route.ts":
+    "Machine route called by Slack; the verified signature names the Slack user, never an input, and canSubmitAccessRequest in src/lib/access-requests/submit.ts decides whether that user may submit",
   "src/app/(app)/account/slack/actions.ts":
     "Links or unlinks only the caller's own Slack account: the target is the session user, never an input, and a link token names a Slack account, not an SGAuth user",
   "src/app/api/jobs/alerts/route.ts":

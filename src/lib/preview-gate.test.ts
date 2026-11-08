@@ -31,6 +31,7 @@ const EXEMPT = [
   "/api/jobs/retention",
   "/api/provision/aplio/users",
   "/api/slack/commands/who-is",
+  "/api/slack/commands/access",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ];

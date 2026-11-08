@@ -676,6 +676,48 @@ describe("ACCESS_SUBMITTERS_UPDATED metadata", () => {
   });
 });
 
+describe("ACCESS_REQUEST_SUBMITTED metadata", () => {
+  const REQUEST_ID = "0190f3a8-7c1e-7b2a-9d4e-5f6a7b8c9d0e";
+  const event = (metadata: unknown, extra: object = {}) => ({
+    type: "ACCESS_REQUEST_SUBMITTED",
+    actorType: "USER",
+    actorUserId: "u1",
+    targetType: "USER",
+    targetId: "u1",
+    metadata,
+    ...extra,
+  });
+
+  it("accepts the request id and position key", () => {
+    expect(() =>
+      parseAuditEvent(
+        event({ accessRequestId: REQUEST_ID, positionKey: "vp-finance" }),
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([
+    [{ positionKey: "vp-finance" }],
+    [{ accessRequestId: REQUEST_ID }],
+    [{ accessRequestId: "r1", positionKey: "vp-finance" }],
+    [{ accessRequestId: REQUEST_ID, positionKey: "VP-Finance" }],
+    [{ accessRequestId: REQUEST_ID, positionKey: "vp-finance", product: "x" }],
+  ])("rejects %j", (metadata) => {
+    expect(() => parseAuditEvent(event(metadata))).toThrow(ZodError);
+  });
+
+  it("rejects another target type", () => {
+    expect(() =>
+      parseAuditEvent(
+        event(
+          { accessRequestId: REQUEST_ID, positionKey: "vp-finance" },
+          { targetType: "POSITION", targetId: "p1" },
+        ),
+      ),
+    ).toThrow(ZodError);
+  });
+});
+
 describe("PA_TRANSFER_CANCELLED metadata", () => {
   const event = (metadata: unknown) => ({
     type: "PA_TRANSFER_CANCELLED",
