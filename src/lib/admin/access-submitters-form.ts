@@ -1,12 +1,21 @@
 import { MAX_SUBMITTER_POSITIONS } from "@/lib/access-submitters-input";
-import type { SubmitterActionResult } from "@/app/(app)/admin/access-submitters/actions";
+
+// Pure and client-safe: no database, no `server-only`.
+
+export type SubmitterActionResult =
+  | { ok: true; unchanged?: true }
+  | { ok: false; code: "FORBIDDEN" | "RATE_LIMITED" }
+  | {
+      ok: false;
+      code: "INVALID_INPUT";
+      fieldErrors: Record<string, string[]>;
+    }
+  | { ok: false; code: "UNKNOWN_POSITION"; unknownKeys: string[] };
 
 type SubmitterFailureCode = Extract<
   SubmitterActionResult,
   { ok: false }
 >["code"];
-
-// Pure and client-safe: no database, no `server-only`.
 
 export interface SubmitterOption {
   key: string;

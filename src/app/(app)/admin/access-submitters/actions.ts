@@ -6,24 +6,15 @@ import {
   setSubmitterPositionKeys,
 } from "@/lib/access-submitters";
 import { requireAdmin } from "@/lib/admin-api";
+import type { SubmitterActionResult } from "@/lib/admin/access-submitters-form";
 
 // Server actions get Next.js's Origin-against-Host check, which is the Origin
 // rule for this mutation. No `allowedOrigins` is set, as in `products/actions.ts`.
 
 const PATH = "/admin/access-submitters";
 
-export type SubmitterActionResult =
-  | { ok: true; unchanged?: true }
-  | { ok: false; code: "FORBIDDEN" | "RATE_LIMITED" }
-  | {
-      ok: false;
-      code: "INVALID_INPUT";
-      fieldErrors: Record<string, string[]>;
-    }
-  | { ok: false; code: "UNKNOWN_POSITION"; unknownKeys: string[] };
-
 /**
- * Replaces the positions allowed to submit access requests (#343). The guard
+ * Replaces the positions allowed to submit access requests. The guard
  * runs before any input is read. The service validates the keys, checks them
  * against the registry and audits the change in its own transaction.
  */

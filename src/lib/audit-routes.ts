@@ -208,7 +208,7 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
       "PRODUCT_API_KEY_REVOKED",
     ],
   },
-  // The access-submitter positions admin screen (#343). The service writes the
+  // The access-submitter positions admin screen. The service writes the
   // row in the same transaction as the list change; a no-op save writes none.
   "src/app/(app)/admin/access-submitters/actions.ts": {
     kind: "audited",
