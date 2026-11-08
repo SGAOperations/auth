@@ -9,9 +9,11 @@ const navLinkClass =
 export function AppHeader({
   user,
   showAdmin,
+  showAccessRequests,
 }: {
   user: { name: string; preferredName: string | null; email: string };
   showAdmin: boolean;
+  showAccessRequests: boolean;
 }) {
   const name = displayName(user);
   return (
@@ -30,6 +32,11 @@ export function AppHeader({
           <Link href="/org-chart" className={navLinkClass}>
             Org Chart
           </Link>
+          {showAccessRequests && (
+            <Link href="/access" className={navLinkClass}>
+              Access requests
+            </Link>
+          )}
           {showAdmin && (
             <Link href="/admin" className={navLinkClass}>
               Admin

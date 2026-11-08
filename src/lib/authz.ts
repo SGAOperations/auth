@@ -49,7 +49,8 @@ export type AuthzDenialReason =
   | "NOT_TRANSFER_RECIPIENT"
   | "NOT_TRANSFER_INITIATOR"
   | "NOT_ACCESS_SUBMITTER"
-  | "NOT_LEADERSHIP";
+  | "NOT_LEADERSHIP"
+  | "NOT_ACCESS_VIEWER";
 
 export type AuthzDecision =
   | { allowed: true }
@@ -222,6 +223,32 @@ export function canSubmitAccessRequest(
   return heldPositionKeys.some((key) => submitters.has(key))
     ? allow
     : deny("NOT_ACCESS_SUBMITTER");
+}
+
+/** The positions whose holders may see the access requests page (#344). */
+export const ACCESS_REQUEST_VIEWER_KEYS = [
+  "executive-vice-president",
+  "vice-president-of-operational-affairs",
+  "information-manager",
+] as const;
+
+/**
+ * Whether `actor` may see the access requests: an ACTIVE user who holds at
+ * least one of `ACCESS_REQUEST_VIEWER_KEYS`. Admin status grants nothing. Keys
+ * match exactly, and the caller passes the keys of non-deleted positions only,
+ * the same contract as `canSubmitAccessRequest`.
+ */
+export function canViewAccessRequests(
+  actor: AuthzSubject,
+  heldPositionKeys: readonly string[],
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  const viewers: readonly string[] = ACCESS_REQUEST_VIEWER_KEYS;
+  return heldPositionKeys.some((key) => viewers.includes(key))
+    ? allow
+    : deny("NOT_ACCESS_VIEWER");
 }
 
 /**
