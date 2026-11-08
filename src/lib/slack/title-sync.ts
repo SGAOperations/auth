@@ -196,15 +196,17 @@ export async function runSlackTitleSync(
       if (failure.kind === "revoked") {
         // The token is already dead at Slack, so there is nothing to revoke.
         // The user withdrew title consent, not their Slack link.
-        if (!dryRun) {
-          await db.$transaction((tx) =>
-            takeSlackUserToken(tx, userId, "revoked_at_slack", {
-              actor: SYSTEM,
-              detached: true,
-            }),
-          );
-        }
-        report.unlinked += 1;
+        // Deletes only the grant this run read: one replaced since is live.
+        const taken = dryRun
+          ? null
+          : await db.$transaction((tx) =>
+              takeSlackUserToken(tx, userId, "revoked_at_slack", {
+                actor: SYSTEM,
+                detached: true,
+                expectedCiphertext: ciphertext,
+              }),
+            );
+        if (dryRun || taken !== null) report.unlinked += 1;
         return false;
       }
       report.errors += 1;

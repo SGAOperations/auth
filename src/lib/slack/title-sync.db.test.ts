@@ -284,6 +284,34 @@ describe("runSlackTitleSync", () => {
     );
   });
 
+  it("leaves a grant replaced mid-run in place when the old one is revoked", async () => {
+    const slack = world();
+    const { user, token } = await holder(slack, {
+      position: "Chair",
+      account: { getError: "token_revoked" },
+    });
+    // The user re-grants after the run read its candidate but before the
+    // revoke is handled: the replacement is live and must survive.
+    const replacement = await encryptSlackToken(`${token}-new`);
+    const fetchStub = slack.fetch;
+    let replaced = false;
+    const replacingFetch: typeof fetch = async (input, init) => {
+      const response = await fetchStub(input, init);
+      if (!replaced && String(input) === SLACK_PROFILE_GET_URL) {
+        replaced = true;
+        await prisma.slackUserToken.update({
+          where: { userId: user.id },
+          data: { token: replacement },
+        });
+      }
+      return response;
+    };
+    const report = await sync(slack, { fetch: replacingFetch });
+    expect(report).toMatchObject({ unlinked: 0, errors: 0, synced: 0 });
+    expect((await stored(user.id))?.token).toBe(replacement);
+    expect(await audits(user.id, "SLACK_TOKEN_REVOKED")).toHaveLength(0);
+  });
+
   it("skips people who are not leaders, are deactivated, or are in another team", async () => {
     const slack = world();
     await holder(slack, { leadership: false });
@@ -297,9 +325,20 @@ describe("runSlackTitleSync", () => {
 
   it("refuses a title over the limit without writing", async () => {
     const slack = world();
-    const { user } = await holder(slack, {
-      position: "x".repeat(SLACK_TITLE_MAX_LENGTH + 1),
-    });
+    // A position name is capped at 100 characters, so the over-limit title is
+    // the join of several valid names.
+    const { user } = await holder(slack, { position: `A${"x".repeat(89)}` });
+    for (const letter of ["B", "C"]) {
+      const extra = await createPosition({
+        name: `${letter}${"x".repeat(89)}`,
+        isLeadership: true,
+      });
+      await prisma.userPosition.create({
+        data: { userId: user.id, positionId: extra.id },
+      });
+    }
+    const joined = 3 * 90 + 2 * " | ".length;
+    expect(joined).toBeGreaterThan(SLACK_TITLE_MAX_LENGTH);
     const report = await sync(slack);
     expect(report).toMatchObject({ refused: 1, synced: 0 });
     expect(slack.sets()).toHaveLength(0);

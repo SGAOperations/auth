@@ -113,21 +113,31 @@ export interface TakenSlackToken {
 
 /**
  * Deletes the user's token and writes SLACK_TOKEN_REVOKED in the same
- * transaction. Returns null, and writes nothing, when there is no token. Call
- * `revokeTakenToken` with the result after the transaction commits.
+ * transaction. Returns null, and writes nothing, when there is no token. With
+ * `expectedCiphertext`, only a stored token that still matches it is deleted,
+ * so a grant replaced since the caller read it is left alone and unaudited.
+ * Call `revokeTakenToken` with the result after the transaction commits.
  */
 export async function takeSlackUserToken(
   tx: Tx,
   userId: string,
   reason: SlackTokenReason,
-  options: { actor: AuditActor; detached?: boolean },
+  options: {
+    actor: AuditActor;
+    detached?: boolean;
+    expectedCiphertext?: string;
+  },
 ): Promise<TakenSlackToken | null> {
-  const row = await tx.slackUserToken.findUnique({
-    where: { userId },
+  const match =
+    options.expectedCiphertext === undefined
+      ? { userId }
+      : { userId, token: options.expectedCiphertext };
+  const row = await tx.slackUserToken.findFirst({
+    where: match,
     select: { token: true, slackTeamId: true },
   });
   if (!row) return null;
-  const { count } = await tx.slackUserToken.deleteMany({ where: { userId } });
+  const { count } = await tx.slackUserToken.deleteMany({ where: match });
   if (count !== 1) return null;
 
   const detached = options.detached ?? false;
