@@ -26,19 +26,19 @@ Every personal field in `prisma/schema.prisma`. "Admins" means SGAuth admins, th
 
 ### Credentials and security records
 
-| Model and field                             | Purpose                                                                  | Who can read it                 | Retention                                                       |
-| ------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------------------- |
-| `Account.password`                          | scrypt hash, or an imported bcrypt hash that is re-hashed on first login | Server only                     | Removed at tombstone                                            |
-| `TwoFactor.secret`, `TwoFactor.backupCodes` | TOTP second factor                                                       | Server only                     | Removed at tombstone                                            |
-| `Passkey.name`, `credentialID`, `publicKey` | Passkey sign-in; the name is chosen by the user                          | The user (passkey list)         | Removed at tombstone                                            |
-| `Session.token`, `ipAddress`, `userAgent`   | Keep the user signed in; show active sessions                            | The user; admins (session list) | Purged at expiry or 90 days after creation                      |
-| `KnownDevice.userAgent`, `tokenHash`        | Recognize a remembered device                                            | Server only                     | Until tombstone (see Known gaps)                                |
-| `AccountLock.lastFailedIp`                  | Lockout diagnostics                                                      | Server only                     | Until tombstone (see Known gaps)                                |
-| `UnlockToken.tokenHash`                     | Emailed unlock link; the raw token is never stored                       | Server only                     | Purged when expired                                             |
-| `Verification.identifier`, `value`          | Email verification and reset tokens                                      | Server only                     | Purged when expired                                             |
-| `SlackLinkToken.tokenHash`, `slackUserId`   | Link a Slack account from a product's DM; the raw token is never stored  | Server only                     | Purged when expired                                             |
-| `ProductApiKey.keyHash`                     | A product's server-to-server key; the key itself is never stored         | Server only                     | Kept until the product is deleted                               |
-| `SlackUserToken.token`                      | The Slack user token a leader granted, to edit their profile (#358)      | Server only; encrypted          | Removed at withdraw, unlink, relink, deactivation and tombstone |
+| Model and field                             | Purpose                                                                  | Who can read it                 | Retention                                                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `Account.password`                          | scrypt hash, or an imported bcrypt hash that is re-hashed on first login | Server only                     | Removed at tombstone                                                                                      |
+| `TwoFactor.secret`, `TwoFactor.backupCodes` | TOTP second factor                                                       | Server only                     | Removed at tombstone                                                                                      |
+| `Passkey.name`, `credentialID`, `publicKey` | Passkey sign-in; the name is chosen by the user                          | The user (passkey list)         | Removed at tombstone                                                                                      |
+| `Session.token`, `ipAddress`, `userAgent`   | Keep the user signed in; show active sessions                            | The user; admins (session list) | Purged at expiry or 90 days after creation                                                                |
+| `KnownDevice.userAgent`, `tokenHash`        | Recognize a remembered device                                            | Server only                     | Until tombstone (see Known gaps)                                                                          |
+| `AccountLock.lastFailedIp`                  | Lockout diagnostics                                                      | Server only                     | Until tombstone (see Known gaps)                                                                          |
+| `UnlockToken.tokenHash`                     | Emailed unlock link; the raw token is never stored                       | Server only                     | Purged when expired                                                                                       |
+| `Verification.identifier`, `value`          | Email verification and reset tokens                                      | Server only                     | Purged when expired                                                                                       |
+| `SlackLinkToken.tokenHash`, `slackUserId`   | Link a Slack account from a product's DM; the raw token is never stored  | Server only                     | Purged when expired                                                                                       |
+| `ProductApiKey.keyHash`                     | A product's server-to-server key; the key itself is never stored         | Server only                     | Kept until the product is deleted                                                                         |
+| `SlackUserToken.token`                      | The Slack user token a leader granted, to edit their profile (#358)      | Server only; encrypted          | Removed at withdraw, unlink, relink, deactivation and tombstone, and when Slack reports the token revoked |
 
 ### Positions, transfers and audit
 

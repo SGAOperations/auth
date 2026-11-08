@@ -443,6 +443,46 @@ describe("parseServerEnv", () => {
       ).toBe("signing-secret");
     });
   });
+
+  describe("Slack title sync workspace", () => {
+    const slack = {
+      SLACK_CLIENT_ID: "client-id",
+      SLACK_CLIENT_SECRET: "client-secret",
+      SLACK_TEAM_ID: "T0SGA",
+    };
+
+    it("is optional", () => {
+      expect(parseServerEnv(valid).SLACK_TITLE_SYNC_TEAM_ID).toBeUndefined();
+    });
+
+    it("passes when it equals SLACK_TEAM_ID", () => {
+      expect(
+        parseServerEnv({
+          ...valid,
+          ...slack,
+          SLACK_TITLE_SYNC_TEAM_ID: "T0SGA",
+        }).SLACK_TITLE_SYNC_TEAM_ID,
+      ).toBe("T0SGA");
+    });
+
+    it("fails when it differs from SLACK_TEAM_ID, without echoing a value", () => {
+      const message = messageOf({
+        ...valid,
+        ...slack,
+        SLACK_TITLE_SYNC_TEAM_ID: "T0OTHER",
+      });
+      expect(message).toContain(
+        "SLACK_TITLE_SYNC_TEAM_ID: must equal SLACK_TEAM_ID",
+      );
+      expect(message).not.toContain("T0OTHER");
+    });
+
+    it("fails when SLACK_TEAM_ID is not set", () => {
+      expect(
+        messageOf({ ...valid, SLACK_TITLE_SYNC_TEAM_ID: "T0SGA" }),
+      ).toContain("SLACK_TITLE_SYNC_TEAM_ID: must equal SLACK_TEAM_ID");
+    });
+  });
 });
 
 describe("parseVersionedSecrets", () => {

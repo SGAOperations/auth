@@ -72,6 +72,14 @@ export const serverShape = z.object({
     .string()
     .regex(/^T[A-Z0-9]{2,20}$/)
     .optional(),
+  // Enables the leadership title sync (#359) for this one workspace. It must
+  // equal SLACK_TEAM_ID. Unset, the job does nothing and touches no database.
+  // Set on dev (SGA Testing) only: production stays unset until the epic's
+  // gates pass.
+  SLACK_TITLE_SYNC_TEAM_ID: z
+    .string()
+    .regex(/^T[A-Z0-9]{2,20}$/)
+    .optional(),
   // The SGAssist bot's signing secret, for verifying inbound slash-command
   // requests (#341). Standalone on purpose: SGAssist may be a different Slack
   // app from the one above, so it is not in the all-or-none Slack group.
@@ -206,6 +214,17 @@ const refinedServerShape = serverShape.superRefine((env, ctx) => {
       path: ["BETTER_AUTH_TRUSTED_ORIGINS"],
       message:
         "must not be set: trusted origins come from the product registry (src/lib/products.ts)",
+    });
+  }
+
+  if (
+    env.SLACK_TITLE_SYNC_TEAM_ID !== undefined &&
+    env.SLACK_TITLE_SYNC_TEAM_ID !== env.SLACK_TEAM_ID
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["SLACK_TITLE_SYNC_TEAM_ID"],
+      message: "must equal SLACK_TEAM_ID",
     });
   }
 

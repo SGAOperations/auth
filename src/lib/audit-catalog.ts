@@ -62,6 +62,8 @@ export const AUDIT_EVENT_TYPES = [
   "SLACK_TOKEN_GRANTED",
   "SLACK_TOKEN_REVOKED",
   "SLACK_TOKEN_REVOKE_FAILED",
+  "SLACK_TITLE_SET",
+  "SLACK_TITLE_MISMATCH",
   "BULK_IMPORT",
   "JWKS_ROTATED",
   "AUDIT_EXPORTED",
@@ -114,6 +116,7 @@ export const SLACK_TOKEN_REASONS = [
   "relinked",
   "deactivated",
   "deleted",
+  "revoked_at_slack",
 ] as const;
 
 export type SlackTokenReason = (typeof SLACK_TOKEN_REASONS)[number];
@@ -588,6 +591,29 @@ export const AUDIT_CATALOG = {
     metadata: z.strictObject({
       reason: slackTokenReason,
       slackError: z.string().min(1).max(64),
+    }),
+  },
+  // The title sync wrote the leadership title to the target's Slack profile and
+  // the read-back matched (#359). `title` is the value sent, built from position
+  // names, which are not PII (positionSnapshot). What Slack returned is never
+  // stored: it may be text the person typed.
+  SLACK_TITLE_SET: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      slackTeamId: z.string().min(1).max(32),
+      title: z.string().max(300),
+    }),
+  },
+  // Slack accepted the write but the read-back differed, so the person is not
+  // counted as synced. The flags say which of Title and the leadership field
+  // came back as sent.
+  SLACK_TITLE_MISMATCH: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      slackTeamId: z.string().min(1).max(32),
+      title: z.string().max(300),
+      titleMatched: z.boolean(),
+      fieldMatched: z.boolean(),
     }),
   },
   // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,

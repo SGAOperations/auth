@@ -58,6 +58,8 @@ export const AUDIT_LABELS: Record<AuditEventType, string> = {
   SLACK_TOKEN_GRANTED: "Slack title access granted",
   SLACK_TOKEN_REVOKED: "Slack title access revoked",
   SLACK_TOKEN_REVOKE_FAILED: "Slack token revoke failed",
+  SLACK_TITLE_SET: "Slack title updated",
+  SLACK_TITLE_MISMATCH: "Slack title write not applied",
   BULK_IMPORT: "Bulk import",
   JWKS_ROTATED: "Signing keys rotated",
   AUDIT_EXPORTED: "Audit log exported",
