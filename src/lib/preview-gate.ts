@@ -30,6 +30,8 @@ const EXEMPT_PATHS = new Set([
   "/api/products/slack/lookup",
   // Signed by Slack (SLACK_SIGNING_SECRET), called by Slack's servers.
   "/api/slack/commands/who-is",
+  // Signed by the SGAssist Slack app (#341), called by Slack.
+  "/api/slack/commands/access",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ]);

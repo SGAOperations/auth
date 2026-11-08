@@ -39,6 +39,7 @@ export const AUDIT_EVENT_TYPES = [
   "PRODUCT_API_KEY_CREATED",
   "PRODUCT_API_KEY_REVOKED",
   "ACCESS_SUBMITTERS_UPDATED",
+  "ACCESS_REQUEST_SUBMITTED",
   "PA_TRANSFER_INITIATED",
   "PA_TRANSFER_ACCEPTED",
   "PA_TRANSFER_CANCELLED",
@@ -453,6 +454,16 @@ export const AUDIT_CATALOG = {
   ACCESS_SUBMITTERS_UPDATED: {
     targetType: null,
     metadata: accessSubmittersMetadata,
+  },
+  // The target is the requester, so the user timeline finds it. The product and
+  // access text stay on the AccessRequest row, never in an audit row, so there
+  // is no AUDIT_PII_METADATA_FIELDS entry.
+  ACCESS_REQUEST_SUBMITTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      accessRequestId: z.uuid(),
+      positionKey: positionKeySchema,
+    }),
   },
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,

@@ -35,6 +35,7 @@ export const AUDIT_LABELS: Record<AuditEventType, string> = {
   PRODUCT_API_KEY_CREATED: "Product API key created",
   PRODUCT_API_KEY_REVOKED: "Product API key revoked",
   ACCESS_SUBMITTERS_UPDATED: "Access request submitters updated",
+  ACCESS_REQUEST_SUBMITTED: "Access request submitted",
   PA_TRANSFER_INITIATED: "Primary Admin transfer started",
   PA_TRANSFER_ACCEPTED: "Primary Admin transfer accepted",
   PA_TRANSFER_CANCELLED: "Primary Admin transfer cancelled",
