@@ -80,6 +80,24 @@ In addition to Connect Slack's setup, under **OAuth & Permissions** of the same 
 2. Add the **User Token Scopes** `users.profile:write` and `users.profile:read`. Add no bot scope.
 3. Leave **Token Rotation** off. Slack does not allow turning it off once on, and SGAuth refuses a rotating token.
 
+## SGAssist slash commands
+
+### `/who-is` (#349)
+
+`/who-is @person` shows who a person is in SGAuth: their name, their active positions with category and whether each is a leadership position, and the manager position each one reports to. The full chain belongs to the org chart.
+
+- **Endpoint and authentication.** Slack calls `POST /api/slack/commands/who-is`. The Slack request signature, checked with `SLACK_SIGNING_SECRET`, is the only credential: there is no product API key, no Origin check, and the path is exempt from the preview gate. Any unverified request (unsigned, bad signature, stale, or secret unset) gets the same `401`.
+- **Reply.** Always ephemeral, so only the caller sees it. The mentioned person is not notified. A person who is not linked, or is deactivated or deleted, gets the same "hasn't linked" reply, so a member learns nothing about someone else's account status. A caller who is not linked and active is told to link Slack first, with the link to the account page.
+- **Who may use it.** Any linked, active user (`canUseWhoIs`). Lookups are read only and are not audited.
+
+#### Setting it up
+
+In the SGAssist Slack app, under **Slash Commands**, for each environment:
+
+1. Create the command `/who-is` with the Request URL `https://<sgauth host>/api/slack/commands/who-is` and the usage hint `@person`.
+2. Under the same command, turn on **Escape channels, users, and links sent to your app**. Without it a mention arrives as plain text and gets the usage reply.
+3. Set `SLACK_SIGNING_SECRET` for the environment ([ENVIRONMENTS.md](../ENVIRONMENTS.md)). Every request is refused while it is unset.
+
 ## Moving a product's existing links
 
 A product that already linked Slack users exports `{ sgauthUserId, slackUserId }` pairs and an operator imports them with `npm run import:slack-links`. See [slack-link-import.md](../runbooks/slack-link-import.md).

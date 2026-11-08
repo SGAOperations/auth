@@ -203,6 +203,16 @@ export function canViewOrgChart(actor: AuthzSubject): AuthzDecision {
 }
 
 /**
+ * Whether `actor` may use SGAssist's `/who-is` (#349). Unlike the org chart,
+ * `/who-is` shows who holds which positions. Any ACTIVE user may (decision 1,
+ * #349). It is a separate function so the rule can tighten without touching
+ * `canViewOrgChart`.
+ */
+export function canUseWhoIs(actor: AuthzSubject): AuthzDecision {
+  return actor.status === "ACTIVE" ? allow : deny("ACTOR_INACTIVE");
+}
+
+/**
  * Whether `actor` may submit an access request from Slack: they must hold at
  * least one position on the submitter list. Admin status grants nothing, and an
  * empty list denies everyone. Keys match exactly.

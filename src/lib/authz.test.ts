@@ -8,6 +8,7 @@ import {
   canSubmitAccessRequest,
   canUpdateOwnProfile,
   canViewLeadershipResources,
+  canUseWhoIs,
   canViewOrgChart,
   type AuthzDenialReason,
   type AuthzSubject,
@@ -340,6 +341,22 @@ describe("canViewOrgChart", () => {
   it("denies deactivated and deleted actors", () => {
     for (const status of ["DEACTIVATED", "DELETED"] as const) {
       expect(canViewOrgChart(subject("gone", { status }))).toEqual({
+        allowed: false,
+        reason: "ACTOR_INACTIVE",
+      });
+    }
+  });
+});
+
+describe("canUseWhoIs", () => {
+  it("lets an active non-admin and an active admin use it", () => {
+    expect(canUseWhoIs(user)).toEqual({ allowed: true });
+    expect(canUseWhoIs(admin)).toEqual({ allowed: true });
+  });
+
+  it("denies deactivated and deleted actors", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(canUseWhoIs(subject("gone", { status }))).toEqual({
         allowed: false,
         reason: "ACTOR_INACTIVE",
       });

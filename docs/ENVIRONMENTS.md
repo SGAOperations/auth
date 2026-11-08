@@ -295,6 +295,7 @@ These machine endpoints are exempt, matched exactly and on any method, because p
 - `/api/jobs/pa-transfer`, `/api/jobs/alerts` and `/api/jobs/retention` (bearer-protected by `CRON_SECRET`)
 - `/api/provision/aplio/users` (bearer-protected by `APLIO_DUAL_WRITE_SECRET`, open until `APLIO_READ_CUTOVER_AT`)
 - `/api/products/slack/link-tokens` and `/api/products/slack/lookup` (bearer-protected by a product API key)
+- `/api/slack/commands/who-is` (signed by Slack with `SLACK_SIGNING_SECRET`)
 - `/.well-known/jwks.json`
 - `/.well-known/openid-configuration`
 
