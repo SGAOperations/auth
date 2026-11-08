@@ -236,6 +236,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason: "a POST only to keep ids out of URLs; reads and changes nothing",
   },
+  // Called by Slack with a request signature (#349).
+  "src/app/api/slack/commands/who-is/route.ts": {
+    kind: "exempt",
+    reason:
+      "a POST because Slack sends commands as POST; reads and changes nothing, and lookups are not audited (#349)",
+  },
   // Admin user pages (AUTH-T48). Each action calls the admin user handlers
   // in-process, which write their own audit rows; revoking one session writes
   // SESSION_REVOKED in the same transaction as the delete.

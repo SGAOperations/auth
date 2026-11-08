@@ -28,6 +28,8 @@ const EXEMPT_PATHS = new Set([
   // Bearer-protected by a product API key (#312), called by products' servers.
   "/api/products/slack/link-tokens",
   "/api/products/slack/lookup",
+  // Signed by Slack (SLACK_SIGNING_SECRET), called by Slack's servers.
+  "/api/slack/commands/who-is",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ]);
