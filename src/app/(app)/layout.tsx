@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/app-shell/app-header";
+import { canShowAccessRequests } from "@/lib/access-requests/viewer";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { canAccessAdmin } from "@/lib/auth/guards";
 
@@ -20,7 +21,11 @@ export default async function AppLayout({
       >
         Skip to main content
       </a>
-      <AppHeader user={user} showAdmin={canAccessAdmin(user)} />
+      <AppHeader
+        user={user}
+        showAdmin={canAccessAdmin(user)}
+        showAccessRequests={await canShowAccessRequests(user)}
+      />
       <main
         id="main"
         className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6"

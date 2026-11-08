@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACCESS_REQUEST_VIEWER_KEYS,
   GLOBAL_ACTIONS,
   USER_ACTIONS,
   can,
@@ -7,6 +8,7 @@ import {
   canGrantSlackProfileAccess,
   canSubmitAccessRequest,
   canUpdateOwnProfile,
+  canViewAccessRequests,
   canViewLeadershipResources,
   canUseWhoIs,
   canViewOrgChart,
@@ -427,6 +429,55 @@ describe("canSubmitAccessRequest", () => {
       allowed: false,
       reason: "NOT_ACCESS_SUBMITTER",
     });
+  });
+});
+
+describe("canViewAccessRequests", () => {
+  it("allows a holder of each viewer position on its own", () => {
+    for (const key of ACCESS_REQUEST_VIEWER_KEYS) {
+      expect(canViewAccessRequests(user, [key])).toEqual({ allowed: true });
+    }
+  });
+
+  it("allows a viewer position mixed with others", () => {
+    expect(
+      canViewAccessRequests(user, ["senator", "information-manager", "member"]),
+    ).toEqual({ allowed: true });
+  });
+
+  it("denies a user with no positions or only unrelated ones", () => {
+    for (const held of [[], ["senator", "president"]]) {
+      expect(canViewAccessRequests(user, held)).toEqual({
+        allowed: false,
+        reason: "NOT_ACCESS_VIEWER",
+      });
+    }
+  });
+
+  it("grants an admin and the Primary Admin nothing without a viewer position", () => {
+    for (const actor of [admin, pa]) {
+      expect(canViewAccessRequests(actor, ["senator"])).toEqual({
+        allowed: false,
+        reason: "NOT_ACCESS_VIEWER",
+      });
+    }
+  });
+
+  it("matches keys exactly, with no case folding", () => {
+    expect(canViewAccessRequests(user, ["Information-Manager"])).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_VIEWER",
+    });
+  });
+
+  it("denies an inactive actor who holds a viewer position", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canViewAccessRequests(subject("gone", { status }), [
+          "information-manager",
+        ]),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
   });
 });
 
