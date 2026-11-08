@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { limitRequest } from "@/lib/rate-limit/server";
 import {
   SLACK_STATE_COOKIE_MAX_AGE,
+  consentReturnCookieName,
   stateCookieName,
   stateCookieSecure,
 } from "@/lib/slack/oauth-state";
@@ -14,7 +15,11 @@ import {
   startSlackProfileAccess,
   withdrawSlackProfileAccess,
 } from "@/lib/slack/profile-access";
-import { slackResultPath } from "@/lib/slack/result";
+import {
+  slackLoginResultPath,
+  slackResultPath,
+  type SlackResult,
+} from "@/lib/slack/result";
 import {
   confirmSlackLinkToken,
   startSlackConnect,
@@ -25,14 +30,27 @@ import {
 // sets no `serverActions.allowedOrigins`, so only same-origin calls get here.
 // The target is always the session user; no user id is read from the input.
 
-async function signedInUser(path: string) {
+async function signedInUser(
+  path: string,
+  resultPath: (result: SlackResult) => string = slackResultPath,
+) {
   const user = await getCurrentUser();
   if (!user) redirect(`/login?redirect=${encodeURIComponent(path)}`);
   if (await limitRequest("slackLink", user.id)) {
-    redirect(slackResultPath("rate_limited"));
+    redirect(resultPath("rate_limited"));
   }
   return user;
 }
+
+/** The attributes of the consent state cookie, shared by the return cookie. */
+const consentCookie = () =>
+  ({
+    httpOnly: true,
+    secure: stateCookieSecure(),
+    sameSite: "lax",
+    path: "/",
+    maxAge: SLACK_STATE_COOKIE_MAX_AGE,
+  }) as const;
 
 const tokenSchema = z.string().min(1).max(128);
 
@@ -69,13 +87,24 @@ export async function allowSlackTitleUpdates(): Promise<void> {
   const user = await signedInUser("/account");
   const started = await startSlackProfileAccess(user.id);
   if (typeof started === "string") redirect(slackResultPath(started));
-  (await cookies()).set(stateCookieName("consent"), started.state, {
-    httpOnly: true,
-    secure: stateCookieSecure(),
-    sameSite: "lax",
-    path: "/",
-    maxAge: SLACK_STATE_COOKIE_MAX_AGE,
-  });
+  const jar = await cookies();
+  jar.set(stateCookieName("consent"), started.state, consentCookie());
+  // A stale return cookie from an abandoned /login flow must not misroute.
+  jar.set(consentReturnCookieName(), "", { ...consentCookie(), maxAge: 0 });
+  redirect(started.url);
+}
+
+/**
+ * The same consent, started from the /login interstitial for a leader the
+ * mandate blocks (#361): the callback returns to /login, not the account page.
+ */
+export async function allowSlackTitleUpdatesToContinue(): Promise<void> {
+  const user = await signedInUser("/login", slackLoginResultPath);
+  const started = await startSlackProfileAccess(user.id);
+  if (typeof started === "string") redirect(slackLoginResultPath(started));
+  const jar = await cookies();
+  jar.set(stateCookieName("consent"), started.state, consentCookie());
+  jar.set(consentReturnCookieName(), "login", consentCookie());
   redirect(started.url);
 }
 

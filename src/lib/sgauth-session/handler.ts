@@ -6,6 +6,7 @@ import {
   SESSION_RESPONSE_HEADERS,
   UNAUTHENTICATED_BODY,
 } from "@/lib/sgauth-session/contract";
+import { canUseProducts } from "@/lib/authz";
 import { countCookie } from "@/lib/security/duplicate-cookie";
 import {
   pickSessionCookies,
@@ -31,6 +32,12 @@ export interface SessionEndpointDeps {
   /** Returns the 429 to send, or `null` to carry on. */
   limit(token: string): Promise<Response | null>;
   log: { warn(msg: string, fields?: Record<string, unknown>): void };
+  /** The leadership Slack-link mandate (#361). */
+  slackMandate: {
+    enabled: boolean;
+    /** Audits a refusal. Best effort: it must not throw. */
+    recordBlock(userId: string): Promise<void>;
+  };
 }
 
 function unauthenticated(): Response {
@@ -87,6 +94,22 @@ export function createSessionEndpoint(deps: SessionEndpointDeps) {
     const subject = await deps.loadSubject(session.userId);
     if (!subject || subject.status !== "ACTIVE") return unauthenticated();
 
+    // A refusal looks exactly like signed out, so the SDK sends the browser to
+    // /login, which says why. Admin status grants nothing here.
+    const access = canUseProducts({ ...subject, status: "ACTIVE" }, subject, {
+      slackMandateEnabled: deps.slackMandate.enabled,
+    });
+    if (!access.allowed) {
+      // The audit is best effort: a broken dep must never become a 500, which
+      // the SDK would answer with a stale session.
+      try {
+        await deps.slackMandate.recordBlock(session.userId);
+      } catch {
+        deps.log.warn("slack_mandate_block_unaudited", { surface: "session" });
+      }
+      return unauthenticated();
+    }
+
     const body =
       shape === "full"
         ? toSessionResponse({ subject, session })
@@ -120,11 +143,14 @@ export function buildSessionEndpointDeps({
   prisma,
   limiter,
   log,
+  slackMandate = { enabled: false, recordBlock: async () => undefined },
 }: {
   auth: SessionAuth;
   prisma: PrismaClient;
   limiter: Pick<RateLimiter, "limitRequest">;
   log: SessionEndpointDeps["log"];
+  /** Leaving it out means the mandate is off. */
+  slackMandate?: SessionEndpointDeps["slackMandate"];
 }): SessionEndpointDeps {
   // The names Better Auth itself reads, so they cannot drift from cookies.ts.
   let cookieNames: Promise<readonly string[]> | undefined;
@@ -149,18 +175,31 @@ export function buildSessionEndpointDeps({
           status: true,
           positions: {
             where: { position: { deletedAt: null } },
-            select: { position: { select: { key: true, name: true } } },
+            select: {
+              position: {
+                select: { key: true, name: true, isLeadership: true },
+              },
+            },
           },
+          slackUserToken: { select: { userId: true } },
         },
       });
       if (!user) return null;
-      const { positions, ...rest } = user;
+      const { positions, slackUserToken, ...rest } = user;
       return {
         ...rest,
-        positions: sortPositions(positions.map((row) => row.position)),
+        positions: sortPositions(
+          positions.map(({ position }) => ({
+            key: position.key,
+            name: position.name,
+          })),
+        ),
+        isLeadership: positions.some(({ position }) => position.isLeadership),
+        hasSlackProfileAccess: slackUserToken !== null,
       };
     },
     limit: (token) => limiter.limitRequest("sessionLookup", token),
     log,
+    slackMandate,
   };
 }

@@ -3,6 +3,7 @@ import { APIError } from "better-auth/api";
 import { jwt } from "better-auth/plugins";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { AUTH_ERROR_CODES } from "@/lib/auth/policy";
+import { canUseProducts } from "@/lib/authz";
 import {
   JWKS_GRACE_PERIOD_SECONDS,
   JWT_ALG,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/auth/jwt-constants";
 
 export interface TokenClaims {
+  id: string;
   email: string;
   name: string;
   status: string;
@@ -18,6 +20,15 @@ export interface TokenClaims {
   isPrimaryAdmin: boolean;
   /** Keys of the user's active (not soft-deleted) positions, in any order. */
   positionKeys: string[];
+  /** Inputs to the Slack mandate (#361). Never put into the token. */
+  isLeadership: boolean;
+  hasSlackProfileAccess: boolean;
+}
+
+export interface SlackMandateGate {
+  enabled: boolean;
+  /** Audits a refusal. Best effort: it must not throw. */
+  recordBlock(userId: string): Promise<void>;
 }
 
 /**
@@ -31,6 +42,7 @@ export async function loadTokenClaims(
   const user = await db.user.findUnique({
     where: { id: userId },
     select: {
+      id: true,
       email: true,
       name: true,
       status: true,
@@ -38,23 +50,39 @@ export async function loadTokenClaims(
       isPrimaryAdmin: true,
       positions: {
         where: { position: { deletedAt: null } },
-        select: { position: { select: { key: true } } },
+        select: { position: { select: { key: true, isLeadership: true } } },
       },
+      slackUserToken: { select: { userId: true } },
     },
   });
   if (!user) return null;
-  const { positions, ...rest } = user;
-  return { ...rest, positionKeys: positions.map((p) => p.position.key) };
+  const { positions, slackUserToken, ...rest } = user;
+  return {
+    ...rest,
+    positionKeys: positions.map((p) => p.position.key),
+    isLeadership: positions.some((p) => p.position.isLeadership),
+    hasSlackProfileAccess: slackUserToken !== null,
+  };
 }
 
 /**
  * The token payload. `/token` runs Better Auth's session middleware, which
  * bypasses the `/get-session` hook that rejects a deactivated user, so the
- * status is checked here.
+ * status is checked here, and so is the Slack mandate (#361): a leadership
+ * holder without title access gets SLACK_LINK_REQUIRED, never a token.
  */
-export function toTokenPayload(claims: TokenClaims | null) {
+export function toTokenPayload(
+  claims: TokenClaims | null,
+  mandate: Pick<SlackMandateGate, "enabled"> = { enabled: false },
+) {
   if (!claims || claims.status !== "ACTIVE") {
     throw APIError.from("UNAUTHORIZED", AUTH_ERROR_CODES.ACCOUNT_DEACTIVATED);
+  }
+  const access = canUseProducts({ ...claims, status: "ACTIVE" }, claims, {
+    slackMandateEnabled: mandate.enabled,
+  });
+  if (!access.allowed) {
+    throw APIError.from("UNAUTHORIZED", AUTH_ERROR_CODES.SLACK_LINK_REQUIRED);
   }
   return {
     email: claims.email,
@@ -71,6 +99,8 @@ interface JwtPluginInput {
   prisma: PrismaClient;
   /** The environment's base URL, without a trailing slash. */
   issuer: string;
+  /** Leaving it out means the mandate is off. */
+  slackMandate?: SlackMandateGate;
 }
 
 /**
@@ -79,7 +109,11 @@ interface JwtPluginInput {
  * re-fetches the JWKS, and an automatic rotation would reject fresh tokens
  * until then. Private keys stay encrypted at rest (the default).
  */
-export function buildJwtPlugin({ prisma, issuer }: JwtPluginInput) {
+export function buildJwtPlugin({
+  prisma,
+  issuer,
+  slackMandate = { enabled: false, recordBlock: async () => undefined },
+}: JwtPluginInput) {
   return jwt({
     jwks: {
       keyPairConfig: { alg: JWT_ALG },
@@ -90,8 +124,21 @@ export function buildJwtPlugin({ prisma, issuer }: JwtPluginInput) {
       audience: JWT_AUDIENCE,
       expirationTime: JWT_EXPIRATION,
       getSubject: (session) => session.user.id,
-      definePayload: async (session) =>
-        toTokenPayload(await loadTokenClaims(prisma, session.user.id)),
+      definePayload: async (session) => {
+        const claims = await loadTokenClaims(prisma, session.user.id);
+        try {
+          return toTokenPayload(claims, slackMandate);
+        } catch (error) {
+          if (
+            claims?.status === "ACTIVE" &&
+            error instanceof APIError &&
+            error.body?.code === AUTH_ERROR_CODES.SLACK_LINK_REQUIRED.code
+          ) {
+            await slackMandate.recordBlock(claims.id).catch(() => undefined);
+          }
+          throw error;
+        }
+      },
     },
     // Otherwise every /get-session call mints a JWT into a `set-auth-jwt`
     // header, which sidesteps the /token rate limit and puts a bearer token on

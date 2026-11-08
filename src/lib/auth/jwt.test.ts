@@ -11,6 +11,9 @@ const USER_ID = "0194f3c2-7b1e-7c3a-9d4e-5a6b7c8d9e0f";
 const ISSUER = "https://auth.northeasternsga.com";
 
 const claims = (overrides: Partial<TokenClaims> = {}): TokenClaims => ({
+  id: USER_ID,
+  isLeadership: false,
+  hasSlackProfileAccess: false,
   email: "student.officer@northeastern.edu",
   name: "Student Officer",
   status: "ACTIVE",
@@ -58,6 +61,67 @@ describe("toTokenPayload", () => {
     expect(() => toTokenPayload(null)).toThrow(
       expect.objectContaining({ status: "UNAUTHORIZED" }),
     );
+  });
+
+  describe("Slack mandate", () => {
+    const on = { enabled: true };
+    const refused = expect.objectContaining({
+      status: "UNAUTHORIZED",
+      body: expect.objectContaining({ code: "SLACK_LINK_REQUIRED" }),
+    });
+
+    it("refuses a leader without title access with SLACK_LINK_REQUIRED", () => {
+      expect(() => toTokenPayload(claims({ isLeadership: true }), on)).toThrow(
+        refused,
+      );
+    });
+
+    it("refuses an admin leader without title access too", () => {
+      expect(() =>
+        toTokenPayload(claims({ isLeadership: true, isAdmin: true }), on),
+      ).toThrow(refused);
+    });
+
+    it("issues to a leader with title access", () => {
+      expect(
+        toTokenPayload(
+          claims({ isLeadership: true, hasSlackProfileAccess: true }),
+          on,
+        ),
+      ).toMatchObject({ role: "authenticated" });
+    });
+
+    it("never refuses a non-leader, with or without a Slack link", () => {
+      for (const hasSlackProfileAccess of [true, false]) {
+        expect(() =>
+          toTokenPayload(claims({ hasSlackProfileAccess }), on),
+        ).not.toThrow();
+      }
+    });
+
+    it("issues to a leader without title access while the flag is off", () => {
+      expect(() =>
+        toTokenPayload(claims({ isLeadership: true }), { enabled: false }),
+      ).not.toThrow();
+      expect(() =>
+        toTokenPayload(claims({ isLeadership: true })),
+      ).not.toThrow();
+    });
+
+    it("keeps the mandate facts out of the payload", () => {
+      const payload = toTokenPayload(
+        claims({ isLeadership: true, hasSlackProfileAccess: true }),
+        on,
+      );
+      expect(Object.keys(payload).sort()).toEqual([
+        "email",
+        "is_admin",
+        "is_primary_admin",
+        "name",
+        "positions",
+        "role",
+      ]);
+    });
   });
 });
 

@@ -50,7 +50,8 @@ export type AuthzDenialReason =
   | "NOT_TRANSFER_INITIATOR"
   | "NOT_ACCESS_SUBMITTER"
   | "NOT_LEADERSHIP"
-  | "NOT_ACCESS_VIEWER";
+  | "NOT_ACCESS_VIEWER"
+  | "SLACK_LINK_REQUIRED";
 
 export type AuthzDecision =
   | { allowed: true }
@@ -288,6 +289,28 @@ export function canGrantSlackProfileAccess(
   viewer: { isLeadership: boolean },
 ): AuthzDecision {
   return canViewLeadershipResources(actor, viewer);
+}
+
+/**
+ * Whether `actor` may use SGA products (#361). An ACTIVE user passes, unless
+ * the Slack mandate is on and they hold a leadership position without having
+ * allowed Slack title updates (`hasSlackProfileAccess`, a stored
+ * `SlackUserToken`). Admin status grants nothing. Non-leaders are never blocked
+ * by the mandate. SGAuth's own pages do not call this, so a blocked leader can
+ * always reach the fix.
+ */
+export function canUseProducts(
+  actor: AuthzSubject,
+  viewer: { isLeadership: boolean; hasSlackProfileAccess: boolean },
+  policy: { slackMandateEnabled: boolean },
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  if (!policy.slackMandateEnabled || !viewer.isLeadership) {
+    return allow;
+  }
+  return viewer.hasSlackProfileAccess ? allow : deny("SLACK_LINK_REQUIRED");
 }
 
 /** The two people a Primary Admin transfer names. */

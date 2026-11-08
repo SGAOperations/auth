@@ -18,6 +18,11 @@ export const AUTH_ERROR_CODES = {
     message:
       "This account has been deactivated. Contact SGA if you think this is a mistake.",
   },
+  SLACK_LINK_REQUIRED: {
+    code: "SLACK_LINK_REQUIRED",
+    message:
+      "Allow Slack title updates in your SGAuth account to use SGA tools.",
+  },
   PASSWORD_CHANGE_LOCKED: {
     code: "PASSWORD_CHANGE_LOCKED",
     message:

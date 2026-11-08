@@ -5,7 +5,7 @@ import { twoFactor } from "better-auth/plugins";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { hashedBackupCodeStorage } from "@/lib/auth/backup-codes";
 import { emailOtpPlugin, type EmailOtpInput } from "@/lib/auth/email-otp";
-import { buildJwtPlugin } from "@/lib/auth/jwt";
+import { buildJwtPlugin, type SlackMandateGate } from "@/lib/auth/jwt";
 import { totpIssuer } from "@/lib/auth/mfa-policy";
 import { sgauthMfa } from "@/lib/auth/mfa-plugin";
 import { passkeyGuard } from "@/lib/auth/passkey-guard-plugin";
@@ -61,6 +61,8 @@ interface AuthPluginsInput {
    * off. Off means the plugin is not registered at all, so its routes 404.
    */
   emailOtp?: EmailOtpInput | null;
+  /** The leadership Slack-link mandate (#361); omitted means off. */
+  slackMandate?: SlackMandateGate;
 }
 
 /**
@@ -76,10 +78,11 @@ export function buildAuthPlugins({
   sgauthEnv,
   mailer,
   emailOtp,
+  slackMandate,
 }: AuthPluginsInput) {
   return [
     ...(list ? [signupAllowlist(list)] : []),
-    buildJwtPlugin({ prisma, issuer }),
+    buildJwtPlugin({ prisma, issuer, slackMandate }),
     // TOTP and backup codes only: no `otpOptions`, so email and SMS codes stay
     // unavailable. No `skipVerificationOnEnable` and no `allowPasswordless`, so
     // enable, disable, get-URI and regenerate all require the password. The
