@@ -215,7 +215,10 @@ describe("getOwnSlackMandate", () => {
     flag.value = "false";
     try {
       const user = await userHolding(leadershipId);
-      expect((await getOwnSlackMandate(user)).blocked).toBe(false);
+      expect(await getOwnSlackMandate(user)).toEqual({
+        blocked: false,
+        linked: false,
+      });
     } finally {
       flag.value = "true";
     }

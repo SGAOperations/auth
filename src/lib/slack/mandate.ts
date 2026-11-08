@@ -19,11 +19,14 @@ export const slackMandateEnabled = (): boolean =>
 
 /**
  * Whether the mandate blocks `user` from products, and whether they have a
- * Slack account linked (it decides the copy). One query.
+ * Slack account linked (it decides the copy). One query, none while the
+ * mandate is off.
  */
 export async function getOwnSlackMandate(
   user: AuthzSubject,
 ): Promise<{ blocked: boolean; linked: boolean }> {
+  // `linked` only matters when blocked, so a disabled mandate skips the query.
+  if (!slackMandateEnabled()) return { blocked: false, linked: false };
   const row = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
