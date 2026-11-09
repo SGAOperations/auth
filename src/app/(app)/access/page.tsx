@@ -27,7 +27,7 @@ import { prisma } from "@/lib/prisma";
 import { displayName } from "@/lib/user-display";
 import { CopyRequestButton } from "./copy-request-button";
 
-export const metadata: Metadata = { title: "Access requests" };
+export const metadata: Metadata = { title: "Access Requests" };
 
 const PATH = "/access";
 
@@ -42,7 +42,7 @@ const timeFormat = new Intl.DateTimeFormat("en-US", {
 function Heading() {
   return (
     <div className="flex flex-col gap-1">
-      <h1 className="text-2xl font-semibold tracking-tight">Access requests</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Access Requests</h1>
       <p className="text-muted-foreground">
         Requests for external product access, submitted with{" "}
         <code className="font-mono text-sm">/access</code> in Slack. Nothing
