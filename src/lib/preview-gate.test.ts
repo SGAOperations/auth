@@ -29,6 +29,7 @@ const EXEMPT = [
   "/api/jobs/pa-transfer",
   "/api/jobs/alerts",
   "/api/jobs/retention",
+  "/api/jobs/slack-titles",
   "/api/provision/aplio/users",
   "/api/slack/commands/who-is",
   "/api/slack/commands/access",
