@@ -826,6 +826,66 @@ describe("the eight actions", () => {
     });
   });
 
+  describe("stop-title-updates (#371)", () => {
+    const slackFetch = vi.fn<typeof fetch>();
+
+    async function userWithGrant() {
+      const user = await createUser();
+      await prisma.slackUserToken.create({
+        data: {
+          userId: user.id,
+          slackTeamId: "T0TEST",
+          slackUserId: `U${user.id.replaceAll("-", "").slice(-8).toUpperCase()}`,
+          scopes: "users.profile:write,users.profile:read",
+          token: await encryptSlackToken("xoxp-handlers-stop"),
+        },
+      });
+      return user;
+    }
+
+    beforeEach(() => {
+      slackFetch.mockReset();
+      slackFetch.mockImplementation(async () =>
+        Response.json({ ok: true, revoked: true }),
+      );
+      vi.stubGlobal("fetch", slackFetch);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("deletes the grant, audits the admin as the actor and revokes it after the commit", async () => {
+      const user = await userWithGrant();
+      const { response, rows } = await withAudit(user.id, () =>
+        act(user.id, "stop-title-updates"),
+      );
+      expect(response.status).toBe(200);
+      expect(
+        await prisma.slackUserToken.count({ where: { userId: user.id } }),
+      ).toBe(0);
+      expect(rows.map((row) => row.type)).toEqual(["SLACK_TOKEN_REVOKED"]);
+      expect(rows[0]).toMatchObject({
+        actorUserId: admin.id,
+        metadata: { reason: "withdrawn", slackTeamId: "T0TEST" },
+      });
+      expect(slackFetch).toHaveBeenCalledTimes(1);
+      expect(slackFetch.mock.calls[0][0]).toBe(
+        "https://slack.com/api/auth.revoke",
+      );
+    });
+
+    it("answers NOT_GRANTED, and writes nothing, when the user has no grant", async () => {
+      const user = await createUser();
+      const { response, rows } = await withAudit(user.id, () =>
+        act(user.id, "stop-title-updates"),
+      );
+      expect(response.status).toBe(409);
+      expect(await json(response)).toMatchObject({ code: "NOT_GRANTED" });
+      expect(rows).toEqual([]);
+      expect(slackFetch).not.toHaveBeenCalled();
+    });
+  });
+
   it("unlock: lifts a live lock and records the admin method", async () => {
     const user = await createUser();
     await prisma.accountLock.create({

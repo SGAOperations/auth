@@ -344,6 +344,7 @@ describe("the matrix covers what authz.ts decides", () => {
         "reactivate",
         "resendInvite",
         "revokeSessions",
+        "stopSlackTitleUpdates",
         "unassignPosition",
         "unlock",
       ].sort(),
