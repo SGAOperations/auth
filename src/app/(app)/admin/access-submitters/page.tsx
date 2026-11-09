@@ -13,7 +13,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { listPositionOptions } from "@/lib/product-admin";
 import { SubmittersForm } from "./submitters-form";
 
-export const metadata: Metadata = { title: "Access submitters" };
+export const metadata: Metadata = { title: "Access Submitters" };
 
 const PATH = "/admin/access-submitters";
 
@@ -35,7 +35,7 @@ export default async function AccessSubmittersPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Access submitters
+          Access Submitters
         </h1>
         <p className="text-muted-foreground">
           People in a checked position can ask for access to an external product

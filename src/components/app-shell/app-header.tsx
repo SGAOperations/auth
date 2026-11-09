@@ -34,7 +34,7 @@ export function AppHeader({
           </Link>
           {showAccessRequests && (
             <Link href="/access" className={navLinkClass}>
-              Access requests
+              Access Requests
             </Link>
           )}
           {showAdmin && (
