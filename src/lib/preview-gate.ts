@@ -23,6 +23,8 @@ const EXEMPT_PATHS = new Set([
   "/api/jobs/pa-transfer",
   "/api/jobs/alerts",
   "/api/jobs/retention",
+  // The daily Slack title sync (#359), bearer-protected the same way.
+  "/api/jobs/slack-titles",
   // Bearer-protected by APLIO_DUAL_WRITE_SECRET, called by Aplio's server.
   "/api/provision/aplio/users",
   // Bearer-protected by a product API key (#312), called by products' servers.
