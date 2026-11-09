@@ -8,9 +8,6 @@
 # 60 CU-hours a month per branch against the Free plan's 100 per project.
 # A transfer therefore completes up to about an hour after its cooling window.
 #
-# slack-titles runs daily. In production it is a no-op until
-# SLACK_TITLE_SYNC_TEAM_ID is set there.
-#
 # Scheduled runs target production only. The dev environment is dispatch-only
 # (Run workflow, environment=dev). Actions schedules can start several minutes
 # late, and a missed run is caught by the next. Every job is idempotent, so the
@@ -23,7 +20,6 @@ on:
     - cron: "7 * * * *"
     - cron: "*/15 * * * *"
     - cron: "23 8 * * *"
-    - cron: "41 9 * * *"
   workflow_dispatch:
     inputs:
       job:
@@ -34,7 +30,6 @@ on:
           - pa-transfer
           - alerts
           - retention
-          - slack-titles
       environment:
         description: Deployment to call
         type: choice
@@ -77,7 +72,6 @@ jobs:
               "7 * * * *") job=pa-transfer ;;
               "*/15 * * * *") job=alerts ;;
               "23 8 * * *") job=retention ;;
-              "41 9 * * *") job=slack-titles ;;
               *) echo "::error::Unknown schedule: $SCHEDULE"; exit 1 ;;
             esac
             environment=production
