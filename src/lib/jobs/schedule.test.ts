@@ -11,18 +11,16 @@ describe("scheduled jobs workflow", () => {
     ["7 * * * *", "pa-transfer"],
     ["*/15 * * * *", "alerts"],
     ["23 8 * * *", "retention"],
-    ["41 9 * * *", "slack-titles"],
   ])("schedules %s and maps it to %s", (cron, job) => {
     expect(WORKFLOW).toContain(`- cron: "${cron}"`);
     expect(WORKFLOW).toContain(`"${cron}") job=${job} ;;`);
   });
 
-  it("has exactly four schedules", () => {
-    expect(WORKFLOW.match(/- cron:/g)).toHaveLength(4);
+  it("has exactly three schedules", () => {
+    expect(WORKFLOW.match(/- cron:/g)).toHaveLength(3);
   });
 
-  it("offers slack-titles on dispatch and calls the current dev host", () => {
-    expect(WORKFLOW).toContain("- slack-titles");
+  it("calls the current dev host", () => {
     expect(WORKFLOW).toContain(
       "dev) base=https://dev.auth.northeasternsga.com ;;",
     );
