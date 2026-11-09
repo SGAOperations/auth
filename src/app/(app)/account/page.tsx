@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/card";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
+import { slackMandateEnabled } from "@/lib/slack/mandate";
+import { getOwnSlackProfileAccess } from "@/lib/slack/profile-access";
 import { slackResultMessage } from "@/lib/slack/result";
 import { getOwnSlackIdentity, slackOpenIdConfig } from "@/lib/slack/service";
 import { cn } from "@/lib/utils";
@@ -27,9 +29,10 @@ export default async function AccountPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser("/account");
-  const [overview, slackIdentity] = await Promise.all([
+  const [overview, slackIdentity, slackProfileAccess] = await Promise.all([
     loadAccountOverview(user.id),
     getOwnSlackIdentity(user.id),
+    getOwnSlackProfileAccess(user.id),
   ]);
   if (!overview) redirect("/login");
   const { profile, positions } = overview;
@@ -95,6 +98,9 @@ export default async function AccountPage({
       <SlackCard
         identity={slackIdentity}
         canConnect={slackOpenIdConfig() !== null}
+        isLeadership={overview.isLeadership}
+        mandateRequired={slackMandateEnabled() && overview.isLeadership}
+        profileAccess={slackProfileAccess}
         result={slackResultMessage((await searchParams).slack)}
       />
 

@@ -83,9 +83,16 @@ rows still decrypt with the version that wrote them. After an exposure, also do 
 full [JWKS rotation](#jwks-rotation), so the signing key is encrypted under the
 new version, and reset 2FA for admins (see Limits below).
 
-Limits: Better Auth does not re-encrypt existing TwoFactor rows on rotation.
-Someone holding an old secret and a copy of the database could still read those
-seeds. A re-encryption script is a follow-up.
+Slack user tokens (`SlackUserToken.token`, #358) are encrypted under a key
+derived from the auth secrets for that purpose alone, so they follow the same
+versioning: a token still decrypts with the version that wrote it, so the rule
+above covers them too.
+
+Limits: Better Auth does not re-encrypt existing TwoFactor rows or Slack user
+tokens on rotation. Someone holding an old secret and a copy of the database
+could still read those seeds and tokens. A re-encryption script is a follow-up.
+After an exposure, a leader's token can be taken out of circulation by having
+them stop title updates on the account page, which revokes it at Slack.
 
 ## Resend key
 

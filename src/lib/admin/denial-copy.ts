@@ -16,7 +16,12 @@ export const REASON_COPY: Record<AuthzDenialReason, string> = {
   TARGET_NOT_ELIGIBLE: "This user can't be chosen for this.",
   NOT_TRANSFER_RECIPIENT: "Only the transfer's recipient can do this.",
   NOT_TRANSFER_INITIATOR: "Only the transfer's sender can do this.",
+  NOT_ACCESS_SUBMITTER: "Your position can't submit access requests.",
   NOT_LEADERSHIP: "Only people in an SGA leadership position can see this.",
+  NOT_ACCESS_VIEWER:
+    "Only the Information Manager, the VP of Operational Affairs and the Executive VP can see access requests.",
+  SLACK_LINK_REQUIRED:
+    "People in an SGA leadership position must allow Slack title updates before using SGA tools.",
 };
 
 export const FAILURE_COPY: Record<FailureCode, string> = {

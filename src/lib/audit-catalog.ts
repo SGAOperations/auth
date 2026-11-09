@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { positionKeySchema } from "./position-key";
 
 // Pure on purpose: loads in Next, Vitest and the ops scripts under plain Node,
 // where `server-only` throws. Runtime helpers live in audit.ts.
@@ -37,6 +38,8 @@ export const AUDIT_EVENT_TYPES = [
   "PRODUCT_DELETED",
   "PRODUCT_API_KEY_CREATED",
   "PRODUCT_API_KEY_REVOKED",
+  "ACCESS_SUBMITTERS_UPDATED",
+  "ACCESS_REQUEST_SUBMITTED",
   "PA_TRANSFER_INITIATED",
   "PA_TRANSFER_ACCEPTED",
   "PA_TRANSFER_CANCELLED",
@@ -57,6 +60,12 @@ export const AUDIT_EVENT_TYPES = [
   "PASSKEY_REMOVED",
   "SLACK_LINKED",
   "SLACK_UNLINKED",
+  "SLACK_TOKEN_GRANTED",
+  "SLACK_TOKEN_REVOKED",
+  "SLACK_TOKEN_REVOKE_FAILED",
+  "SLACK_TITLE_SET",
+  "SLACK_TITLE_MISMATCH",
+  "SLACK_MANDATE_BLOCKED",
   "BULK_IMPORT",
   "JWKS_ROTATED",
   "AUDIT_EXPORTED",
@@ -101,6 +110,20 @@ const transferTarget = {
 } as const;
 const noTarget = { targetType: null, metadata: noMetadata } as const;
 const sessionTarget = { targetType: "SESSION", metadata: noMetadata } as const;
+
+/** Why a stored Slack user token was deleted and revoked. */
+export const SLACK_TOKEN_REASONS = [
+  "withdrawn",
+  "unlinked",
+  "relinked",
+  "deactivated",
+  "deleted",
+  "revoked_at_slack",
+] as const;
+
+export type SlackTokenReason = (typeof SLACK_TOKEN_REASONS)[number];
+
+const slackTokenReason = z.enum(SLACK_TOKEN_REASONS);
 
 const positionOnUser = {
   targetType: "USER",
@@ -186,6 +209,18 @@ const productApiKeyMetadata = productSlugMetadata.extend({
   keyId: z.uuid(),
   prefix: z.string().regex(/^[a-z0-9]{12}$/),
 });
+
+// The position keys allowed to submit access requests (#340). Keys are not PII.
+const submitterKeyList = z.array(positionKeySchema).max(50);
+
+const accessSubmittersMetadata = z
+  .strictObject({ before: submitterKeyList, after: submitterKeyList })
+  .refine(
+    ({ before, after }) =>
+      before.length !== after.length ||
+      !before.every((key) => after.includes(key)),
+    { message: "an update must change the list" },
+  );
 
 const hasChange = (changes: Record<string, unknown>) =>
   Object.keys(changes).length > 0;
@@ -416,6 +451,21 @@ export const AUDIT_CATALOG = {
     targetType: "PRODUCT",
     metadata: productApiKeyMetadata,
   },
+  // The list is global, so the event has no target.
+  ACCESS_SUBMITTERS_UPDATED: {
+    targetType: null,
+    metadata: accessSubmittersMetadata,
+  },
+  // The target is the requester, so the user timeline finds it. The product and
+  // access text stay on the AccessRequest row, never in an audit row, so there
+  // is no AUDIT_PII_METADATA_FIELDS entry.
+  ACCESS_REQUEST_SUBMITTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      accessRequestId: z.uuid(),
+      positionKey: positionKeySchema,
+    }),
+  },
   PA_TRANSFER_INITIATED: transferTarget,
   PA_TRANSFER_ACCEPTED: transferTarget,
   // `via` says which door the cancel came through. The transfer row already
@@ -512,7 +562,7 @@ export const AUDIT_CATALOG = {
   SLACK_LINKED: {
     targetType: "USER",
     metadata: z.strictObject({
-      via: z.enum(["slack_command", "slack_openid"]),
+      via: z.enum(["slack_command", "slack_openid", "slack_oauth"]),
       slackTeamId: z.string().min(1).max(32),
       slackUserId: z.string().min(1).max(32),
       productSlug: z.string().min(2).max(64).optional(),
@@ -526,6 +576,64 @@ export const AUDIT_CATALOG = {
       slackTeamId: z.string().min(1).max(32),
       slackUserId: z.string().min(1).max(32),
     }),
+  },
+  // The user let SGAuth edit their Slack profile (#358). Never carries the
+  // token or any part of it; `replaced` says an earlier grant was overwritten.
+  SLACK_TOKEN_GRANTED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      slackTeamId: z.string().min(1).max(32),
+      slackUserId: z.string().min(1).max(32),
+      scopes: z.array(z.string().min(1).max(64)).max(16),
+      replaced: z.boolean(),
+    }),
+  },
+  // The stored token was deleted. `reason` is the path that ended the grant.
+  SLACK_TOKEN_REVOKED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: slackTokenReason,
+      slackTeamId: z.string().min(1).max(32),
+    }),
+  },
+  // Slack's auth.revoke failed after the row was deleted, so a live token may
+  // remain at Slack. `slackError` is Slack's error code, or `network`.
+  SLACK_TOKEN_REVOKE_FAILED: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      reason: slackTokenReason,
+      slackError: z.string().min(1).max(64),
+    }),
+  },
+  // The title sync wrote the leadership title to the target's Slack profile and
+  // the read-back matched (#359). `title` is the value sent, built from position
+  // names, which are not PII (positionSnapshot). What Slack returned is never
+  // stored: it may be text the person typed.
+  SLACK_TITLE_SET: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      slackTeamId: z.string().min(1).max(32),
+      title: z.string().max(300),
+    }),
+  },
+  // Slack accepted the write but the read-back differed, so the person is not
+  // counted as synced. The flags say which of Title and the leadership field
+  // came back as sent.
+  SLACK_TITLE_MISMATCH: {
+    targetType: "USER",
+    metadata: z.strictObject({
+      slackTeamId: z.string().min(1).max(32),
+      title: z.string().max(300),
+      titleMatched: z.boolean(),
+      fieldMatched: z.boolean(),
+    }),
+  },
+  // A leadership holder without Slack title access was refused by the mandate
+  // (#361). `surface` is the endpoint that refused. Written best-effort, at most
+  // one per user per day (src/lib/slack/mandate.ts). No PII.
+  SLACK_MANDATE_BLOCKED: {
+    targetType: "USER",
+    metadata: z.strictObject({ surface: z.enum(["session", "token"]) }),
   },
   // One per `--apply` of scripts/import-users.ts and scripts/import-aplio-users.ts,
   // and one per admin CSV import.
@@ -596,6 +704,7 @@ export const AUDIT_PII_METADATA_FIELDS = {
   EMAIL_CHANGED: ["fromEmail", "toEmail"],
   SLACK_LINKED: ["slackUserId"],
   SLACK_UNLINKED: ["slackUserId"],
+  SLACK_TOKEN_GRANTED: ["slackUserId"],
 } as const satisfies Partial<Record<AuditEventType, readonly string[]>>;
 
 export type AuditMetadata<T extends AuditEventType> = z.input<

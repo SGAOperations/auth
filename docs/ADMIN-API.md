@@ -17,21 +17,22 @@ Endpoint reference for the admin UI (#60) and for product owners. The handlers l
 
 All paths are under `/api/sgauth/admin/users`.
 
-| Method and path             | `can()` action       | Fresh auth | Audit event                                            | Success                                |
-| --------------------------- | -------------------- | ---------- | ------------------------------------------------------ | -------------------------------------- |
-| `GET /`                     | `accessAdmin` (gate) | no         | none                                                   | 200 `{ users, page, pageSize, total }` |
-| `POST /`                    | `accessAdmin` (gate) | no         | `USER_CREATED { source: "admin", invited }`            | 201 `{ user, email }`                  |
-| `GET /:id`                  | `accessAdmin` (gate) | no         | none                                                   | 200 `{ user: AdminUserDetail }`        |
-| `PATCH /:id`                | `updateProfile`      | no         | `USER_UPDATED { fields }`, none when nothing changed   | 200 `{ user }`                         |
-| `DELETE /:id`               | `delete`             | yes        | `USER_DELETED { reason: "admin", removedPositionIds }` | 200 `{ user }`                         |
-| `POST /:id/deactivate`      | `deactivate`         | yes        | `USER_DEACTIVATED { revokedSessions }`                 | 200 `{ user, revokedSessions }`        |
-| `POST /:id/reactivate`      | `reactivate`         | no         | `USER_REACTIVATED`                                     | 200 `{ user }`                         |
-| `POST /:id/grant-admin`     | `grantAdmin`         | yes        | `ADMIN_GRANTED`                                        | 200 `{ user, email }`                  |
-| `POST /:id/revoke-admin`    | `revokeAdmin`        | yes        | `ADMIN_REVOKED`                                        | 200 `{ user }`                         |
-| `POST /:id/revoke-sessions` | `revokeSessions`     | no         | `SESSIONS_REVOKED { scope: "all" }`                    | 200 `{ user, revokedSessions }`        |
-| `POST /:id/unlock`          | `unlock`             | no         | `ACCOUNT_UNLOCKED { method: "admin" }`                 | 200 `{ user }`                         |
-| `POST /:id/reset-mfa`       | `resetMfa`           | yes        | `MFA_RESET`                                            | 200 `{ user, email }`                  |
-| `POST /:id/resend-invite`   | `resendInvite`       | no         | `USER_INVITED`                                         | 200 `{ user, email }`                  |
+| Method and path                | `can()` action          | Fresh auth | Audit event                                            | Success                                |
+| ------------------------------ | ----------------------- | ---------- | ------------------------------------------------------ | -------------------------------------- |
+| `GET /`                        | `accessAdmin` (gate)    | no         | none                                                   | 200 `{ users, page, pageSize, total }` |
+| `POST /`                       | `accessAdmin` (gate)    | no         | `USER_CREATED { source: "admin", invited }`            | 201 `{ user, email }`                  |
+| `GET /:id`                     | `accessAdmin` (gate)    | no         | none                                                   | 200 `{ user: AdminUserDetail }`        |
+| `PATCH /:id`                   | `updateProfile`         | no         | `USER_UPDATED { fields }`, none when nothing changed   | 200 `{ user }`                         |
+| `DELETE /:id`                  | `delete`                | yes        | `USER_DELETED { reason: "admin", removedPositionIds }` | 200 `{ user }`                         |
+| `POST /:id/deactivate`         | `deactivate`            | yes        | `USER_DEACTIVATED { revokedSessions }`                 | 200 `{ user, revokedSessions }`        |
+| `POST /:id/reactivate`         | `reactivate`            | no         | `USER_REACTIVATED`                                     | 200 `{ user }`                         |
+| `POST /:id/grant-admin`        | `grantAdmin`            | yes        | `ADMIN_GRANTED`                                        | 200 `{ user, email }`                  |
+| `POST /:id/revoke-admin`       | `revokeAdmin`           | yes        | `ADMIN_REVOKED`                                        | 200 `{ user }`                         |
+| `POST /:id/revoke-sessions`    | `revokeSessions`        | no         | `SESSIONS_REVOKED { scope: "all" }`                    | 200 `{ user, revokedSessions }`        |
+| `POST /:id/unlock`             | `unlock`                | no         | `ACCOUNT_UNLOCKED { method: "admin" }`                 | 200 `{ user }`                         |
+| `POST /:id/reset-mfa`          | `resetMfa`              | yes        | `MFA_RESET`                                            | 200 `{ user, email }`                  |
+| `POST /:id/resend-invite`      | `resendInvite`          | no         | `USER_INVITED`                                         | 200 `{ user, email }`                  |
+| `POST /:id/stop-title-updates` | `stopSlackTitleUpdates` | no         | `SLACK_TOKEN_REVOKED { reason: "withdrawn" }`          | 200 `{ user }`                         |
 
 ### Who may act on whom
 
@@ -118,6 +119,7 @@ Every error body is `{ code, message }`, plus the extra fields noted. A 500 is l
 | 409    | `NOT_LOCKED`                                         | unlock: no live lock                                                           |
 | 409    | `MFA_NOT_ENROLLED`                                   | reset-mfa: the user has no MFA                                                 |
 | 409    | `PASSWORD_ALREADY_SET`, `USER_DEACTIVATED`           | resend-invite                                                                  |
+| 409    | `NOT_GRANTED`                                        | stop-title-updates: the user has no title grant                                |
 | 429    | `TOO_MANY_REQUESTS`                                  | the admin mutation limit (100 a minute per admin)                              |
 | 429    | `INVITE_LIMIT`                                       | resend-invite: 3 invites a day to one user                                     |
 | 500    | `INTERNAL_ERROR`                                     | unexpected                                                                     |

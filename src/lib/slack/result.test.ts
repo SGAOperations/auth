@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { slackLinkUrl } from "@/lib/slack/links";
 import {
   SLACK_RESULTS,
+  slackLoginResultPath,
   slackResultMessage,
   slackResultPath,
   type SlackResult,
@@ -17,6 +18,28 @@ describe("slack results", () => {
         slackResultMessage(url.searchParams.get("slack") ?? undefined),
       ).toEqual({ result, message: SLACK_RESULTS[result] });
     }
+  });
+
+  it("round-trips every result through the login page", () => {
+    for (const result of Object.keys(SLACK_RESULTS) as SlackResult[]) {
+      const url = new URL(slackLoginResultPath(result), "https://auth.example");
+      expect(url.pathname).toBe("/login");
+      expect(url.hash).toBe("");
+      expect(
+        slackResultMessage(url.searchParams.get("slack") ?? undefined),
+      ).toEqual({ result, message: SLACK_RESULTS[result] });
+    }
+  });
+
+  it.each([
+    "title_updates_allowed",
+    "title_updates_stopped",
+    "consent_declined",
+    "different_account",
+    "not_leadership",
+    "missing_scope",
+  ])("has copy for the title-update outcome %s", (key) => {
+    expect(slackResultMessage(key)?.message).toBeTruthy();
   });
 
   it.each([undefined, "", "constructor", "toString", "nope"])(

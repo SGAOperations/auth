@@ -14,6 +14,9 @@ export interface SessionSubject {
   isPrimaryAdmin: boolean;
   status: string;
   positions: { key: string; name: string }[];
+  /** Inputs to the Slack mandate (#361). Never mapped into a response body. */
+  isLeadership: boolean;
+  hasSlackProfileAccess: boolean;
 }
 
 export interface SessionRow {

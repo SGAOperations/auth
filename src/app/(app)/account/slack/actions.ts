@@ -7,26 +7,47 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { limitRequest } from "@/lib/rate-limit/server";
 import {
   SLACK_STATE_COOKIE_MAX_AGE,
+  consentReturnCookieName,
+  stateCookieName,
+  stateCookieSecure,
+} from "@/lib/slack/oauth-state";
+import { startSlackProfileAccess } from "@/lib/slack/profile-access";
+import {
+  slackLoginResultPath,
+  slackResultPath,
+  type SlackResult,
+} from "@/lib/slack/result";
+import {
   confirmSlackLinkToken,
-  slackStateCookieName,
-  slackStateCookieSecure,
   startSlackConnect,
   unlinkOwnSlack,
 } from "@/lib/slack/service";
-import { slackResultPath } from "@/lib/slack/result";
 
 // Next.js compares Origin with the host for server actions, and next.config.ts
 // sets no `serverActions.allowedOrigins`, so only same-origin calls get here.
 // The target is always the session user; no user id is read from the input.
 
-async function signedInUser(path: string) {
+async function signedInUser(
+  path: string,
+  resultPath: (result: SlackResult) => string = slackResultPath,
+) {
   const user = await getCurrentUser();
   if (!user) redirect(`/login?redirect=${encodeURIComponent(path)}`);
   if (await limitRequest("slackLink", user.id)) {
-    redirect(slackResultPath("rate_limited"));
+    redirect(resultPath("rate_limited"));
   }
   return user;
 }
+
+/** The attributes of the consent state cookie, shared by the return cookie. */
+const consentCookie = () =>
+  ({
+    httpOnly: true,
+    secure: stateCookieSecure(),
+    sameSite: "lax",
+    path: "/",
+    maxAge: SLACK_STATE_COOKIE_MAX_AGE,
+  }) as const;
 
 const tokenSchema = z.string().min(1).max(128);
 
@@ -45,13 +66,42 @@ export async function connectSlack(): Promise<void> {
   const user = await signedInUser("/account");
   const started = await startSlackConnect(user.id);
   if (!started) redirect(slackResultPath("not_configured"));
-  (await cookies()).set(slackStateCookieName(), started.state, {
+  (await cookies()).set(stateCookieName("connect"), started.state, {
     httpOnly: true,
-    secure: slackStateCookieSecure(),
+    secure: stateCookieSecure(),
     sameSite: "lax",
     path: "/",
     maxAge: SLACK_STATE_COOKIE_MAX_AGE,
   });
+  redirect(started.url);
+}
+
+/**
+ * Allow Slack title updates (#358): off to Slack's consent for the profile
+ * scopes, bound to this browser by a cookie. Leaders only, checked here.
+ */
+export async function allowSlackTitleUpdates(): Promise<void> {
+  const user = await signedInUser("/account");
+  const started = await startSlackProfileAccess(user.id);
+  if (typeof started === "string") redirect(slackResultPath(started));
+  const jar = await cookies();
+  jar.set(stateCookieName("consent"), started.state, consentCookie());
+  // A stale return cookie from an abandoned /login flow must not misroute.
+  jar.set(consentReturnCookieName(), "", { ...consentCookie(), maxAge: 0 });
+  redirect(started.url);
+}
+
+/**
+ * The same consent, started from the /login interstitial for a leader the
+ * mandate blocks (#361): the callback returns to /login, not the account page.
+ */
+export async function allowSlackTitleUpdatesToContinue(): Promise<void> {
+  const user = await signedInUser("/login", slackLoginResultPath);
+  const started = await startSlackProfileAccess(user.id);
+  if (typeof started === "string") redirect(slackLoginResultPath(started));
+  const jar = await cookies();
+  jar.set(stateCookieName("consent"), started.state, consentCookie());
+  jar.set(consentReturnCookieName(), "login", consentCookie());
   redirect(started.url);
 }
 

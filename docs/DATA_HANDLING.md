@@ -26,28 +26,30 @@ Every personal field in `prisma/schema.prisma`. "Admins" means SGAuth admins, th
 
 ### Credentials and security records
 
-| Model and field                             | Purpose                                                                  | Who can read it                 | Retention                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------- | ------------------------------------------ |
-| `Account.password`                          | scrypt hash, or an imported bcrypt hash that is re-hashed on first login | Server only                     | Removed at tombstone                       |
-| `TwoFactor.secret`, `TwoFactor.backupCodes` | TOTP second factor                                                       | Server only                     | Removed at tombstone                       |
-| `Passkey.name`, `credentialID`, `publicKey` | Passkey sign-in; the name is chosen by the user                          | The user (passkey list)         | Removed at tombstone                       |
-| `Session.token`, `ipAddress`, `userAgent`   | Keep the user signed in; show active sessions                            | The user; admins (session list) | Purged at expiry or 90 days after creation |
-| `KnownDevice.userAgent`, `tokenHash`        | Recognize a remembered device                                            | Server only                     | Until tombstone (see Known gaps)           |
-| `AccountLock.lastFailedIp`                  | Lockout diagnostics                                                      | Server only                     | Until tombstone (see Known gaps)           |
-| `UnlockToken.tokenHash`                     | Emailed unlock link; the raw token is never stored                       | Server only                     | Purged when expired                        |
-| `Verification.identifier`, `value`          | Email verification and reset tokens                                      | Server only                     | Purged when expired                        |
-| `SlackLinkToken.tokenHash`, `slackUserId`   | Link a Slack account from a product's DM; the raw token is never stored  | Server only                     | Purged when expired                        |
-| `ProductApiKey.keyHash`                     | A product's server-to-server key; the key itself is never stored         | Server only                     | Kept until the product is deleted          |
+| Model and field                             | Purpose                                                                  | Who can read it                 | Retention                                                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `Account.password`                          | scrypt hash, or an imported bcrypt hash that is re-hashed on first login | Server only                     | Removed at tombstone                                                                                      |
+| `TwoFactor.secret`, `TwoFactor.backupCodes` | TOTP second factor                                                       | Server only                     | Removed at tombstone                                                                                      |
+| `Passkey.name`, `credentialID`, `publicKey` | Passkey sign-in; the name is chosen by the user                          | The user (passkey list)         | Removed at tombstone                                                                                      |
+| `Session.token`, `ipAddress`, `userAgent`   | Keep the user signed in; show active sessions                            | The user; admins (session list) | Purged at expiry or 90 days after creation                                                                |
+| `KnownDevice.userAgent`, `tokenHash`        | Recognize a remembered device                                            | Server only                     | Until tombstone (see Known gaps)                                                                          |
+| `AccountLock.lastFailedIp`                  | Lockout diagnostics                                                      | Server only                     | Until tombstone (see Known gaps)                                                                          |
+| `UnlockToken.tokenHash`                     | Emailed unlock link; the raw token is never stored                       | Server only                     | Purged when expired                                                                                       |
+| `Verification.identifier`, `value`          | Email verification and reset tokens                                      | Server only                     | Purged when expired                                                                                       |
+| `SlackLinkToken.tokenHash`, `slackUserId`   | Link a Slack account from a product's DM; the raw token is never stored  | Server only                     | Purged when expired                                                                                       |
+| `ProductApiKey.keyHash`                     | A product's server-to-server key; the key itself is never stored         | Server only                     | Kept until the product is deleted                                                                         |
+| `SlackUserToken.token`                      | The Slack user token a leader granted, to edit their profile (#358)      | Server only; encrypted          | Removed at withdraw, unlink, relink, deactivation and tombstone, and when Slack reports the token revoked |
 
 ### Positions, transfers and audit
 
-| Model and field                                          | Purpose                                  | Who can read it                       | Retention                                         |
-| -------------------------------------------------------- | ---------------------------------------- | ------------------------------------- | ------------------------------------------------- |
-| `UserPosition`                                           | SGA positions a user holds               | Admins; products                      | Removed at tombstone                              |
-| `SlackIdentity.slackTeamId`, `slackUserId`               | The Slack account a user linked          | The user; admins; products with a key | Removed at unlink and at tombstone                |
-| `AuditEvent.type`, `actorUserId`, `targetId`, `metadata` | Audit trail of security-relevant actions | Admins                                | Kept; the catalog defines what metadata may carry |
-| `AuditEvent.ip`, `userAgent`                             | Context for the audit trail              | Admins                                | Nulled at 90 days, and at tombstone               |
-| `PrimaryAdminTransfer`                                   | Primary Admin hand-over state            | Admins                                | Kept                                              |
+| Model and field                                          | Purpose                                               | Who can read it                       | Retention                                         |
+| -------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------- | ------------------------------------------------- |
+| `UserPosition`                                           | SGA positions a user holds                            | Admins; products                      | Removed at tombstone                              |
+| `SlackIdentity.slackTeamId`, `slackUserId`               | The Slack account a user linked                       | The user; admins; products with a key | Removed at unlink and at tombstone                |
+| `AuditEvent.type`, `actorUserId`, `targetId`, `metadata` | Audit trail of security-relevant actions              | Admins                                | Kept; the catalog defines what metadata may carry |
+| `AuditEvent.ip`, `userAgent`                             | Context for the audit trail                           | Admins                                | Nulled at 90 days, and at tombstone               |
+| `PrimaryAdminTransfer`                                   | Primary Admin hand-over state                         | Admins                                | Kept                                              |
+| `AccessRequest`                                          | Requests for external product access, made from Slack | The three viewer positions (#344)     | Kept; `requesterId` is cleared at tombstone       |
 
 ## Not collected
 
@@ -72,7 +74,7 @@ Each tombstone writes one `USER_DELETED` audit row whose `reason` is `admin`, `d
 
 ## Tombstone end state
 
-A tombstone sets the user's status to `DELETED` and scrubs the personal fields: name, email, password, two-factor settings, passkeys, sessions, known devices, lock record and positions. IP and user agent are removed from the user's audit history. The `User` row and its id are kept, so foreign keys in products and in audit history stay valid and products can show "Deleted user". The same email can sign up again later as a new account with a new id.
+A tombstone sets the user's status to `DELETED` and scrubs the personal fields: name, email, password, two-factor settings, passkeys, sessions, known devices, lock record, positions and access-request requester links. IP and user agent are removed from the user's audit history. The `User` row and its id are kept, so foreign keys in products and in audit history stay valid and products can show "Deleted user". The same email can sign up again later as a new account with a new id.
 
 ## Known gaps
 

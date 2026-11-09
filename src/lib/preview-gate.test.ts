@@ -30,6 +30,8 @@ const EXEMPT = [
   "/api/jobs/alerts",
   "/api/jobs/retention",
   "/api/provision/aplio/users",
+  "/api/slack/commands/who-is",
+  "/api/slack/commands/access",
   "/.well-known/jwks.json",
   "/.well-known/openid-configuration",
 ];
@@ -52,6 +54,8 @@ describe("isExemptPath", () => {
     "/api/provision",
     "/api/provision/aplio",
     "/api/provision/aplio/users/x",
+    "/api/slack/commands",
+    "/api/slack/commands/who-is/x",
   ])("gates %s", (path) => {
     expect(isExemptPath(path)).toBe(false);
   });

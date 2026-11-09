@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACCESS_REQUEST_VIEWER_KEYS,
   GLOBAL_ACTIONS,
   USER_ACTIONS,
   can,
   canActOnTransfer,
+  canGrantSlackProfileAccess,
+  canSubmitAccessRequest,
   canUpdateOwnProfile,
+  canViewAccessRequests,
+  canUseProducts,
   canViewLeadershipResources,
+  canUseWhoIs,
   canViewOrgChart,
   type AuthzDenialReason,
   type AuthzSubject,
@@ -95,6 +101,7 @@ const MATRIX: Record<ActorName, Partial<Record<UserAction, Row>>> = {
     revokeSessions: adminPaProtected,
     unlock: adminPaProtected,
     resendInvite: adminPaProtected,
+    stopSlackTitleUpdates: adminPaProtected,
     changeEmail: [
       "PRIMARY_ADMIN_REQUIRED",
       "allow",
@@ -126,6 +133,12 @@ const MATRIX: Record<ActorName, Partial<Record<UserAction, Row>>> = {
     revokeSessions: all("allow"),
     unlock: all("allow"),
     resendInvite: all("allow"),
+    stopSlackTitleUpdates: [
+      "PRIMARY_ADMIN_PROTECTED",
+      "allow",
+      "allow",
+      "PRIMARY_ADMIN_PROTECTED",
+    ],
     changeEmail: all("allow"),
     resetMfa: [
       "PRIMARY_ADMIN_PROTECTED",
@@ -345,6 +358,137 @@ describe("canViewOrgChart", () => {
   });
 });
 
+describe("canUseWhoIs", () => {
+  it("lets an active non-admin and an active admin use it", () => {
+    expect(canUseWhoIs(user)).toEqual({ allowed: true });
+    expect(canUseWhoIs(admin)).toEqual({ allowed: true });
+  });
+
+  it("denies deactivated and deleted actors", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(canUseWhoIs(subject("gone", { status }))).toEqual({
+        allowed: false,
+        reason: "ACTOR_INACTIVE",
+      });
+    }
+  });
+});
+
+describe("canSubmitAccessRequest", () => {
+  const listed = ["president", "vp-finance"];
+
+  it("allows a holder of a listed position", () => {
+    expect(canSubmitAccessRequest(user, ["president"], listed)).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("allows a holder of several positions when only one is listed", () => {
+    expect(
+      canSubmitAccessRequest(user, ["senator", "vp-finance", "member"], listed),
+    ).toEqual({ allowed: true });
+  });
+
+  it("denies a user who holds no positions", () => {
+    expect(canSubmitAccessRequest(user, [], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+  });
+
+  it("denies a user whose positions are all unlisted", () => {
+    expect(canSubmitAccessRequest(user, ["senator", "member"], listed)).toEqual(
+      { allowed: false, reason: "NOT_ACCESS_SUBMITTER" },
+    );
+  });
+
+  it("denies everyone when the list is empty", () => {
+    expect(canSubmitAccessRequest(user, ["president"], [])).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+  });
+
+  it("denies an inactive actor who holds a listed position", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canSubmitAccessRequest(
+          subject("gone", { status }),
+          ["president"],
+          ["president"],
+        ),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
+  });
+
+  it("grants an admin nothing without a listed position", () => {
+    expect(canSubmitAccessRequest(pa, ["senator"], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+    expect(canSubmitAccessRequest(admin, [], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+  });
+
+  it("matches keys exactly, with no case folding", () => {
+    expect(canSubmitAccessRequest(user, ["VP-Finance"], listed)).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_SUBMITTER",
+    });
+  });
+});
+
+describe("canViewAccessRequests", () => {
+  it("allows a holder of each viewer position on its own", () => {
+    for (const key of ACCESS_REQUEST_VIEWER_KEYS) {
+      expect(canViewAccessRequests(user, [key])).toEqual({ allowed: true });
+    }
+  });
+
+  it("allows a viewer position mixed with others", () => {
+    expect(
+      canViewAccessRequests(user, ["senator", "information-manager", "member"]),
+    ).toEqual({ allowed: true });
+  });
+
+  it("denies a user with no positions or only unrelated ones", () => {
+    for (const held of [[], ["senator", "president"]]) {
+      expect(canViewAccessRequests(user, held)).toEqual({
+        allowed: false,
+        reason: "NOT_ACCESS_VIEWER",
+      });
+    }
+  });
+
+  it("grants an admin and the Primary Admin nothing without a viewer position", () => {
+    for (const actor of [admin, pa]) {
+      expect(canViewAccessRequests(actor, ["senator"])).toEqual({
+        allowed: false,
+        reason: "NOT_ACCESS_VIEWER",
+      });
+    }
+  });
+
+  it("matches keys exactly, with no case folding", () => {
+    expect(canViewAccessRequests(user, ["Information-Manager"])).toEqual({
+      allowed: false,
+      reason: "NOT_ACCESS_VIEWER",
+    });
+  });
+
+  it("denies an inactive actor who holds a viewer position", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canViewAccessRequests(subject("gone", { status }), [
+          "information-manager",
+        ]),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
+  });
+});
+
 describe("canViewLeadershipResources", () => {
   const leader = { isLeadership: true };
   const notLeader = { isLeadership: false };
@@ -372,6 +516,95 @@ describe("canViewLeadershipResources", () => {
       expect(
         canViewLeadershipResources(subject("gone", { status }), leader),
       ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
+  });
+});
+
+describe("canGrantSlackProfileAccess", () => {
+  const leader = { isLeadership: true };
+  const notLeader = { isLeadership: false };
+
+  it("lets an active leader grant", () => {
+    expect(canGrantSlackProfileAccess(user, leader)).toEqual({ allowed: true });
+  });
+
+  it("denies an active non-leader, admin or not", () => {
+    for (const actor of [user, admin, pa]) {
+      expect(canGrantSlackProfileAccess(actor, notLeader)).toEqual({
+        allowed: false,
+        reason: "NOT_LEADERSHIP",
+      });
+    }
+  });
+
+  it("denies deactivated and deleted leaders", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      expect(
+        canGrantSlackProfileAccess(subject("gone", { status }), leader),
+      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+    }
+  });
+});
+
+describe("canUseProducts", () => {
+  const on = { slackMandateEnabled: true };
+  const off = { slackMandateEnabled: false };
+  const viewer = (isLeadership: boolean, hasSlackProfileAccess: boolean) => ({
+    isLeadership,
+    hasSlackProfileAccess,
+  });
+
+  it("allows every leader and token combination while the flag is off", () => {
+    for (const isLeadership of [true, false]) {
+      for (const hasToken of [true, false]) {
+        expect(
+          canUseProducts(user, viewer(isLeadership, hasToken), off),
+        ).toEqual({ allowed: true });
+      }
+    }
+  });
+
+  it("never blocks a non-leader, with or without a Slack link", () => {
+    for (const hasToken of [true, false]) {
+      expect(canUseProducts(user, viewer(false, hasToken), on)).toEqual({
+        allowed: true,
+      });
+    }
+  });
+
+  it("allows a leader who has allowed title updates", () => {
+    expect(canUseProducts(user, viewer(true, true), on)).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("blocks a leader without title access", () => {
+    expect(canUseProducts(user, viewer(true, false), on)).toEqual({
+      allowed: false,
+      reason: "SLACK_LINK_REQUIRED",
+    });
+  });
+
+  it("does not let admin status stand in for the Slack link", () => {
+    for (const actor of [admin, pa]) {
+      expect(canUseProducts(actor, viewer(true, false), on)).toEqual({
+        allowed: false,
+        reason: "SLACK_LINK_REQUIRED",
+      });
+    }
+  });
+
+  it("denies deactivated and deleted users first, flag on or off", () => {
+    for (const status of ["DEACTIVATED", "DELETED"] as const) {
+      for (const policy of [on, off]) {
+        expect(
+          canUseProducts(
+            subject("gone", { status }),
+            viewer(false, false),
+            policy,
+          ),
+        ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
+      }
     }
   });
 });

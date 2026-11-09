@@ -24,6 +24,7 @@ export const USER_ACTIONS = [
   "revokeSessions",
   "unlock",
   "resendInvite",
+  "stopSlackTitleUpdates",
   "initiateTransfer",
 ] as const;
 
@@ -48,7 +49,10 @@ export type AuthzDenialReason =
   | "NOT_SELF"
   | "NOT_TRANSFER_RECIPIENT"
   | "NOT_TRANSFER_INITIATOR"
-  | "NOT_LEADERSHIP";
+  | "NOT_ACCESS_SUBMITTER"
+  | "NOT_LEADERSHIP"
+  | "NOT_ACCESS_VIEWER"
+  | "SLACK_LINK_REQUIRED";
 
 export type AuthzDecision =
   | { allowed: true }
@@ -81,6 +85,7 @@ const PA_PROTECTED: ReadonlySet<UserAction> = new Set([
   "unlock",
   "updateProfile",
   "resendInvite",
+  "stopSlackTitleUpdates",
 ]);
 
 /** The PA_PROTECTED actions the Primary Admin may still do to themselves. */
@@ -202,6 +207,64 @@ export function canViewOrgChart(actor: AuthzSubject): AuthzDecision {
 }
 
 /**
+ * Whether `actor` may use SGAssist's `/who-is` (#349). Unlike the org chart,
+ * `/who-is` shows who holds which positions. Any ACTIVE user may (decision 1,
+ * #349). It is a separate function so the rule can tighten without touching
+ * `canViewOrgChart`.
+ */
+export function canUseWhoIs(actor: AuthzSubject): AuthzDecision {
+  return actor.status === "ACTIVE" ? allow : deny("ACTOR_INACTIVE");
+}
+
+/**
+ * Whether `actor` may submit an access request from Slack: they must hold at
+ * least one position on the submitter list. Admin status grants nothing, and an
+ * empty list denies everyone. Keys match exactly.
+ *
+ * Both key lists must hold active positions only. Active keys are unique
+ * (`Position_key_active_key`), so a reused key cannot match a retired position.
+ */
+export function canSubmitAccessRequest(
+  actor: AuthzSubject,
+  heldPositionKeys: readonly string[],
+  submitterPositionKeys: readonly string[],
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  const submitters = new Set(submitterPositionKeys);
+  return heldPositionKeys.some((key) => submitters.has(key))
+    ? allow
+    : deny("NOT_ACCESS_SUBMITTER");
+}
+
+/** The positions whose holders may see the access requests page (#344). */
+export const ACCESS_REQUEST_VIEWER_KEYS = [
+  "executive-vice-president",
+  "vice-president-of-operational-affairs",
+  "information-manager",
+] as const;
+
+/**
+ * Whether `actor` may see the access requests: an ACTIVE user who holds at
+ * least one of `ACCESS_REQUEST_VIEWER_KEYS`. Admin status grants nothing. Keys
+ * match exactly, and the caller passes the keys of non-deleted positions only,
+ * the same contract as `canSubmitAccessRequest`.
+ */
+export function canViewAccessRequests(
+  actor: AuthzSubject,
+  heldPositionKeys: readonly string[],
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  const viewers: readonly string[] = ACCESS_REQUEST_VIEWER_KEYS;
+  return heldPositionKeys.some((key) => viewers.includes(key))
+    ? allow
+    : deny("NOT_ACCESS_VIEWER");
+}
+
+/**
  * Whether `actor` may see the leadership resources and guides: an ACTIVE user
  * who holds at least one non-deleted leadership position. Admin status does not
  * grant access. `viewer.isLeadership` comes from `loadAccountOverview`, which
@@ -215,6 +278,41 @@ export function canViewLeadershipResources(
     return deny("ACTOR_INACTIVE");
   }
   return viewer.isLeadership ? allow : deny("NOT_LEADERSHIP");
+}
+
+/**
+ * Whether `actor` may let SGAuth edit their Slack profile (#358): an ACTIVE
+ * user who holds a non-deleted leadership position, the same rule as the
+ * leadership resources. Only the grant is gated. Withdrawing is self-only and
+ * never checks leadership, so consent can always be taken back.
+ */
+export function canGrantSlackProfileAccess(
+  actor: AuthzSubject,
+  viewer: { isLeadership: boolean },
+): AuthzDecision {
+  return canViewLeadershipResources(actor, viewer);
+}
+
+/**
+ * Whether `actor` may use SGA products (#361). An ACTIVE user passes, unless
+ * the Slack mandate is on and they hold a leadership position without having
+ * allowed Slack title updates (`hasSlackProfileAccess`, a stored
+ * `SlackUserToken`). Admin status grants nothing. Non-leaders are never blocked
+ * by the mandate. SGAuth's own pages do not call this, so a blocked leader can
+ * always reach the fix.
+ */
+export function canUseProducts(
+  actor: AuthzSubject,
+  viewer: { isLeadership: boolean; hasSlackProfileAccess: boolean },
+  policy: { slackMandateEnabled: boolean },
+): AuthzDecision {
+  if (actor.status !== "ACTIVE") {
+    return deny("ACTOR_INACTIVE");
+  }
+  if (!policy.slackMandateEnabled || !viewer.isLeadership) {
+    return allow;
+  }
+  return viewer.hasSlackProfileAccess ? allow : deny("SLACK_LINK_REQUIRED");
 }
 
 /** The two people a Primary Admin transfer names. */

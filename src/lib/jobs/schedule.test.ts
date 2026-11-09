@@ -20,6 +20,12 @@ describe("scheduled jobs workflow", () => {
     expect(WORKFLOW.match(/- cron:/g)).toHaveLength(3);
   });
 
+  it("calls the current dev host", () => {
+    expect(WORKFLOW).toContain(
+      "dev) base=https://dev.auth.northeasternsga.com ;;",
+    );
+  });
+
   it("only POSTs to /api/jobs/", () => {
     expect(WORKFLOW).toContain("-X POST");
     expect(WORKFLOW).toContain('"$BASE/api/jobs/$JOB"');

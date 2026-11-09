@@ -1,6 +1,15 @@
 import { randomBytes } from "node:crypto";
-import { beforeAll, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { prisma } from "@/lib/prisma";
+import { encryptSlackToken } from "@/lib/slack/user-token";
 import { tombstoneUser } from "@/lib/users/tombstone";
 import {
   createAdmin,
@@ -13,6 +22,14 @@ import type { PrismaClient } from "@/generated/prisma/client";
 
 const actorOf = (user: { id: string }) =>
   ({ actorType: "USER", actorUserId: user.id }) as const;
+
+const ACCESS_REQUEST_ROW = (requesterId: string, product: string) => ({
+  requesterId,
+  positionKey: "president",
+  positionName: "President",
+  product,
+  access: "Editor",
+});
 
 async function richUser() {
   const user = await createUser({
@@ -61,6 +78,12 @@ async function richUser() {
         linkedVia: "IMPORT",
       },
     }),
+    prisma.accessRequest.createMany({
+      data: [
+        ACCESS_REQUEST_ROW(user.id, "Aplio"),
+        ACCESS_REQUEST_ROW(user.id, "Events"),
+      ],
+    }),
     prisma.verification.createMany({
       data: [
         {
@@ -91,6 +114,16 @@ describe("tombstoneUser", () => {
 
   it("scrubs the row, removes what hangs off it and keeps the id", async () => {
     const { user, positions } = await richUser();
+    const requestIds = (
+      await prisma.accessRequest.findMany({
+        where: { requesterId: user.id },
+        select: { id: true },
+      })
+    ).map((r) => r.id);
+    const other = await createUser();
+    const otherRequest = await prisma.accessRequest.create({
+      data: ACCESS_REQUEST_ROW(other.id, "Aplio"),
+    });
     const priorEvent = await prisma.auditEvent.create({
       data: {
         type: "LOGIN_SUCCESS",
@@ -134,6 +167,27 @@ describe("tombstoneUser", () => {
     expect(await prisma.accountLock.count({ where })).toBe(0);
     expect(await prisma.userPosition.count({ where })).toBe(0);
     expect(await prisma.slackIdentity.count({ where })).toBe(0);
+
+    // The requests stay, with only the link to the person gone.
+    const requests = await prisma.accessRequest.findMany({
+      where: { id: { in: requestIds } },
+      orderBy: { product: "asc" },
+    });
+    expect(requests).toHaveLength(2);
+    for (const request of requests) {
+      expect(request).toMatchObject({
+        requesterId: null,
+        positionKey: "president",
+        positionName: "President",
+        access: "Editor",
+      });
+    }
+    expect(requests.map((r) => r.product)).toEqual(["Aplio", "Events"]);
+    expect(
+      await prisma.accessRequest.findUniqueOrThrow({
+        where: { id: otherRequest.id },
+      }),
+    ).toMatchObject({ requesterId: other.id, product: "Aplio" });
     expect(
       await prisma.verification.count({
         where: { OR: [{ value: user.id }, { identifier: user.email }] },
@@ -167,6 +221,118 @@ describe("tombstoneUser", () => {
     expect([...metadata.removedPositionIds].sort()).toEqual(
       positions.map((p) => p.id).sort(),
     );
+  });
+
+  describe("a Slack title token (#358)", () => {
+    const slackFetch = vi.fn<typeof fetch>();
+    beforeEach(() => {
+      slackFetch.mockReset();
+      slackFetch.mockImplementation(async () =>
+        Response.json({ ok: true, revoked: true }),
+      );
+      vi.stubGlobal("fetch", slackFetch);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    async function userWithGrant() {
+      const user = await createUser();
+      const slackUserId = `U${randomBytes(6).toString("hex").toUpperCase()}`;
+      await prisma.slackUserToken.create({
+        data: {
+          userId: user.id,
+          slackTeamId: "T0TOMB",
+          slackUserId,
+          scopes: "users.profile:write,users.profile:read",
+          token: await encryptSlackToken("xoxp-tombstone-test"),
+        },
+      });
+      await prisma.auditEvent.create({
+        data: {
+          type: "SLACK_TOKEN_GRANTED",
+          actorType: "USER",
+          actorUserId: user.id,
+          targetType: "USER",
+          targetId: user.id,
+          metadata: {
+            slackTeamId: "T0TOMB",
+            slackUserId,
+            scopes: ["users.profile:write", "users.profile:read"],
+            replaced: false,
+          },
+        },
+      });
+      return user;
+    }
+
+    it("deletes and audits the token, scrubs the Slack id from its grant row and revokes it", async () => {
+      const user = await userWithGrant();
+      await tombstoneUser(prisma, {
+        userId: user.id,
+        reason: "admin",
+        actor: actorOf(actor),
+      });
+
+      expect(
+        await prisma.slackUserToken.count({ where: { userId: user.id } }),
+      ).toBe(0);
+      const revoked = await prisma.auditEvent.findMany({
+        where: { targetId: user.id, type: "SLACK_TOKEN_REVOKED" },
+      });
+      expect(revoked).toHaveLength(1);
+      expect(revoked[0]).toMatchObject({
+        actorUserId: actor.id,
+        ip: null,
+        userAgent: null,
+        metadata: { reason: "deleted", slackTeamId: "T0TOMB" },
+      });
+      const granted = await prisma.auditEvent.findFirstOrThrow({
+        where: { targetId: user.id, type: "SLACK_TOKEN_GRANTED" },
+      });
+      expect(granted.metadata).not.toHaveProperty("slackUserId");
+      expect(slackFetch).toHaveBeenCalledTimes(1);
+      expect(slackFetch.mock.calls[0][1]?.headers).toEqual({
+        Authorization: "Bearer xoxp-tombstone-test",
+      });
+    });
+
+    it("writes nothing and revokes nothing for a user without a token", async () => {
+      const user = await createUser();
+      await tombstoneUser(prisma, {
+        userId: user.id,
+        reason: "admin",
+        actor: actorOf(actor),
+      });
+      expect(
+        await prisma.auditEvent.count({
+          where: { targetId: user.id, type: "SLACK_TOKEN_REVOKED" },
+        }),
+      ).toBe(0);
+      expect(slackFetch).not.toHaveBeenCalled();
+    });
+
+    it("keeps the tombstone and audits a failed revoke without network details", async () => {
+      slackFetch.mockImplementation(async () =>
+        Response.json({ ok: false, error: "ratelimited" }),
+      );
+      const user = await userWithGrant();
+      const result = await tombstoneUser(prisma, {
+        userId: user.id,
+        reason: "inactive_12mo",
+        actor: { actorType: "SYSTEM" },
+      });
+      expect(result.tombstoned).toBe(true);
+      const failed = await prisma.auditEvent.findFirstOrThrow({
+        where: { targetId: user.id, type: "SLACK_TOKEN_REVOKE_FAILED" },
+      });
+      expect(failed).toMatchObject({
+        actorType: "SYSTEM",
+        ip: null,
+        userAgent: null,
+        metadata: { reason: "deleted", slackError: "ratelimited" },
+      });
+    });
   });
 
   it("records a retention rule as the reason, as a system action", async () => {

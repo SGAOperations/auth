@@ -24,6 +24,11 @@ export const ADMIN_NAV: readonly AdminSection[] = [
     description: "Position keys, categories and holders",
   },
   {
+    href: "/admin/access-submitters",
+    label: "Access Submitters",
+    description: "Positions that can request product access from Slack",
+  },
+  {
     href: "/admin/audit",
     label: "Audit log",
     description: "Search and export security events",

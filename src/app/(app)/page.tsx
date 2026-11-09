@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProductExplorer } from "@/components/home/product-explorer";
 import { LinkTile } from "@/components/home/resource-list";
+import { SlackRequiredNotice } from "@/components/home/slack-required-notice";
 import { buttonVariants } from "@/components/ui/button";
 import { loadAccountOverview } from "@/lib/account/server";
 import { requireUser } from "@/lib/auth/guards";
@@ -11,6 +12,7 @@ import { canViewLeadershipResources } from "@/lib/authz";
 import { env } from "@/lib/env";
 import { toHomeProducts } from "@/lib/home/products";
 import { SGA_LINKS } from "@/lib/home/resources";
+import { getOwnSlackMandate } from "@/lib/slack/mandate";
 import { displayName } from "@/lib/user-display";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +25,7 @@ export default async function HomePage() {
   const overview = await loadAccountOverview(user.id);
   if (!overview) redirect("/login");
   const { profile } = overview;
+  const mandate = await getOwnSlackMandate(user);
   const canViewResources = canViewLeadershipResources(user, overview).allowed;
   // Leadership content is attached here, on the server, so a non-leader's page
   // never carries it.
@@ -50,6 +53,8 @@ export default async function HomePage() {
           Your account
         </Link>
       </header>
+
+      {mandate.blocked ? <SlackRequiredNotice linked={mandate.linked} /> : null}
 
       <section aria-labelledby="tools-heading" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">

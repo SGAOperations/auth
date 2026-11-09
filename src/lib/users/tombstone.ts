@@ -12,6 +12,11 @@ import {
   type TransferNotice,
 } from "@/lib/jobs/pa-transfer";
 import { TOMBSTONE_NAME, tombstoneEmail } from "@/lib/retention/policy";
+import {
+  revokeTakenToken,
+  takeSlackUserToken,
+  type TakenSlackToken,
+} from "@/lib/slack/user-token";
 
 export interface TombstoneInput {
   userId: string;
@@ -30,14 +35,16 @@ export interface TombstoneInput {
  *
  * It runs in its own anonymization transaction, so a caller does not wrap it.
  * Writes exactly one audit row, `USER_DELETED`, plus `PA_TRANSFER_CANCELLED`
- * when it cancels a transfer to this user; the notice for that one is returned
- * for the caller to send after the commit.
+ * when it cancels a transfer to this user (the notice for that one is returned
+ * for the caller to send after the commit) and `SLACK_TOKEN_REVOKED` when the
+ * user held a Slack title token, which is revoked at Slack after the commit.
  */
 export async function tombstoneUser(
   client: PrismaClient,
   { userId, reason, actor, guard }: TombstoneInput,
 ): Promise<{ tombstoned: boolean; transferNotice?: TransferNotice | null }> {
-  return withAuditAnonymization(client, async (tx) => {
+  const slackTokens: TakenSlackToken[] = [];
+  const result = await withAuditAnonymization(client, async (tx) => {
     // The old address is used below to find its tokens, and is never logged.
     const current = await tx.user.findUnique({
       where: { id: userId },
@@ -97,6 +104,20 @@ export async function tombstoneUser(
     await tx.userPosition.deleteMany({ where: { userId } });
     // The Slack account the user linked (#313) identifies them.
     await tx.slackIdentity.deleteMany({ where: { userId } });
+    // The Slack title token (#358) is deleted and audited here, and revoked at
+    // Slack after the commit. Detached, like the USER_DELETED row below: the
+    // row is about a scrubbed user and carries no network details.
+    const slackToken = await takeSlackUserToken(tx, userId, "deleted", {
+      actor,
+      detached: true,
+    });
+    if (slackToken) slackTokens.push(slackToken);
+
+    // The request stays for the audit trail; only the link to the person goes.
+    await tx.accessRequest.updateMany({
+      where: { requesterId: userId },
+      data: { requesterId: null },
+    });
     // Set-password and reset tokens carry the user id as their value, and
     // email-keyed rows carry the old address.
     await tx.verification.deleteMany({
@@ -140,4 +161,6 @@ export async function tombstoneUser(
     });
     return { tombstoned: true, transferNotice };
   });
+  for (const token of slackTokens) await revokeTakenToken(token);
+  return result;
 }

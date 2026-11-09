@@ -18,6 +18,10 @@ import {
 import { EMAIL_OTP_DISABLED_PATHS } from "@/lib/auth/email-otp";
 import { capStore, mailer } from "@/lib/email/server";
 import { rateLimiter } from "@/lib/rate-limit/server";
+import {
+  recordSlackMandateBlock,
+  slackMandateEnabled,
+} from "@/lib/slack/mandate";
 import { setPasswordService } from "@/lib/set-password/server";
 
 const settings = toAuthSettings(env);
@@ -121,5 +125,9 @@ export const auth = betterAuth({
     sgauthEnv: settings.sgauthEnv,
     mailer,
     emailOtp,
+    slackMandate: {
+      enabled: slackMandateEnabled(),
+      recordBlock: (userId) => recordSlackMandateBlock(userId, "token"),
+    },
   }),
 });

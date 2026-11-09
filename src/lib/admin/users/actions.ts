@@ -9,6 +9,7 @@ import {
   cancelForIneligibleRecipient,
   lockInFlightTransferTo,
 } from "@/lib/jobs/pa-transfer";
+import { revokeTakenToken, takeSlackUserToken } from "@/lib/slack/user-token";
 
 // The eight POST actions. Every state change on the user row is a conditional
 // `updateMany` whose `where` restates its precondition, so a lost race reads as
@@ -30,7 +31,7 @@ const displayName = (target: UserTarget) => target.preferredName ?? target.name;
 
 type Run = MutationSpec["run"];
 
-const deactivate: Run = async ({ tx, target, now }) => {
+const deactivate: Run = async ({ tx, actor, target, now }) => {
   // Before the user row, the order the job uses: see lockInFlightTransferTo.
   await lockInFlightTransferTo(tx, target.id);
   const changed = await tx.user.updateMany({
@@ -55,11 +56,17 @@ const deactivate: Run = async ({ tx, target, now }) => {
     targetId: target.id,
     metadata: { revokedSessions },
   });
+  // A deactivated user's Slack title token (#358) goes with the account; Slack
+  // is told after the commit. A failed revoke is audited against the admin.
+  const slackToken = await takeSlackUserToken(tx, target.id, "deactivated", {
+    actor: { actorType: "USER", actorUserId: actor.id },
+  });
   const transferNotice = await cancelForIneligibleRecipient(tx, target.id, now);
   return {
     userId: target.id,
     extra: { revokedSessions },
     ...(transferNotice ? { transferNotice } : {}),
+    ...(slackToken ? { afterCommit: () => revokeTakenToken(slackToken) } : {}),
   };
 };
 
@@ -206,6 +213,23 @@ const resendInvite: Run = async ({ tx, target, now }, deps) => {
 };
 
 /**
+ * The admin takes back a user's Slack title consent. Only the admin route runs
+ * this; the user's own account page has no such control. The grant's audit row
+ * records the admin as the actor, and Slack is revoked after the commit.
+ */
+const stopSlackTitleUpdates: Run = async ({ tx, actor, target }) => {
+  if (await isGone(tx, target.id)) return { fail: "USER_DELETED" };
+  const taken = await takeSlackUserToken(tx, target.id, "withdrawn", {
+    actor: { actorType: "USER", actorUserId: actor.id },
+  });
+  if (!taken) return { fail: "NOT_GRANTED" };
+  return {
+    userId: target.id,
+    afterCommit: () => revokeTakenToken(taken),
+  };
+};
+
+/**
  * `authz` is the per-target `can()` action. Re-authentication is asked only for
  * the actions that need it, and only after `can()` has allowed them.
  */
@@ -225,5 +249,10 @@ export const ACTION_SPECS: Record<AdminUserAction, MutationSpec> = {
     authz: "resendInvite",
     freshAuth: false,
     run: resendInvite,
+  },
+  "stop-title-updates": {
+    authz: "stopSlackTitleUpdates",
+    freshAuth: false,
+    run: stopSlackTitleUpdates,
   },
 };

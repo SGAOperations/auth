@@ -423,6 +423,67 @@ describe("parseServerEnv", () => {
       expect(message).not.toContain(bad);
     });
   });
+
+  describe("Slack signing secret", () => {
+    it("is optional", () => {
+      expect(parseServerEnv(valid).SLACK_SIGNING_SECRET).toBeUndefined();
+    });
+
+    it("counts empty as unset", () => {
+      expect(
+        parseServerEnv({ ...valid, SLACK_SIGNING_SECRET: "" })
+          .SLACK_SIGNING_SECRET,
+      ).toBeUndefined();
+    });
+
+    it("is not part of the Connect Slack group", () => {
+      expect(
+        parseServerEnv({ ...valid, SLACK_SIGNING_SECRET: "signing-secret" })
+          .SLACK_SIGNING_SECRET,
+      ).toBe("signing-secret");
+    });
+  });
+
+  describe("Slack mandate flag", () => {
+    const slack = {
+      SLACK_CLIENT_ID: "123.456",
+      SLACK_CLIENT_SECRET: "slack-secret",
+      SLACK_TEAM_ID: "T0123ABCD",
+    };
+
+    it("defaults to off", () => {
+      expect(parseServerEnv(valid).SGAUTH_SLACK_MANDATE_ENABLED).toBe("false");
+    });
+
+    it("refuses a value that is not true or false", () => {
+      expect(
+        messageOf({ ...valid, SGAUTH_SLACK_MANDATE_ENABLED: "yes" }),
+      ).toContain("SGAUTH_SLACK_MANDATE_ENABLED");
+    });
+
+    it("refuses true without the Slack app", () => {
+      expect(
+        messageOf({ ...valid, SGAUTH_SLACK_MANDATE_ENABLED: "true" }),
+      ).toContain("SGAUTH_SLACK_MANDATE_ENABLED: requires the Slack app");
+    });
+
+    it("accepts true with the Slack app", () => {
+      expect(
+        parseServerEnv({
+          ...valid,
+          ...slack,
+          SGAUTH_SLACK_MANDATE_ENABLED: "true",
+        }).SGAUTH_SLACK_MANDATE_ENABLED,
+      ).toBe("true");
+    });
+
+    it("accepts false without the Slack app", () => {
+      expect(
+        parseServerEnv({ ...valid, SGAUTH_SLACK_MANDATE_ENABLED: "false" })
+          .SGAUTH_SLACK_MANDATE_ENABLED,
+      ).toBe("false");
+    });
+  });
 });
 
 describe("parseVersionedSecrets", () => {

@@ -13,6 +13,16 @@ export const SLACK_RESULTS = {
   not_configured: "Connecting Slack from here is not set up yet.",
   failed: "Slack sign-in did not complete. Try again.",
   rate_limited: "Too many attempts. Wait a few minutes and try again.",
+  title_updates_allowed: "SGAuth can now update your Slack title.",
+  title_updates_stopped: "SGAuth can no longer update your Slack title.",
+  consent_declined:
+    "Slack title updates were not allowed. Try again and choose Allow on Slack's page.",
+  different_account:
+    "You allowed access from a different Slack account than the one linked here. Unlink Slack first, or allow access as the linked account.",
+  not_leadership:
+    "Slack title updates are only for people holding a leadership position.",
+  missing_scope:
+    "Slack did not grant permission to edit your profile. Try again and leave the permissions selected.",
 } as const;
 
 export type SlackResult = keyof typeof SLACK_RESULTS;
@@ -20,6 +30,11 @@ export type SlackResult = keyof typeof SLACK_RESULTS;
 /** Where a finished step lands: the account page's Slack card. */
 export function slackResultPath(result: SlackResult): string {
   return `/account?slack=${result}#slack`;
+}
+
+/** Where a finished step lands when the flow started on /login (#361). */
+export function slackLoginResultPath(result: SlackResult): string {
+  return `/login?slack=${result}`;
 }
 
 /** The message for a `?slack=` value, or null for none or an unknown one. */

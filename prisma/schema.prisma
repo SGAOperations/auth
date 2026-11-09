@@ -63,7 +63,9 @@ model User {
   productsCreated                Product[]
   productApiKeysCreated          ProductApiKey[]
   slackIdentity                  SlackIdentity?
+  slackUserToken                 SlackUserToken?
   slackChannelMappingsCreated    SlackChannelMapping[]  @relation("SlackChannelMappingCreatedBy")
+  accessRequests                 AccessRequest[]
   primaryAdminTransfersFrom      PrimaryAdminTransfer[] @relation("PrimaryAdminTransferFrom")
   primaryAdminTransfersTo        PrimaryAdminTransfer[] @relation("PrimaryAdminTransferTo")
   primaryAdminTransfersCancelled PrimaryAdminTransfer[] @relation("PrimaryAdminTransferCancelledBy")
@@ -270,6 +272,7 @@ model Position {
   holders              UserPosition[]
   retired              RetiredPositionKey?
   slackChannelMappings SlackChannelMapping[]
+  accessSubmitter      AccessSubmitterPosition?
 
   @@index([deletedAt])
   @@index([managerPositionId])
@@ -357,6 +360,7 @@ model ProductApiKey {
 enum SlackLinkSource {
   SLACK_COMMAND
   SLACK_OPENID
+  SLACK_OAUTH
   IMPORT
 }
 
@@ -373,6 +377,28 @@ model SlackIdentity {
   productId   String?
   product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   linkedAt    DateTime        @default(now())
+
+  @@unique([slackTeamId, slackUserId])
+}
+
+/// The xoxp- user token a leader granted with `users.profile:write`
+/// (src/lib/slack/user-token.ts). `token` is the encrypted envelope, never the
+/// token. A row exists only while the user's SlackIdentity names the same Slack
+/// user; every path that ends the grant deletes it and writes an audit row.
+model SlackUserToken {
+  id             String    @id @default(uuid(7))
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slackTeamId    String
+  slackUserId    String
+  scopes         String
+  token          String
+  grantedAt      DateTime  @default(now())
+  /// The last title sync run that processed this person, whatever the outcome.
+  /// Written by the job only; orders the next run's candidates.
+  titleCheckedAt DateTime?
+  /// The last time the title sync's read-back matched what it wrote.
+  titleSyncedAt  DateTime?
 
   @@unique([slackTeamId, slackUserId])
 }
@@ -397,6 +423,15 @@ model SlackChannelMapping {
   @@unique([positionId, slackTeamId, slackChannelId])
 }
 
+/// The row allows the holders of this position to submit access requests from
+/// Slack (src/lib/access-submitters.ts). Rows of soft-deleted positions are
+/// ignored on read, and the next replace removes them.
+model AccessSubmitterPosition {
+  positionId String   @id
+  position   Position @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  addedAt    DateTime @default(now())
+}
+
 /// A single-use link a product DMs to a Slack user. Only the SHA-256 of the
 /// token is stored. Carries no SGAuth user: whoever opens it signed in claims it.
 model SlackLinkToken {
@@ -411,6 +446,29 @@ model SlackLinkToken {
   createdAt   DateTime  @default(now())
 
   @@index([expiresAt])
+}
+
+/// A request for access to an external product, made from Slack. Rows are never
+/// edited; the tombstone clears `requesterId` and keeps the row for the audit
+/// trail. The position is a snapshot, not an FK: positions are soft-deleted and
+/// their keys can be reused. The access_request migration adds the CHECKs
+/// `AccessRequest_product_length_check`, `AccessRequest_access_length_check`
+/// and `AccessRequest_position_snapshot_check`, which Prisma cannot express;
+/// the limits mirror src/lib/access-requests/limits.ts.
+model AccessRequest {
+  id           String   @id @default(uuid(7))
+  requesterId  String?
+  requester    User?    @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  positionKey  String
+  positionName String
+  /// free text: the external product asked about
+  product      String
+  /// free text: the access asked for
+  access       String
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([requesterId])
 }
 
 /// At most one transfer may be PENDING_ACCEPTANCE or COOLING, enforced by the

@@ -72,6 +72,15 @@ export const serverShape = z.object({
     .string()
     .regex(/^T[A-Z0-9]{2,20}$/)
     .optional(),
+  // The SGAssist bot's signing secret, for verifying inbound slash-command
+  // requests (#341). Standalone on purpose: SGAssist may be a different Slack
+  // app from the one above, so it is not in the all-or-none Slack group.
+  // Unset means every Slack command request is refused.
+  SLACK_SIGNING_SECRET: z.string().min(1).optional(),
+  // The leadership Slack-link mandate (docs/runbooks/slack-mandate.md). A policy
+  // change, so it ships off. Off unless the value is exactly "true"; any other
+  // value fails startup.
+  SGAUTH_SLACK_MANDATE_ENABLED: z.enum(["true", "false"]).default("false"),
   SEED_PRIMARY_ADMIN_EMAIL: z
     .string()
     .trim()
@@ -214,6 +223,19 @@ const refinedServerShape = serverShape.superRefine((env, ctx) => {
         });
       }
     }
+  }
+
+  // With the Slack app unset no leader could ever satisfy the gate.
+  if (
+    env.SGAUTH_SLACK_MANDATE_ENABLED === "true" &&
+    env.SLACK_CLIENT_ID === undefined
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["SGAUTH_SLACK_MANDATE_ENABLED"],
+      message:
+        "requires the Slack app (SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_TEAM_ID)",
+    });
   }
 
   for (const group of SERVICE_GROUPS) {
