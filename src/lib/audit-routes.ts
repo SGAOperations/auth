@@ -152,11 +152,10 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
   },
   "src/app/api/sgauth/admin/users/[id]/route.ts": {
     kind: "audited",
-    events: ["USER_UPDATED", "USER_DELETED", "SLACK_TOKEN_REVOKED"],
+    events: ["USER_UPDATED", "USER_DELETED"],
     emittedIn: [
       "src/lib/admin/users/handlers.ts",
       "src/lib/users/tombstone.ts",
-      "src/lib/slack/user-token.ts",
     ],
   },
   "src/app/api/sgauth/admin/users/[id]/[action]/route.ts": {
@@ -170,12 +169,8 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
       "ACCOUNT_UNLOCKED",
       "MFA_RESET",
       "USER_INVITED",
-      "SLACK_TOKEN_REVOKED",
     ],
-    emittedIn: [
-      "src/lib/admin/users/actions.ts",
-      "src/lib/slack/user-token.ts",
-    ],
+    emittedIn: ["src/lib/admin/users/actions.ts"],
   },
   // The set-password link (AUTH-T22). The two request routes write
   // PASSWORD_SET_REQUESTED in the service, only when a token is issued. The
@@ -215,23 +210,12 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     events: ["ACCESS_SUBMITTERS_UPDATED"],
     emittedIn: ["src/lib/access-submitters.ts"],
   },
-  // Slack linking on the account page (#313, #314) and the title-update consent
-  // (#358). The services write each row in the same transaction as the link,
-  // unlink, grant or withdrawal.
+  // Slack linking on the account page (#313, #314). The service writes each row
+  // in the same transaction as the link or unlink.
   "src/app/(app)/account/slack/actions.ts": {
     kind: "audited",
-    events: [
-      "SLACK_LINKED",
-      "SLACK_UNLINKED",
-      "SLACK_TOKEN_GRANTED",
-      "SLACK_TOKEN_REVOKED",
-      "SLACK_TOKEN_REVOKE_FAILED",
-    ],
-    emittedIn: [
-      "src/lib/slack/service.ts",
-      "src/lib/slack/profile-access.ts",
-      "src/lib/slack/user-token.ts",
-    ],
+    events: ["SLACK_LINKED", "SLACK_UNLINKED"],
+    emittedIn: ["src/lib/slack/service.ts"],
   },
   // Called by products' servers with an API key (#313).
   "src/app/api/products/slack/link-tokens/route.ts": {
@@ -242,6 +226,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
   "src/app/api/products/slack/lookup/route.ts": {
     kind: "exempt",
     reason: "a POST only to keep ids out of URLs; reads and changes nothing",
+  },
+  "src/app/api/products/positions/holders/route.ts": {
+    kind: "exempt",
+    reason:
+      "reads and changes nothing; reads are not audited, as for /api/products/slack/lookup",
   },
   // Called by Slack with a request signature (#349).
   "src/app/api/slack/commands/who-is/route.ts": {
@@ -273,12 +262,10 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
       "POSITION_ASSIGNED",
       "POSITION_UNASSIGNED",
       "SESSION_REVOKED",
-      "SLACK_TOKEN_REVOKED",
     ],
     emittedIn: [
       "src/lib/admin/users/handlers.ts",
       "src/lib/admin/users/actions.ts",
-      "src/lib/slack/user-token.ts",
       "src/lib/admin/user-sessions.ts",
       "src/app/api/sgauth/admin/users/[id]/positions/route.ts",
     ],

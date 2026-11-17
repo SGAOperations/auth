@@ -7,11 +7,10 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { limitRequest } from "@/lib/rate-limit/server";
 import {
   SLACK_STATE_COOKIE_MAX_AGE,
-  consentReturnCookieName,
+  slackReturnCookieName,
   stateCookieName,
   stateCookieSecure,
 } from "@/lib/slack/oauth-state";
-import { startSlackProfileAccess } from "@/lib/slack/profile-access";
 import {
   slackLoginResultPath,
   slackResultPath,
@@ -39,8 +38,8 @@ async function signedInUser(
   return user;
 }
 
-/** The attributes of the consent state cookie, shared by the return cookie. */
-const consentCookie = () =>
+/** The attributes of the Connect Slack state cookie, shared by the return cookie. */
+const stateCookie = () =>
   ({
     httpOnly: true,
     secure: stateCookieSecure(),
@@ -66,42 +65,24 @@ export async function connectSlack(): Promise<void> {
   const user = await signedInUser("/account");
   const started = await startSlackConnect(user.id);
   if (!started) redirect(slackResultPath("not_configured"));
-  (await cookies()).set(stateCookieName("connect"), started.state, {
-    httpOnly: true,
-    secure: stateCookieSecure(),
-    sameSite: "lax",
-    path: "/",
-    maxAge: SLACK_STATE_COOKIE_MAX_AGE,
-  });
-  redirect(started.url);
-}
-
-/**
- * Allow Slack title updates (#358): off to Slack's consent for the profile
- * scopes, bound to this browser by a cookie. Leaders only, checked here.
- */
-export async function allowSlackTitleUpdates(): Promise<void> {
-  const user = await signedInUser("/account");
-  const started = await startSlackProfileAccess(user.id);
-  if (typeof started === "string") redirect(slackResultPath(started));
   const jar = await cookies();
-  jar.set(stateCookieName("consent"), started.state, consentCookie());
+  jar.set(stateCookieName("connect"), started.state, stateCookie());
   // A stale return cookie from an abandoned /login flow must not misroute.
-  jar.set(consentReturnCookieName(), "", { ...consentCookie(), maxAge: 0 });
+  jar.set(slackReturnCookieName(), "", { ...stateCookie(), maxAge: 0 });
   redirect(started.url);
 }
 
 /**
- * The same consent, started from the /login interstitial for a leader the
- * mandate blocks (#361): the callback returns to /login, not the account page.
+ * Connect Slack, started from the /login interstitial for a leader the mandate
+ * blocks (#361): the callback returns to /login, not the account page.
  */
-export async function allowSlackTitleUpdatesToContinue(): Promise<void> {
+export async function connectSlackToContinue(): Promise<void> {
   const user = await signedInUser("/login", slackLoginResultPath);
-  const started = await startSlackProfileAccess(user.id);
-  if (typeof started === "string") redirect(slackLoginResultPath(started));
+  const started = await startSlackConnect(user.id);
+  if (!started) redirect(slackLoginResultPath("not_configured"));
   const jar = await cookies();
-  jar.set(stateCookieName("consent"), started.state, consentCookie());
-  jar.set(consentReturnCookieName(), "login", consentCookie());
+  jar.set(stateCookieName("connect"), started.state, stateCookie());
+  jar.set(slackReturnCookieName(), "login", stateCookie());
   redirect(started.url);
 }
 

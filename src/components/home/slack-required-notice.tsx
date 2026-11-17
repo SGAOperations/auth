@@ -1,11 +1,11 @@
-import { allowSlackTitleUpdates } from "@/app/(app)/account/slack/actions";
+import { connectSlack } from "@/app/(app)/account/slack/actions";
 import { Button } from "@/components/ui/button";
 
 /**
  * Shown above the tools when the Slack mandate blocks a leader (#361). The
  * tiles stay; opening one lands on the /login interstitial. Plain form.
  */
-export function SlackRequiredNotice({ linked }: { linked: boolean }) {
+export function SlackRequiredNotice() {
   return (
     <section
       aria-labelledby="slack-required-heading"
@@ -19,11 +19,10 @@ export function SlackRequiredNotice({ linked }: { linked: boolean }) {
       </h2>
       <p className="text-sm text-muted-foreground">
         Because you hold a leadership position, SGA tools stay closed until you
-        allow SGAuth to update your Slack title.
-        {linked ? "" : " This also links your Slack account."}
+        link your Slack account.
       </p>
-      <form action={allowSlackTitleUpdates}>
-        <Button type="submit">Allow Slack title updates</Button>
+      <form action={connectSlack}>
+        <Button type="submit">Connect Slack</Button>
       </form>
     </section>
   );

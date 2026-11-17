@@ -49,6 +49,8 @@ const EXEMPT: Record<string, string> = {
     "Machine route called by a product's server; requires a product API key, has no cookie, and issues a link token that links nothing until a signed-in user confirms it as themselves",
   "src/app/api/products/slack/lookup/route.ts":
     "Machine route called by a product's server; requires a product API key, has no cookie, and only reads",
+  "src/app/api/products/positions/holders/route.ts":
+    "Machine route called by a product's server; requires a product API key, has no cookie, and only reads",
   "src/app/api/slack/commands/who-is/route.ts":
     "Machine route called by Slack; requires a valid Slack request signature, has no cookie, and only reads; loadWhoIs gates the caller with canUseWhoIs",
   "src/app/api/slack/commands/access/route.ts":
