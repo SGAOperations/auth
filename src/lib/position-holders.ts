@@ -30,7 +30,7 @@ export type PositionHoldersResult = {
 };
 
 /**
- * Who holds these positions now (#384). Read live: a deactivated user or a
+ * Who holds these positions now. Read live: a deactivated user or a
  * deleted position drops out on the next call. Read only, and reads are not
  * audited. A key with no active position is `unknownKeys`; a vacant position is
  * present with no holders.

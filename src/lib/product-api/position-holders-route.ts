@@ -11,7 +11,7 @@ import { authenticateProductKey } from "@/lib/product-api-keys";
 import { limitRequest } from "@/lib/rate-limit/server";
 
 /**
- * `POST /api/products/positions/holders` (#384). Who currently holds these
+ * `POST /api/products/positions/holders`. Who currently holds these
  * positions: active users only, read live. The product API key is the gate;
  * positions, names and emails are directory-level data. Reads only.
  */
