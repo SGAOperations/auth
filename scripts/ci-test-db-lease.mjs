@@ -13,8 +13,6 @@ import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
-import pg from "pg";
-
 // The CI test-database lease. One key serves every Neon branch, because each
 // branch is its own database.
 export const LEASE_KEY = 7370370370n;
@@ -149,6 +147,9 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     return 1;
   }
 
+  // Loaded here, not at the top: the script-tests job runs the pure helpers
+  // above without installing dependencies.
+  const { default: pg } = await import("pg");
   const minutes =
     Number(env.CI_LEASE_TIMEOUT_MINUTES) || DEFAULT_TIMEOUT_MINUTES;
   const client = new pg.Client({
