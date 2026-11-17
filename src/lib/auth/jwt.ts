@@ -22,7 +22,7 @@ export interface TokenClaims {
   positionKeys: string[];
   /** Inputs to the Slack mandate (#361). Never put into the token. */
   isLeadership: boolean;
-  hasSlackProfileAccess: boolean;
+  hasSlackIdentity: boolean;
 }
 
 export interface SlackMandateGate {
@@ -52,16 +52,16 @@ export async function loadTokenClaims(
         where: { position: { deletedAt: null } },
         select: { position: { select: { key: true, isLeadership: true } } },
       },
-      slackUserToken: { select: { userId: true } },
+      slackIdentity: { select: { id: true } },
     },
   });
   if (!user) return null;
-  const { positions, slackUserToken, ...rest } = user;
+  const { positions, slackIdentity, ...rest } = user;
   return {
     ...rest,
     positionKeys: positions.map((p) => p.position.key),
     isLeadership: positions.some((p) => p.position.isLeadership),
-    hasSlackProfileAccess: slackUserToken !== null,
+    hasSlackIdentity: slackIdentity !== null,
   };
 }
 
@@ -69,7 +69,7 @@ export async function loadTokenClaims(
  * The token payload. `/token` runs Better Auth's session middleware, which
  * bypasses the `/get-session` hook that rejects a deactivated user, so the
  * status is checked here, and so is the Slack mandate (#361): a leadership
- * holder without title access gets SLACK_LINK_REQUIRED, never a token.
+ * holder without a linked Slack account gets SLACK_LINK_REQUIRED, never a token.
  */
 export function toTokenPayload(
   claims: TokenClaims | null,

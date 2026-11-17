@@ -16,7 +16,7 @@ export interface SessionSubject {
   positions: { key: string; name: string }[];
   /** Inputs to the Slack mandate (#361). Never mapped into a response body. */
   isLeadership: boolean;
-  hasSlackProfileAccess: boolean;
+  hasSlackIdentity: boolean;
 }
 
 export interface SessionRow {

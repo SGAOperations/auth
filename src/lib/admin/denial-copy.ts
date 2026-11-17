@@ -21,7 +21,7 @@ export const REASON_COPY: Record<AuthzDenialReason, string> = {
   NOT_ACCESS_VIEWER:
     "Only the Information Manager, the VP of Operational Affairs and the Executive VP can see access requests.",
   SLACK_LINK_REQUIRED:
-    "People in an SGA leadership position must allow Slack title updates before using SGA tools.",
+    "People in an SGA leadership position must link their Slack account before using SGA tools.",
 };
 
 export const FAILURE_COPY: Record<FailureCode, string> = {

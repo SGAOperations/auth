@@ -32,6 +32,7 @@
     "supabase:push-jwks": "tsx scripts/supabase-push-jwks.ts",
     "bootstrap-primary-admin": "tsx scripts/bootstrap-primary-admin.ts",
     "recover-primary-admin": "tsx --conditions=react-server scripts/recover-primary-admin.ts",
+    "slack:retire-tokens": "tsx --conditions=react-server scripts/retire-slack-user-tokens.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

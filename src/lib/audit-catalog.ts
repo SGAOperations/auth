@@ -119,6 +119,7 @@ export const SLACK_TOKEN_REASONS = [
   "deactivated",
   "deleted",
   "revoked_at_slack",
+  "retired",
 ] as const;
 
 export type SlackTokenReason = (typeof SLACK_TOKEN_REASONS)[number];
@@ -577,6 +578,11 @@ export const AUDIT_CATALOG = {
       slackUserId: z.string().min(1).max(32),
     }),
   },
+  // The five Slack token and title types below were retired by #390 and are
+  // never written again, except by the token retirement. They stay so existing
+  // rows keep their label and filter, and so the tombstone keeps scrubbing
+  // SLACK_TOKEN_GRANTED.slackUserId.
+  //
   // The user let SGAuth edit their Slack profile (#358). Never carries the
   // token or any part of it; `replaced` says an earlier grant was overwritten.
   SLACK_TOKEN_GRANTED: {
@@ -628,7 +634,7 @@ export const AUDIT_CATALOG = {
       fieldMatched: z.boolean(),
     }),
   },
-  // A leadership holder without Slack title access was refused by the mandate
+  // A leadership holder without a linked Slack account was refused by the mandate
   // (#361). `surface` is the endpoint that refused. Written best-effort, at most
   // one per user per day (src/lib/slack/mandate.ts). No PII.
   SLACK_MANDATE_BLOCKED: {

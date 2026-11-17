@@ -181,11 +181,11 @@ export function buildSessionEndpointDeps({
               },
             },
           },
-          slackUserToken: { select: { userId: true } },
+          slackIdentity: { select: { id: true } },
         },
       });
       if (!user) return null;
-      const { positions, slackUserToken, ...rest } = user;
+      const { positions, slackIdentity, ...rest } = user;
       return {
         ...rest,
         positions: sortPositions(
@@ -195,7 +195,7 @@ export function buildSessionEndpointDeps({
           })),
         ),
         isLeadership: positions.some(({ position }) => position.isLeadership),
-        hasSlackProfileAccess: slackUserToken !== null,
+        hasSlackIdentity: slackIdentity !== null,
       };
     },
     limit: (token) => limiter.limitRequest("sessionLookup", token),

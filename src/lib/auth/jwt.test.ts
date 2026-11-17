@@ -13,7 +13,7 @@ const ISSUER = "https://auth.northeasternsga.com";
 const claims = (overrides: Partial<TokenClaims> = {}): TokenClaims => ({
   id: USER_ID,
   isLeadership: false,
-  hasSlackProfileAccess: false,
+  hasSlackIdentity: false,
   email: "student.officer@northeastern.edu",
   name: "Student Officer",
   status: "ACTIVE",
@@ -70,36 +70,36 @@ describe("toTokenPayload", () => {
       body: expect.objectContaining({ code: "SLACK_LINK_REQUIRED" }),
     });
 
-    it("refuses a leader without title access with SLACK_LINK_REQUIRED", () => {
+    it("refuses a leader without a linked Slack account with SLACK_LINK_REQUIRED", () => {
       expect(() => toTokenPayload(claims({ isLeadership: true }), on)).toThrow(
         refused,
       );
     });
 
-    it("refuses an admin leader without title access too", () => {
+    it("refuses an admin leader without a linked Slack account too", () => {
       expect(() =>
         toTokenPayload(claims({ isLeadership: true, isAdmin: true }), on),
       ).toThrow(refused);
     });
 
-    it("issues to a leader with title access", () => {
+    it("issues to a leader with a linked Slack account", () => {
       expect(
         toTokenPayload(
-          claims({ isLeadership: true, hasSlackProfileAccess: true }),
+          claims({ isLeadership: true, hasSlackIdentity: true }),
           on,
         ),
       ).toMatchObject({ role: "authenticated" });
     });
 
     it("never refuses a non-leader, with or without a Slack link", () => {
-      for (const hasSlackProfileAccess of [true, false]) {
+      for (const hasSlackIdentity of [true, false]) {
         expect(() =>
-          toTokenPayload(claims({ hasSlackProfileAccess }), on),
+          toTokenPayload(claims({ hasSlackIdentity }), on),
         ).not.toThrow();
       }
     });
 
-    it("issues to a leader without title access while the flag is off", () => {
+    it("issues to a leader without a linked Slack account while the flag is off", () => {
       expect(() =>
         toTokenPayload(claims({ isLeadership: true }), { enabled: false }),
       ).not.toThrow();
@@ -110,7 +110,7 @@ describe("toTokenPayload", () => {
 
     it("keeps the mandate facts out of the payload", () => {
       const payload = toTokenPayload(
-        claims({ isLeadership: true, hasSlackProfileAccess: true }),
+        claims({ isLeadership: true, hasSlackIdentity: true }),
         on,
       );
       expect(Object.keys(payload).sort()).toEqual([

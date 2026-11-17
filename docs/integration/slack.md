@@ -64,22 +64,6 @@ Answers `{ "url": "https://auth.northeasternsga.com/account/slack/link?token=…
 1. Create a Slack app for SGAuth in the SGA workspace. Under **OAuth & Permissions**, add the redirect URL `https://<sgauth host>/account/slack/callback` for each environment, and the user scope `openid`.
 2. Set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` and `SLACK_TEAM_ID` per Vercel scope ([ENVIRONMENTS.md](../ENVIRONMENTS.md)).
 
-## Slack title updates (#358)
-
-A separate consent from Connect Slack, for leaders only. **Allow Slack title updates** on the account page runs Slack's OAuth v2 install on the same Slack app, asking for the user scopes `users.profile:write` and `users.profile:read` and no bot scope, so Slack issues no bot token. Slack returns an `xoxp-` token in `authed_user.access_token`. SGAuth accepts it only when all of these hold: the workspace is `SLACK_TEAM_ID`, `token_type` is `user`, both scopes were granted, and the response carries no `refresh_token` or `expires_in` (token rotation is not supported, so a rotating token is refused). A token SGAuth receives and does not keep is revoked at once.
-
-The token is stored encrypted in `SlackUserToken` (see [DATA_HANDLING.md](../DATA_HANDLING.md)). If the user has no linked Slack account, the consent links the one that approved it (`SLACK_LINKED` with `via: slack_oauth`). An approval from a different Slack account than the linked one stores nothing.
-
-It is deleted, audited as `SLACK_TOKEN_REVOKED` in the same transaction, and revoked at Slack with `auth.revoke` after the commit, when the user stops title updates, unlinks Slack, links a different Slack account, is deactivated, or is deleted. Losing a leadership position does not revoke it: clearing the title needs the token. A failed `auth.revoke` writes `SLACK_TOKEN_REVOKE_FAILED`, which means a live token may remain at Slack. Remove the app's authorization for that person in Slack admin.
-
-### Setting it up
-
-In addition to Connect Slack's setup, under **OAuth & Permissions** of the same Slack app:
-
-1. Add the redirect URL `https://<sgauth host>/account/slack/profile-access/callback` for each environment.
-2. Add the **User Token Scopes** `users.profile:write` and `users.profile:read`. Add no bot scope.
-3. Leave **Token Rotation** off. Slack does not allow turning it off once on, and SGAuth refuses a rotating token.
-
 ## SGAssist slash commands
 
 ### `/who-is` (#349)
@@ -130,15 +114,15 @@ Slack drops a command that is not answered within three seconds. The handler wai
 
 ## The leadership Slack mandate (#361)
 
-A policy gate, off by default (`SGAUTH_SLACK_MANDATE_ENABLED`). When on, anyone holding a non-deleted leadership position must have allowed Slack title updates, which means a stored `SlackUserToken`. A plain Connect Slack link does not satisfy it. Admin status grants nothing, and non-leaders are never blocked by it.
+A policy gate, off by default (`SGAUTH_SLACK_MANDATE_ENABLED`). When on, anyone holding a non-deleted leadership position must have a linked Slack account, so that products such as SGAssist can message them through it. Any `SlackIdentity` satisfies it, however it was linked: Connect Slack, a product's DM link, or the import. Admin status grants nothing, and non-leaders are never blocked by it.
 
 It blocks only the two endpoints products get identity from: `GET /api/sgauth/session` (and `/minimal`), and Better Auth's `GET /api/auth/token`. SGAuth's own pages never block, so a leader can always reach the fix.
 
 - **Session endpoint.** A blocked leader gets the existing `401 {"error":"unauthenticated"}`, byte-identical to signed out. The `200` body and the published schemas do not change.
 - **Token endpoint.** A blocked leader gets `401` with the code `SLACK_LINK_REQUIRED`.
-- **What the user sees.** The SDK treats a `401` as signed out and sends the browser to SGAuth's `/login?redirect=<product>`. For a blocked leader, `/login` shows "Allow Slack title updates to continue" instead of "You're signed in". After the consent it returns to `/login`, where **Continue** spends the redirect.
+- **What the user sees.** The SDK treats a `401` as signed out and sends the browser to SGAuth's `/login?redirect=<product>`. For a blocked leader, `/login` shows "Link Slack to continue" instead of "You're signed in". **Connect Slack** there returns to `/login` once the account is linked, where **Continue** spends the redirect.
 
-Products need no change. The SDK caches a `200` for up to 60 seconds and a `401` for 10, so a flip, a grant or a withdrawal reaches products up to a minute late. Each block is audited as `SLACK_MANDATE_BLOCKED`, at most once per user per day plus once after each grant. Turning it on or off is [runbooks/slack-mandate.md](../runbooks/slack-mandate.md).
+Products need no change. The SDK caches a `200` for up to 60 seconds and a `401` for 10, so a flip, a link or an unlink reaches products up to a minute late. Each block is audited as `SLACK_MANDATE_BLOCKED`, at most once per user per day plus once after each link (`SLACK_LINKED`). Turning it on or off is [runbooks/slack-mandate.md](../runbooks/slack-mandate.md).
 
 ## Moving a product's existing links
 

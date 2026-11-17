@@ -375,7 +375,7 @@ describe("GET /api/sgauth/session against the database", () => {
       return signedIn;
     }
 
-    it("answers a leader without a SlackUserToken 401, then 200 once one is stored", async () => {
+    it("answers a leader without a SlackIdentity 401, then 200 once one is linked", async () => {
       const { user, cookie } = await signedInLeader();
 
       await expectUnauthenticated(
@@ -386,13 +386,12 @@ describe("GET /api/sgauth/session against the database", () => {
       );
       expect(blocked.filter((id) => id === user.id)).toHaveLength(2);
 
-      await prisma.slackUserToken.create({
+      await prisma.slackIdentity.create({
         data: {
           userId: user.id,
           slackTeamId: "T0MANDATE",
           slackUserId: `U${user.id.slice(-10).toUpperCase()}`,
-          scopes: "users.profile:write,users.profile:read",
-          token: "ciphertext-not-a-real-token",
+          linkedVia: "SLACK_OPENID",
         },
       });
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { allowSlackTitleUpdatesToContinue } from "@/app/(app)/account/slack/actions";
+import { connectSlackToContinue } from "@/app/(app)/account/slack/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { SlackResult } from "@/lib/slack/result";
@@ -10,23 +10,16 @@ import { UseDifferentAccount } from "./use-different-account";
  * and the one step that fixes it. Plain forms; only sign-out needs JavaScript.
  */
 export function SlackRequired({
-  linked,
   result,
 }: {
-  linked: boolean;
   result: { result: SlackResult; message: string } | null;
 }) {
-  const isFailure =
-    result !== null &&
-    result.result !== "title_updates_allowed" &&
-    result.result !== "title_updates_stopped";
+  const isFailure = result !== null && result.result !== "linked";
   return (
     <>
       <p className="text-sm">
-        You hold an SGA leadership position. To use SGA tools, SGAuth needs to
-        keep your Slack title matched to your positions. Slack will ask you to
-        let SGAuth view and edit your profile.
-        {linked ? "" : " This also links your Slack account."}
+        You hold an SGA leadership position. To use SGA tools, link your Slack
+        account so SGA tools can reach you on Slack.
       </p>
       {result ? (
         <p
@@ -39,9 +32,9 @@ export function SlackRequired({
           {result.message}
         </p>
       ) : null}
-      <form action={allowSlackTitleUpdatesToContinue}>
+      <form action={connectSlackToContinue}>
         <Button type="submit" className="w-full">
-          Allow Slack title updates
+          Connect Slack
         </Button>
       </form>
       <Link
