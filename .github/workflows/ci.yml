@@ -64,7 +64,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/neon-quota-monitor.test.mjs scripts/sso-stub.test.mjs scripts/sso-stub-deploy.test.mjs scripts/prisma-guard.test.mjs scripts/vercel-build.test.mjs scripts/ci-test-db-guard.test.mjs
+      - run: node --test scripts/neon-branch-hygiene.test.mjs scripts/neon-quota-monitor.test.mjs scripts/sso-stub.test.mjs scripts/sso-stub-deploy.test.mjs scripts/prisma-guard.test.mjs scripts/vercel-build.test.mjs scripts/ci-test-db-guard.test.mjs scripts/ci-test-db-lease.test.mjs
 
   audit:
     runs-on: ubuntu-latest
@@ -164,7 +164,9 @@ jobs:
 
   # The Primary Admin transfer suites (vitest project db-transfer). They assume
   # no committed Primary Admin, so they empty the test branch first and run
-  # before the sharded db job, which empties its own shard branches.
+  # before the sharded db job, which empties its own shard branches. The reset
+  # and the tests run under a lease held on the test branch
+  # (scripts/ci-test-db-lease.mjs), so two runs never share it.
   #
   # These jobs hold only the NEON_TEST_* URLs, in the `neon-ci` (pushes) and
   # `neon-ci-pr` (pull requests) Environments. On pull_request this file comes
@@ -175,11 +177,8 @@ jobs:
   # its own migration role. See CONTRIBUTING.md "Neon secrets".
   db-transfer:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
     environment: ${{ github.event_name == 'pull_request' && 'neon-ci-pr' || 'neon-ci' }}
-    concurrency:
-      group: neon-test-branch
-      cancel-in-progress: false
     env:
       TEST_DATABASE_URL: ${{ secrets.NEON_TEST_DATABASE_URL }}
       TEST_DIRECT_URL: ${{ secrets.NEON_TEST_DIRECT_URL }}
@@ -197,28 +196,27 @@ jobs:
           DIRECT_URL: "postgresql://placeholder"
       - name: Refuse a protected Neon branch
         run: node scripts/ci-test-db-guard.mjs
-      - name: Empty the test database
-        env:
-          DIRECT_URL: ${{ env.TEST_DIRECT_URL }}
-        run: npx prisma db execute --file scripts/ci-reset-test-db.sql
-      - run: npx vitest run --project db-transfer
+      - name: Run under the test database lease
+        run: >-
+          node scripts/ci-test-db-lease.mjs -- bash -ec
+          'DIRECT_URL="$TEST_DIRECT_URL" npx prisma db execute --file scripts/ci-reset-test-db.sql;
+          npx vitest run --project db-transfer'
 
   test:
     needs: db-transfer
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 60
     # Same Environment rule as db-transfer above.
     environment: ${{ github.event_name == 'pull_request' && 'neon-ci-pr' || 'neon-ci' }}
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
-    # One Neon branch (ci-shard-N) and one concurrency group per shard, so the
-    # four shards run at the same time and only queue behind the same shard of
-    # an earlier run.
-    concurrency:
-      group: neon-ci-shard-${{ matrix.shard }}
-      cancel-in-progress: false
+    # One Neon branch (ci-shard-N) per shard. The four shards run at once; a
+    # shard waits on a lease held on its own branch
+    # (scripts/ci-test-db-lease.mjs) while the same shard of another run uses
+    # it, rather than queueing in a concurrency group, which cancels all but
+    # one waiting job.
     env:
       # Secret names cannot be built from a variable, so each shard maps to its
       # own pair of secrets explicitly. An unset secret yields an empty string,
@@ -264,11 +262,11 @@ jobs:
           DIRECT_URL: "postgresql://placeholder"
       - name: Refuse a protected Neon branch
         run: node scripts/ci-test-db-guard.mjs
-      - name: Empty the test database
-        env:
-          DIRECT_URL: ${{ env.TEST_DIRECT_URL }}
-        run: npx prisma db execute --file scripts/ci-reset-test-db.sql
-      - run: npx vitest run --project db --shard=${{ matrix.shard }}/4
+      - name: Run under the test database lease
+        run: >-
+          node scripts/ci-test-db-lease.mjs -- bash -ec
+          'DIRECT_URL="$TEST_DIRECT_URL" npx prisma db execute --file scripts/ci-reset-test-db.sql;
+          npx vitest run --project db --shard=${{ matrix.shard }}/4'
 
   # Playwright SSO suite against SGAuth and two SDK product stubs on
   # *.sga.localhost. It uses a scratch Postgres service, like the migrations

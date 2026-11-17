@@ -119,7 +119,7 @@ How each run gets the secrets:
 
 ### Serialized test runs
 
-The `test` job runs in the `neon-test-branch` concurrency group so two PRs never share the branch mid-run. Per-run branches are not used because of Neon's 10-branch cap. GitHub keeps only one waiting run per group, so a third run cancels the waiting one; re-run the cancelled check.
+`db-transfer` and each `test` shard take a Postgres advisory lock on their own Neon branch (`scripts/ci-test-db-lease.mjs`) before resetting it, so two runs never share a branch. A job that finds the lock held waits up to 30 minutes, then fails with a re-run hint, instead of being cancelled. The lock frees itself if the job is cancelled or the runner dies. Per-run branches are not used because of Neon's 10-branch cap. Waiting jobs use runner minutes.
 
 ### Dependency and code scanning
 
