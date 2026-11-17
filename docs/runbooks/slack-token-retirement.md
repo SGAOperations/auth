@@ -5,8 +5,18 @@ it left an encrypted `xoxp-` user token in `SlackUserToken`, with
 `users.profile:write`, and the token stays valid at Slack until it is revoked.
 This runbook revokes every stored token at Slack and deletes its row.
 
-Nothing deletes these rows after the #390 deploy: unlinking, deactivation and
-deletion no longer touch them. Run this right after each environment's deploy.
+After the #390 deploy nothing revokes these tokens at Slack: unlinking,
+relinking, deactivation and deletion no longer touch them, and deleting a user
+cascades to the row, which would drop the only copy of a token that is still
+valid at Slack. **Run this script on an environment before the #390 deploy
+reaches it, and on `production` before the deploy to `production`.** The script
+works against the old schema and the new one alike, because the table stays
+until the follow-up release. If it has to run after a deploy, do it as soon as
+possible; a leader deleted or deactivated in between keeps a live token at Slack
+that the script can no longer find.
+
+The script revokes each token at Slack first, then deletes the row and writes the
+audit row, so a run that stops partway leaves the row for the next run.
 
 The script is `npm run slack:retire-tokens`. It does not load `.env`, so it only
 ever acts on the database you point it at. Audit events: `SLACK_TOKEN_REVOKED`
@@ -15,7 +25,8 @@ Slack would not revoke one.
 
 ## Run it
 
-Do `dev` first, then `production`. For each environment:
+Do `dev` first, then `production`, each before that environment's deploy. For
+each environment:
 
 1. In your shell, set the target's `DIRECT_URL`, `SGAUTH_ENV` (`dev` or
    `production`), `BETTER_AUTH_SECRET` and, once secrets have been rotated,

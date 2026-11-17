@@ -160,6 +160,51 @@ describe("retireSlackUserTokens", () => {
     });
   });
 
+  it("revokes at Slack before the row is deleted or audited", async () => {
+    const user = await storeToken("xoxp-order");
+    let rowsAtRevoke = -1;
+    let auditAtRevoke = -1;
+
+    await retireSlackUserTokens(prisma, {
+      apply: true,
+      key,
+      revoke: async () => {
+        rowsAtRevoke = await prisma.slackUserToken.count();
+        auditAtRevoke = (await auditFor(user.id)).length;
+        return "revoked";
+      },
+    });
+
+    expect(rowsAtRevoke).toBe(1);
+    expect(auditAtRevoke).toBe(0);
+  });
+
+  it("an interrupted run keeps the row and writes no audit row, and the next run finishes it", async () => {
+    const user = await storeToken("xoxp-interrupted");
+    const revoke = vi.fn<Revoke>(async () => "revoked");
+    const transaction = vi
+      .spyOn(prisma, "$transaction")
+      .mockRejectedValueOnce(new Error("process stopped"));
+
+    await expect(
+      retireSlackUserTokens(prisma, { apply: true, key, revoke }),
+    ).rejects.toThrow("process stopped");
+    transaction.mockRestore();
+
+    expect(revoke).toHaveBeenCalledTimes(1);
+    expect(await prisma.slackUserToken.count()).toBe(1);
+    expect(await auditFor(user.id)).toEqual([]);
+
+    const again = await retireSlackUserTokens(prisma, {
+      apply: true,
+      key,
+      revoke: async () => "already_invalid",
+    });
+    expect(again).toMatchObject({ found: 1, alreadyInvalid: 1 });
+    expect(await prisma.slackUserToken.count()).toBe(0);
+    expect(await auditFor(user.id)).toHaveLength(1);
+  });
+
   it("finds nothing on a second run", async () => {
     await storeToken("xoxp-once");
     const revoke = vi.fn<Revoke>(async () => "revoked");

@@ -6,9 +6,10 @@ import { writeAuditEvent } from "@/lib/audit";
 import type { VersionedSecret } from "@/lib/env-schema";
 
 // Retires the Slack user tokens leaders granted for title updates (#358, removed
-// by #390). Each stored xoxp- token is deleted with an audit row, then revoked
-// at Slack with auth.revoke, because deleting the ciphertext alone would leave
-// the token valid at Slack with no way left to revoke it. Run once per
+// by #390). Each stored xoxp- token is revoked at Slack with auth.revoke first,
+// then deleted with its audit row in one transaction, because deleting the
+// ciphertext alone would leave the token valid at Slack with no way left to
+// revoke it. Run once per
 // environment by scripts/retire-slack-user-tokens.ts (docs/runbooks/
 // slack-token-retirement.md); the follow-up contract release drops the table and
 // this module with it. It imports neither the app env nor the shared Prisma
@@ -101,11 +102,12 @@ export interface RetirementResult {
 
 /**
  * Deletes every stored token and revokes it at Slack. A dry run only counts.
- * With `apply`, each row is deleted in its own transaction together with its
- * SLACK_TOKEN_REVOKED row (actor SYSTEM, no network details), and only a row
- * this run deleted is revoked. A token that Slack will not revoke, or that
- * cannot be decrypted, is deleted anyway and written as SLACK_TOKEN_REVOKE_FAILED
- * and returned in `failedUserIds`. Idempotent: a second run finds nothing.
+ * With `apply`, each token is revoked at Slack first, then its row is deleted in
+ * its own transaction together with its SLACK_TOKEN_REVOKED row (actor SYSTEM,
+ * no network details). A token that Slack will not revoke, or that cannot be
+ * decrypted, is deleted anyway, written as SLACK_TOKEN_REVOKE_FAILED instead and
+ * returned in `failedUserIds`. A run that stops after the revoke leaves the row
+ * and no audit row. Idempotent: a second run finds nothing.
  */
 export async function retireSlackUserTokens(
   db: PrismaClient,
@@ -129,48 +131,55 @@ export async function retireSlackUserTokens(
   if (!options.apply) return result;
 
   for (const row of rows) {
+    // Slack first, then delete and audit in one transaction. A run that stops in
+    // between leaves the row in place, so the next run revokes it again (Slack
+    // answers already invalid) and the audit log never claims a revoke that did
+    // not happen.
+    let outcome: SlackRevokeResult;
+    try {
+      outcome = await revoke(await decryptSlackToken(row.token, options.key));
+    } catch {
+      // The ciphertext could not be read, so there is nothing to send to Slack.
+      outcome = { failed: "undecryptable" };
+    }
+
     const deleted = await db.$transaction(async (tx) => {
       const { count } = await tx.slackUserToken.deleteMany({
         where: { id: row.id, token: row.token },
       });
       if (count !== 1) return false;
-      await writeAuditEvent(tx, {
-        type: "SLACK_TOKEN_REVOKED",
-        actorType: "SYSTEM",
-        targetType: "USER",
-        targetId: row.userId,
-        metadata: { reason: "retired", slackTeamId: row.slackTeamId },
-        ip: null,
-        userAgent: null,
-      });
+      await writeAuditEvent(
+        tx,
+        typeof outcome === "object"
+          ? {
+              type: "SLACK_TOKEN_REVOKE_FAILED",
+              actorType: "SYSTEM",
+              targetType: "USER",
+              targetId: row.userId,
+              metadata: {
+                reason: "retired",
+                slackError: outcome.failed.slice(0, 64),
+              },
+              ip: null,
+              userAgent: null,
+            }
+          : {
+              type: "SLACK_TOKEN_REVOKED",
+              actorType: "SYSTEM",
+              targetType: "USER",
+              targetId: row.userId,
+              metadata: { reason: "retired", slackTeamId: row.slackTeamId },
+              ip: null,
+              userAgent: null,
+            },
+      );
       return true;
     });
     if (!deleted) continue;
 
-    let slackError: string | null = null;
-    try {
-      const outcome = await revoke(
-        await decryptSlackToken(row.token, options.key),
-      );
-      if (outcome === "revoked") result.revoked += 1;
-      else if (outcome === "already_invalid") result.alreadyInvalid += 1;
-      else slackError = outcome.failed;
-    } catch {
-      // The ciphertext could not be read, so there is nothing to send to Slack.
-      slackError = "undecryptable";
-    }
-    if (slackError === null) continue;
-
-    result.failedUserIds.push(row.userId);
-    await writeAuditEvent(db, {
-      type: "SLACK_TOKEN_REVOKE_FAILED",
-      actorType: "SYSTEM",
-      targetType: "USER",
-      targetId: row.userId,
-      metadata: { reason: "retired", slackError: slackError.slice(0, 64) },
-      ip: null,
-      userAgent: null,
-    });
+    if (outcome === "revoked") result.revoked += 1;
+    else if (outcome === "already_invalid") result.alreadyInvalid += 1;
+    else result.failedUserIds.push(row.userId);
   }
   return result;
 }
