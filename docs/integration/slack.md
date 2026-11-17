@@ -17,7 +17,7 @@ Neither path moves a Slack account away from a user who already holds it. The co
 
 ## Product API keys
 
-The Slack routes are called by a product's server, with no user cookie, so each product authenticates with its own key.
+The Slack routes are called by a product's server, with no user cookie, so each product authenticates with its own key. The same key also authenticates the position-holders route ([position-holders.md](position-holders.md)).
 
 1. An SGAuth admin opens **Admin → Products → (product) → API keys** and creates a key. The key is shown once. A product can hold three live keys, so it can rotate without downtime.
 2. Store it as a secret environment variable in the product, one key per environment, and send it as `Authorization: Bearer sgak_…`.

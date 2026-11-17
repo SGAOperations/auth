@@ -243,6 +243,11 @@ export const APP_ROUTE_AUDIT: Record<string, AuditCoverage> = {
     kind: "exempt",
     reason: "a POST only to keep ids out of URLs; reads and changes nothing",
   },
+  "src/app/api/products/positions/holders/route.ts": {
+    kind: "exempt",
+    reason:
+      "reads and changes nothing; reads are not audited, as for /api/products/slack/lookup",
+  },
   // Called by Slack with a request signature (#349).
   "src/app/api/slack/commands/who-is/route.ts": {
     kind: "exempt",

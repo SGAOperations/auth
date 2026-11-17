@@ -94,6 +94,7 @@ A tombstone sets the user's status to `DELETED` and scrubs the personal fields: 
 
 - SGAuth admins see users, positions and audit events.
 - Each product a user signs into receives the id, email, name and preferred name, positions and the admin flag, through the session endpoint or a JWT.
+- A product with an API key can read the id, email, name and preferred name of the active holders of any position, through `POST /api/products/positions/holders` (#384), whether or not those users sign into that product. Deactivated and deleted users are never returned.
 
 ## Deletion requests
 
