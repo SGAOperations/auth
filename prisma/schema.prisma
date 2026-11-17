@@ -381,10 +381,9 @@ model SlackIdentity {
   @@unique([slackTeamId, slackUserId])
 }
 
-/// The xoxp- user token a leader granted with `users.profile:write`
-/// (src/lib/slack/user-token.ts). `token` is the encrypted envelope, never the
-/// token. A row exists only while the user's SlackIdentity names the same Slack
-/// user; every path that ends the grant deletes it and writes an audit row.
+/// Retired (#390): nothing reads or writes it except
+/// scripts/retire-slack-user-tokens.ts. Dropped in the follow-up contract
+/// release.
 model SlackUserToken {
   id             String    @id @default(uuid(7))
   userId         String    @unique

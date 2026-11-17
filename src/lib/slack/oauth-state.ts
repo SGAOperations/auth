@@ -9,11 +9,9 @@ import { toAuthSettings } from "@/lib/auth/settings";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
-// The state of a Slack redirect flow, shared by Connect Slack (#314) and the
-// title-update consent (#358). A state is a random value whose hash keys a
-// single-use Verification row for one user, and a cookie of the same value binds
-// it to the browser that started the flow. The two flows use different
-// identifier prefixes, so a state from one can never finish the other.
+// The state of the Connect Slack redirect flow (#314). A state is a random value
+// whose hash keys a single-use Verification row for one user, and a cookie of
+// the same value binds it to the browser that started the flow.
 
 const baseURL = toAuthSettings(env).baseURL;
 
@@ -21,16 +19,14 @@ const baseURL = toAuthSettings(env).baseURL;
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 export const SLACK_STATE_COOKIE_MAX_AGE = OAUTH_STATE_TTL_MS / 1000;
 
-export type SlackFlow = "connect" | "consent";
+export type SlackFlow = "connect";
 
 export const OAUTH_STATE_PREFIX: Record<SlackFlow, string> = {
   connect: "slack-openid:",
-  consent: "slack-consent:",
 };
 
 const COOKIE_NAMES: Record<SlackFlow, string> = {
   connect: "slack-state",
-  consent: "slack-consent-state",
 };
 
 const isHttps = () => new URL(baseURL).protocol === "https:";
@@ -40,12 +36,12 @@ export const stateCookieName = (flow: SlackFlow): string =>
   `${isHttps() ? "__Host-" : ""}sgauth.${COOKIE_NAMES[flow]}`;
 
 /**
- * Set beside the consent state cookie when the flow started from the /login
- * interstitial (#361), so the callback returns there. It only ever selects
- * between two fixed internal paths.
+ * Set beside the Connect Slack state cookie when the flow started from the
+ * /login interstitial (#361), so the callback returns there. It only ever
+ * selects between two fixed internal paths.
  */
-export const consentReturnCookieName = (): string =>
-  `${isHttps() ? "__Host-" : ""}sgauth.slack-consent-return`;
+export const slackReturnCookieName = (): string =>
+  `${isHttps() ? "__Host-" : ""}sgauth.slack-return`;
 
 export const stateCookieSecure = (): boolean => isHttps();
 

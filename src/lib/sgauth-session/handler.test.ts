@@ -25,7 +25,7 @@ const subject: SessionSubject = {
   status: "ACTIVE",
   positions: [{ key: "a-1", name: "A One" }],
   isLeadership: false,
-  hasSlackProfileAccess: false,
+  hasSlackIdentity: false,
 };
 
 const blockedLeader: SessionSubject = { ...subject, isLeadership: true };
@@ -244,7 +244,7 @@ describe("session endpoint", () => {
   });
 
   describe("Slack mandate", () => {
-    const leaderWithToken = { ...blockedLeader, hasSlackProfileAccess: true };
+    const linkedLeader = { ...blockedLeader, hasSlackIdentity: true };
 
     it("answers a blocked leader with the exact 401 and audits once", async () => {
       const deps = makeDeps({
@@ -292,7 +292,7 @@ describe("session endpoint", () => {
     it("lets a leader with a token through", async () => {
       const deps = makeDeps({
         mandateEnabled: true,
-        loadSubject: async () => leaderWithToken,
+        loadSubject: async () => linkedLeader,
       });
       const endpoint = createSessionEndpoint(deps);
       const response = await endpoint.full(request(`${TOKEN}=a`));
@@ -304,7 +304,7 @@ describe("session endpoint", () => {
       const endpoint = createSessionEndpoint(
         makeDeps({
           mandateEnabled: true,
-          loadSubject: async () => leaderWithToken,
+          loadSubject: async () => linkedLeader,
         }),
       );
       for (const respond of [endpoint.full, endpoint.minimal]) {

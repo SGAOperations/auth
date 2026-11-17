@@ -20,17 +20,10 @@ import {
   consumeOAuthState,
   createOAuthState,
 } from "@/lib/slack/oauth-state";
-import {
-  revokeTakenToken,
-  takeSlackUserToken,
-  type TakenSlackToken,
-} from "@/lib/slack/user-token";
 
 // The signed-in user's side of Slack linking (#313, #314): confirming a link
 // token a product DM'd them, Connect Slack, and unlinking. Each change writes
-// its audit row in the same transaction. A change that ends the user's right to
-// their Slack title token (#358) deletes and audits it there too, and revokes it
-// at Slack after the commit.
+// its audit row in the same transaction.
 
 const baseURL = toAuthSettings(env).baseURL;
 
@@ -67,9 +60,8 @@ export async function confirmSlackLinkToken(
   userId: string,
   token: string,
 ): Promise<SlackLinkOutcome> {
-  const taken: TakenSlackToken[] = [];
   try {
-    const outcome = await withAuditTransaction(prisma, async (tx) => {
+    return await withAuditTransaction(prisma, async (tx) => {
       const view = await consumeSlackLinkToken(tx, token);
       if (!view) return "invalid_token";
       const result = await linkSlackIdentity(tx, {
@@ -81,13 +73,6 @@ export async function confirmSlackLinkToken(
       });
       if (result.status === "taken") throw new TakenError();
       if (result.status === "unchanged") return "unchanged";
-      // The token belongs to the Slack account this link replaces.
-      if (result.replaced !== null) {
-        const token = await takeSlackUserToken(tx, userId, "relinked", {
-          actor: { actorType: "USER", actorUserId: userId },
-        });
-        if (token) taken.push(token);
-      }
       const product = await tx.product.findUnique({
         where: { id: view.productId },
         select: { slug: true },
@@ -108,8 +93,6 @@ export async function confirmSlackLinkToken(
       });
       return "linked";
     });
-    for (const token of taken) await revokeTakenToken(token);
-    return outcome;
   } catch (err) {
     // Rolls the token's consumption back with everything else.
     if (err instanceof TakenError) return "taken";
@@ -117,19 +100,11 @@ export async function confirmSlackLinkToken(
   }
 }
 
-/**
- * Removes the signed-in user's Slack link, and with it their Slack title token.
- * False when there was no link.
- */
-export async function unlinkOwnSlack(userId: string): Promise<boolean> {
-  const taken: TakenSlackToken[] = [];
-  const removedLink = await withAuditTransaction(prisma, async (tx) => {
+/** Removes the signed-in user's Slack link. False when there was no link. */
+export function unlinkOwnSlack(userId: string): Promise<boolean> {
+  return withAuditTransaction(prisma, async (tx) => {
     const removed = await unlinkSlackIdentity(tx, userId);
     if (!removed) return false;
-    const token = await takeSlackUserToken(tx, userId, "unlinked", {
-      actor: { actorType: "USER", actorUserId: userId },
-    });
-    if (token) taken.push(token);
     await audit({
       type: "SLACK_UNLINKED",
       actorType: "USER",
@@ -140,8 +115,6 @@ export async function unlinkOwnSlack(userId: string): Promise<boolean> {
     });
     return true;
   });
-  for (const token of taken) await revokeTakenToken(token);
-  return removedLink;
 }
 
 /**
@@ -193,8 +166,7 @@ export async function finishSlackConnect(
     return verified.reason === "wrong_team" ? "wrong_team" : "failed";
   }
 
-  const taken: TakenSlackToken[] = [];
-  const outcome = await withAuditTransaction(prisma, async (tx) => {
+  return withAuditTransaction(prisma, async (tx) => {
     const result = await linkSlackIdentity(tx, {
       userId,
       slackTeamId: verified.slackTeamId,
@@ -202,13 +174,6 @@ export async function finishSlackConnect(
       linkedVia: "SLACK_OPENID",
     });
     if (result.status !== "linked") return result.status;
-    // The token belongs to the Slack account this link replaces.
-    if (result.replaced !== null) {
-      const token = await takeSlackUserToken(tx, userId, "relinked", {
-        actor: { actorType: "USER", actorUserId: userId },
-      });
-      if (token) taken.push(token);
-    }
     await audit({
       type: "SLACK_LINKED",
       actorType: "USER",
@@ -224,8 +189,6 @@ export async function finishSlackConnect(
     });
     return "linked";
   });
-  for (const token of taken) await revokeTakenToken(token);
-  return outcome;
 }
 
 /** The signed-in user's Slack link, for the account page. */

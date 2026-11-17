@@ -6,40 +6,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  allowSlackTitleUpdates,
-  connectSlack,
-  unlinkSlack,
-} from "@/app/(app)/account/slack/actions";
+import { connectSlack, unlinkSlack } from "@/app/(app)/account/slack/actions";
 import type { SlackResult } from "@/lib/slack/result";
 
 const dateFormat = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
 /**
  * The account page's Slack card (#313, #314): the linked Slack account, with
- * Unlink, or a way to link one, and for leaders the Slack title consent (#358).
- * Plain forms, so it works without JavaScript.
+ * Unlink, or a way to link one. Plain forms, so it works without JavaScript.
  */
 export function SlackCard({
   identity,
   canConnect,
-  isLeadership,
   mandateRequired,
-  profileAccess,
   result,
 }: {
   identity: { slackTeamId: string; slackUserId: string; linkedAt: Date } | null;
   canConnect: boolean;
-  isLeadership: boolean;
   /** The Slack mandate is on and this user is a leader (#361). */
   mandateRequired: boolean;
-  profileAccess: { grantedAt: Date } | null;
   result: { result: SlackResult; message: string } | null;
 }) {
-  // A held grant shows its status. Only an administrator can stop it (from the
-  // admin user profile), so there is no control here to withdraw it.
-  const showTitleUpdates =
-    profileAccess !== null || (isLeadership && canConnect);
   return (
     <Card id="slack">
       <CardHeader>
@@ -68,11 +55,10 @@ export function SlackCard({
                   Unlink Slack
                 </Button>
               </div>
-              {profileAccess && (
+              {mandateRequired && (
                 <p className="text-muted-foreground">
-                  {mandateRequired
-                    ? "Unlinking also stops Slack title updates and closes SGA tools to you."
-                    : "Unlinking also stops Slack title updates."}
+                  Unlinking closes SGA tools to you while you hold a leadership
+                  position.
                 </p>
               )}
             </form>
@@ -85,47 +71,18 @@ export function SlackCard({
               link it sends you
               {canConnect ? ", or connect here" : ""}.
             </p>
+            {mandateRequired && (
+              <p className="text-muted-foreground">
+                Required for leadership positions: SGA tools stay closed to you
+                until you link Slack.
+              </p>
+            )}
             {canConnect && (
               <form action={connectSlack}>
                 <Button type="submit">Connect Slack</Button>
               </form>
             )}
           </>
-        )}
-        {showTitleUpdates && (
-          <section
-            aria-labelledby="slack-title-heading"
-            className="flex flex-col gap-3 border-t pt-4"
-          >
-            <h3 id="slack-title-heading" className="font-medium">
-              Slack title
-            </h3>
-            {profileAccess ? (
-              <p>
-                SGAuth can update your Slack title. Allowed on{" "}
-                {dateFormat.format(profileAccess.grantedAt)}. Only an
-                administrator can stop this.
-              </p>
-            ) : (
-              <>
-                <p className="text-muted-foreground">
-                  SGAuth can keep your Slack title matched to your leadership
-                  positions. Slack will ask you to let SGAuth view and edit your
-                  profile.
-                  {identity ? "" : " This also links your Slack account."}
-                </p>
-                {mandateRequired && (
-                  <p className="text-muted-foreground">
-                    Required for leadership positions: SGA tools stay closed to
-                    you until you allow this.
-                  </p>
-                )}
-                <form action={allowSlackTitleUpdates}>
-                  <Button type="submit">Allow Slack title updates</Button>
-                </form>
-              </>
-            )}
-          </section>
         )}
       </CardContent>
     </Card>

@@ -5,7 +5,6 @@ import {
   USER_ACTIONS,
   can,
   canActOnTransfer,
-  canGrantSlackProfileAccess,
   canSubmitAccessRequest,
   canUpdateOwnProfile,
   canViewAccessRequests,
@@ -101,7 +100,6 @@ const MATRIX: Record<ActorName, Partial<Record<UserAction, Row>>> = {
     revokeSessions: adminPaProtected,
     unlock: adminPaProtected,
     resendInvite: adminPaProtected,
-    stopSlackTitleUpdates: adminPaProtected,
     changeEmail: [
       "PRIMARY_ADMIN_REQUIRED",
       "allow",
@@ -133,12 +131,6 @@ const MATRIX: Record<ActorName, Partial<Record<UserAction, Row>>> = {
     revokeSessions: all("allow"),
     unlock: all("allow"),
     resendInvite: all("allow"),
-    stopSlackTitleUpdates: [
-      "PRIMARY_ADMIN_PROTECTED",
-      "allow",
-      "allow",
-      "PRIMARY_ADMIN_PROTECTED",
-    ],
     changeEmail: all("allow"),
     resetMfa: [
       "PRIMARY_ADMIN_PROTECTED",
@@ -520,65 +512,39 @@ describe("canViewLeadershipResources", () => {
   });
 });
 
-describe("canGrantSlackProfileAccess", () => {
-  const leader = { isLeadership: true };
-  const notLeader = { isLeadership: false };
-
-  it("lets an active leader grant", () => {
-    expect(canGrantSlackProfileAccess(user, leader)).toEqual({ allowed: true });
-  });
-
-  it("denies an active non-leader, admin or not", () => {
-    for (const actor of [user, admin, pa]) {
-      expect(canGrantSlackProfileAccess(actor, notLeader)).toEqual({
-        allowed: false,
-        reason: "NOT_LEADERSHIP",
-      });
-    }
-  });
-
-  it("denies deactivated and deleted leaders", () => {
-    for (const status of ["DEACTIVATED", "DELETED"] as const) {
-      expect(
-        canGrantSlackProfileAccess(subject("gone", { status }), leader),
-      ).toEqual({ allowed: false, reason: "ACTOR_INACTIVE" });
-    }
-  });
-});
-
 describe("canUseProducts", () => {
   const on = { slackMandateEnabled: true };
   const off = { slackMandateEnabled: false };
-  const viewer = (isLeadership: boolean, hasSlackProfileAccess: boolean) => ({
+  const viewer = (isLeadership: boolean, hasSlackIdentity: boolean) => ({
     isLeadership,
-    hasSlackProfileAccess,
+    hasSlackIdentity,
   });
 
-  it("allows every leader and token combination while the flag is off", () => {
+  it("allows every leader and link combination while the flag is off", () => {
     for (const isLeadership of [true, false]) {
-      for (const hasToken of [true, false]) {
+      for (const hasLink of [true, false]) {
         expect(
-          canUseProducts(user, viewer(isLeadership, hasToken), off),
+          canUseProducts(user, viewer(isLeadership, hasLink), off),
         ).toEqual({ allowed: true });
       }
     }
   });
 
   it("never blocks a non-leader, with or without a Slack link", () => {
-    for (const hasToken of [true, false]) {
-      expect(canUseProducts(user, viewer(false, hasToken), on)).toEqual({
+    for (const hasLink of [true, false]) {
+      expect(canUseProducts(user, viewer(false, hasLink), on)).toEqual({
         allowed: true,
       });
     }
   });
 
-  it("allows a leader who has allowed title updates", () => {
+  it("allows a leader with a linked Slack account", () => {
     expect(canUseProducts(user, viewer(true, true), on)).toEqual({
       allowed: true,
     });
   });
 
-  it("blocks a leader without title access", () => {
+  it("blocks a leader without a linked Slack account", () => {
     expect(canUseProducts(user, viewer(true, false), on)).toEqual({
       allowed: false,
       reason: "SLACK_LINK_REQUIRED",

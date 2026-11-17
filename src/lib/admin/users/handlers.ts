@@ -87,8 +87,6 @@ export interface RunSuccess {
   send?: () => Promise<SendResult>;
   /** A Primary Admin transfer the action cancelled; announced after the commit. */
   transferNotice?: TransferNotice;
-  /** Runs after the commit, before any notice. It must not throw. */
-  afterCommit?: () => Promise<void>;
 }
 
 export type RunOutcome = { fail: AdminUserErrorCode } | RunSuccess;
@@ -261,7 +259,6 @@ export function createAdminUserHandlers(deps: AdminUserDeps) {
       throw err;
     }
 
-    if (outcome.afterCommit) await outcome.afterCommit();
     if (outcome.transferNotice) {
       await deps.sendTransferNotice(outcome.transferNotice);
     }

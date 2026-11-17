@@ -45,24 +45,16 @@ async function userHolding(positionId?: string) {
   return user;
 }
 
-const linkSlack = (userId: string) =>
+const linkSlack = (
+  userId: string,
+  linkedVia: "SLACK_OAUTH" | "SLACK_COMMAND" | "IMPORT" = "SLACK_OAUTH",
+) =>
   prisma.slackIdentity.create({
     data: {
       userId,
       slackTeamId: "T0SGA",
       slackUserId: slackId(),
-      linkedVia: "SLACK_OAUTH",
-    },
-  });
-
-const storeToken = (userId: string) =>
-  prisma.slackUserToken.create({
-    data: {
-      userId,
-      slackTeamId: "T0SGA",
-      slackUserId: slackId(),
-      scopes: "users.profile:write,users.profile:read",
-      token: "ciphertext-not-a-real-token",
+      linkedVia,
     },
   });
 
@@ -73,7 +65,7 @@ const blocks = (userId: string) =>
 
 const seedEvent = (
   userId: string,
-  type: "SLACK_MANDATE_BLOCKED" | "SLACK_TOKEN_GRANTED",
+  type: "SLACK_MANDATE_BLOCKED" | "SLACK_LINKED",
   createdAt: Date,
 ) =>
   prisma.auditEvent.create({
@@ -86,9 +78,9 @@ const seedEvent = (
         type === "SLACK_MANDATE_BLOCKED"
           ? { surface: "session" }
           : {
+              via: "slack_openid",
               slackTeamId: "T0SGA",
               slackUserId: "U0",
-              scopes: [],
               replaced: false,
             },
       createdAt,
@@ -120,7 +112,7 @@ describe("recordSlackMandateBlock", () => {
     expect(await blocks(user.id)).toHaveLength(1);
   });
 
-  it("writes again after a grant", async () => {
+  it("writes again after a link", async () => {
     const user = await userHolding(leadershipId);
     const now = new Date();
     await seedEvent(
@@ -128,11 +120,7 @@ describe("recordSlackMandateBlock", () => {
       "SLACK_MANDATE_BLOCKED",
       new Date(now.getTime() - 2 * HOUR_MS),
     );
-    await seedEvent(
-      user.id,
-      "SLACK_TOKEN_GRANTED",
-      new Date(now.getTime() - HOUR_MS),
-    );
+    await seedEvent(user.id, "SLACK_LINKED", new Date(now.getTime() - HOUR_MS));
 
     await recordSlackMandateBlock(user.id, "session", now);
     expect(await blocks(user.id)).toHaveLength(2);
@@ -162,44 +150,27 @@ describe("recordSlackMandateBlock", () => {
 });
 
 describe("getOwnSlackMandate", () => {
-  it("blocks a leader without a token, and says whether Slack is linked", async () => {
+  it("blocks a leader without a linked Slack account", async () => {
     const unlinked = await userHolding(leadershipId);
-    expect(await getOwnSlackMandate(unlinked)).toEqual({
-      blocked: true,
-      linked: false,
-    });
-
-    const linked = await userHolding(leadershipId);
-    await linkSlack(linked.id);
-    expect(await getOwnSlackMandate(linked)).toEqual({
-      blocked: true,
-      linked: true,
-    });
+    expect(await getOwnSlackMandate(unlinked)).toEqual({ blocked: true });
   });
 
-  it("does not block a leader who has allowed title updates", async () => {
-    const user = await userHolding(leadershipId);
-    await linkSlack(user.id);
-    await storeToken(user.id);
-    expect(await getOwnSlackMandate(user)).toEqual({
-      blocked: false,
-      linked: true,
-    });
-  });
+  it.each(["SLACK_COMMAND", "IMPORT"] as const)(
+    "does not block a leader linked through %s",
+    async (linkedVia) => {
+      const user = await userHolding(leadershipId);
+      await linkSlack(user.id, linkedVia);
+      expect(await getOwnSlackMandate(user)).toEqual({ blocked: false });
+    },
+  );
 
   it("never blocks a non-leader, with or without a link", async () => {
     const none = await userHolding();
-    expect(await getOwnSlackMandate(none)).toEqual({
-      blocked: false,
-      linked: false,
-    });
+    expect(await getOwnSlackMandate(none)).toEqual({ blocked: false });
 
     const nonLeader = await userHolding(plainId);
     await linkSlack(nonLeader.id);
-    expect(await getOwnSlackMandate(nonLeader)).toEqual({
-      blocked: false,
-      linked: true,
-    });
+    expect(await getOwnSlackMandate(nonLeader)).toEqual({ blocked: false });
   });
 
   it("ignores a deleted leadership position", async () => {
@@ -215,10 +186,7 @@ describe("getOwnSlackMandate", () => {
     flag.value = "false";
     try {
       const user = await userHolding(leadershipId);
-      expect(await getOwnSlackMandate(user)).toEqual({
-        blocked: false,
-        linked: false,
-      });
+      expect(await getOwnSlackMandate(user)).toEqual({ blocked: false });
     } finally {
       flag.value = "true";
     }

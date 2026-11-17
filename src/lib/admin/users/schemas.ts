@@ -69,7 +69,6 @@ export const ADMIN_USER_ACTIONS = [
   "unlock",
   "reset-mfa",
   "resend-invite",
-  "stop-title-updates",
 ] as const;
 
 export type AdminUserAction = (typeof ADMIN_USER_ACTIONS)[number];

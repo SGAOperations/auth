@@ -26,11 +26,11 @@ export default async function LoginPage({
     if (mandate.blocked) {
       return (
         <AuthShell
-          title="Allow Slack title updates to continue"
+          title="Link Slack to continue"
           description={`Signed in as ${user.email}.`}
           requiresJs
         >
-          <SlackRequired linked={mandate.linked} result={result} />
+          <SlackRequired result={result} />
         </AuthShell>
       );
     }
@@ -41,11 +41,7 @@ export default async function LoginPage({
         requiresJs
       >
         <SignedIn
-          status={
-            result?.result === "title_updates_allowed"
-              ? result.message
-              : undefined
-          }
+          status={result?.result === "linked" ? result.message : undefined}
         />
       </AuthShell>
     );

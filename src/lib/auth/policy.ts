@@ -20,8 +20,7 @@ export const AUTH_ERROR_CODES = {
   },
   SLACK_LINK_REQUIRED: {
     code: "SLACK_LINK_REQUIRED",
-    message:
-      "Allow Slack title updates in your SGAuth account to use SGA tools.",
+    message: "Link your Slack account in SGAuth to use SGA tools.",
   },
   PASSWORD_CHANGE_LOCKED: {
     code: "PASSWORD_CHANGE_LOCKED",

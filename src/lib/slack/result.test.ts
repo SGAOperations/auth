@@ -38,8 +38,8 @@ describe("slack results", () => {
     "different_account",
     "not_leadership",
     "missing_scope",
-  ])("has copy for the title-update outcome %s", (key) => {
-    expect(slackResultMessage(key)?.message).toBeTruthy();
+  ])("shows nothing for the retired title-update outcome %s", (key) => {
+    expect(slackResultMessage(key)).toBeNull();
   });
 
   it.each([undefined, "", "constructor", "toString", "nope"])(

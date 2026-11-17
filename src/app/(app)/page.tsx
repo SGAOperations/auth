@@ -54,7 +54,7 @@ export default async function HomePage() {
         </Link>
       </header>
 
-      {mandate.blocked ? <SlackRequiredNotice linked={mandate.linked} /> : null}
+      {mandate.blocked ? <SlackRequiredNotice /> : null}
 
       <section aria-labelledby="tools-heading" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
