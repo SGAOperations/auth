@@ -9,7 +9,6 @@ import {
   cancelForIneligibleRecipient,
   lockInFlightTransferTo,
 } from "@/lib/jobs/pa-transfer";
-import { revokeTakenToken, takeSlackUserToken } from "@/lib/slack/user-token";
 
 // The eight POST actions. Every state change on the user row is a conditional
 // `updateMany` whose `where` restates its precondition, so a lost race reads as
@@ -31,7 +30,7 @@ const displayName = (target: UserTarget) => target.preferredName ?? target.name;
 
 type Run = MutationSpec["run"];
 
-const deactivate: Run = async ({ tx, actor, target, now }) => {
+const deactivate: Run = async ({ tx, target, now }) => {
   // Before the user row, the order the job uses: see lockInFlightTransferTo.
   await lockInFlightTransferTo(tx, target.id);
   const changed = await tx.user.updateMany({
@@ -56,17 +55,11 @@ const deactivate: Run = async ({ tx, actor, target, now }) => {
     targetId: target.id,
     metadata: { revokedSessions },
   });
-  // A deactivated user's Slack title token (#358) goes with the account; Slack
-  // is told after the commit. A failed revoke is audited against the admin.
-  const slackToken = await takeSlackUserToken(tx, target.id, "deactivated", {
-    actor: { actorType: "USER", actorUserId: actor.id },
-  });
   const transferNotice = await cancelForIneligibleRecipient(tx, target.id, now);
   return {
     userId: target.id,
     extra: { revokedSessions },
     ...(transferNotice ? { transferNotice } : {}),
-    ...(slackToken ? { afterCommit: () => revokeTakenToken(slackToken) } : {}),
   };
 };
 

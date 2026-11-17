@@ -22,7 +22,7 @@ Other runbooks: [neon-upgrade.md](neon-upgrade.md), [on-call.md](on-call.md),
 [positions-sync.md](positions-sync.md), [legacy-bcrypt.md](legacy-bcrypt.md),
 [chambers-export.md](chambers-export.md), [chambers-import.md](chambers-import.md),
 [aplio-import.md](aplio-import.md), [slack-link-import.md](slack-link-import.md),
-[slack-title-sync.md](slack-title-sync.md).
+[slack-token-retirement.md](slack-token-retirement.md).
 
 ## Verification log
 
