@@ -5,15 +5,16 @@ import type { PrismaClient } from "@/generated/prisma/client";
 import { writeAuditEvent } from "@/lib/audit";
 import type { VersionedSecret } from "@/lib/env-schema";
 
-// Retires the Slack user tokens leaders granted for title updates (#358, removed
-// by #390). Each stored xoxp- token is revoked at Slack with auth.revoke first,
-// then deleted with its audit row in one transaction, because deleting the
-// ciphertext alone would leave the token valid at Slack with no way left to
-// revoke it. Run once per
-// environment by scripts/retire-slack-user-tokens.ts (docs/runbooks/
-// slack-token-retirement.md); the follow-up contract release drops the table and
-// this module with it. It imports neither the app env nor the shared Prisma
-// client, so the script supplies both. Nothing here ever logs or returns a token.
+// Retires the Slack user tokens leaders granted for title updates. Each stored
+// xoxp- token is revoked at Slack with auth.revoke first, then deleted with its
+// audit row in one transaction, because deleting the ciphertext alone would
+// leave the token valid at Slack with no way left to revoke it.
+//
+// Run once per environment by scripts/retire-slack-user-tokens.ts (see
+// docs/runbooks/slack-token-retirement.md); the follow-up contract release
+// drops the table and this module with it. It imports neither the app env nor
+// the shared Prisma client, so the script supplies both. Nothing here ever logs
+// or returns a token.
 
 const KEY_PURPOSE = "sgauth:slack-user-token";
 const REVOKE_URL = "https://slack.com/api/auth.revoke";
