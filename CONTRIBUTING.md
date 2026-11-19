@@ -2,7 +2,7 @@
 
 ## Running tests
 
-Tests run in two Vitest projects: `unit` (`*.test.ts`, parallel, no database) and `db` (`*.db.test.ts`, one file at a time against a Neon branch).
+Tests run in two Vitest projects: `unit` (`*.test.ts`, parallel, no database) and `db` (`*.db.test.ts`, one file at a time against a Postgres database: a service container in CI, a personal Neon branch for you).
 
 ### Setup
 
@@ -74,7 +74,7 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `ma
 - `format`: Prettier `--check`. Run `npm run format` to fix it.
 - `audit`: `npm audit --omit=dev --audit-level=high`; fails on high or critical advisories in production dependencies. The full `npm audit --audit-level=high` runs as a non-blocking step in the same job and stays informational.
 - `migrations`: applies `prisma/migrations/` to a scratch Postgres and fails if `prisma/schema.prisma` differs from the result.
-- `test`: runs `npm test` (the `unit` and `db` projects, with coverage) against the Neon `test` branch, which is reset to its parent (`dev`) first.
+- `test`: runs the `db` project in four shards, each against its own `postgres:17` service container with the `migration` and `runtime` roles that `scripts/ci-container-roles.sql` creates (a container's own role is a superuser, which the role tests reject). `db-transfer` runs alongside on its own container. Neither job needs a secret, so fork and Dependabot PRs run them.
 - `e2e`: Playwright SSO suite against SGAuth and two SDK product stubs on `*.sga.localhost`, using a scratch Postgres; traces are uploaded on failure.
 
 ### Running e2e locally
@@ -97,34 +97,27 @@ On `pull_request`, GitHub runs the PR's own copy of `ci.yml`, so a repository se
 
 | Environment    | Used by                                                | Deployment branches          | Reviewers | Secrets                                                                                                                                           |
 | -------------- | ------------------------------------------------------ | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `neon-ci`      | `db-transfer` and `test` on pushes to `dev` and `main` | Selected: `dev`, `main` only | none      | `NEON_TEST_DATABASE_URL`, `NEON_TEST_DIRECT_URL`, and `NEON_TEST_DATABASE_URL_<n>` / `NEON_TEST_DIRECT_URL_<n>` for shards 1 to 4                 |
-| `neon-ci-pr`   | `db-transfer` and `test` on pull requests              | No restriction               | none      | the same as `neon-ci`                                                                                                                             |
+| `neon-ci`      | not used by `ci.yml`; kept for the scheduled Neon run  | Selected: `dev`, `main` only | none      | `NEON_TEST_DATABASE_URL`, `NEON_TEST_DIRECT_URL`, and `NEON_TEST_DATABASE_URL_<n>` / `NEON_TEST_DIRECT_URL_<n>` for shards 1 to 4                 |
+| `neon-ci-pr`   | not used by `ci.yml`; kept for the scheduled Neon run  | No restriction               | none      | the same as `neon-ci`                                                                                                                             |
 | `neon-ops`     | `neon-branch-hygiene.yml` and `neon-quota-monitor.yml` | Selected: `dev` only         | none      | `NEON_API_KEY`, `NEON_PROJECT_ID`, `RESEND_API_KEY`, `NEON_QUOTA_ALERT_TO`                                                                        |
 | `neon-preview` | `neon-preview-migrate.yml`                             | Selected: `dev` only         | none      | `PREVIEW_DIRECT_URL`: the direct URL of the Neon `preview` branch's `migration` role, with that branch's reset password and `sslmode=verify-full` |
 
 The test URLs point at the Neon `test` and `ci-shard-<n>` branches and use the `runtime` and `migration` roles of **those** branches. Those roles' passwords must have been reset after the branches were created ([README](README.md#database--neon)), so a test URL opens nothing but its own branch.
 
-**No Neon API key reaches CI.** A project key can reveal or reset every branch's role passwords, `main`'s included, and a PR controls the workflow it runs under, so the only way to keep a key away from PR code would be an approval on every PR. Instead, each db job empties its own branch with `scripts/ci-reset-test-db.sql`, run as that branch's `migration` role, after `scripts/ci-test-db-guard.mjs` refuses a URL on Neon `main` or `dev`. `prisma migrate deploy` (`src/test/global-setup.ts`) then rebuilds the schema, so every run starts from an empty database at the PR's migrations, not from a copy of `dev`'s data.
+No pull request or push job in `ci.yml` uses a Neon secret now: `db-transfer` and `test` run on service containers, so pull requests, forks and Dependabot PRs all run them with no secrets. The `neon-ci` and `neon-ci-pr` secrets stay in place for the scheduled Neon run.
 
-What a PR's code can reach is accepted: it can read and write the test and shard branches. Their data is synthetic and their credentials open nothing else.
-
-How each run gets the secrets:
-
-- **Pushes to `dev` and `main`** use `neon-ci`. Its branch rule refuses every other ref.
-- **Pull requests** use `neon-ci-pr` and run straight away, with no approval.
-- **Fork PRs** get no secrets, so `test` fails on them by design.
-- **Dependabot PRs** get no Actions or Environment secrets, so `db-transfer` and `test` fail on them. After reviewing the lockfile diff, a maintainer reruns CI under their own identity by pushing an empty commit to the Dependabot branch (`gh pr checkout <n>`, `git commit --allow-empty -m "#<n> run CI"`, `git push`). Dependabot stops rebasing a branch someone else has pushed to; comment `@dependabot recreate` for a fresh one.
+**No Neon API key reaches CI.** A project key can reveal or reset every branch's role passwords, `main`'s included, and a PR controls the workflow it runs under, so the only way to keep a key away from PR code would be an approval on every PR.
 
 `NEON_API_KEY` lives only in `neon-ops`, which only the default branch may deploy to. It should be a project-scoped key used for nothing else.
 
 ### Serialized test runs
 
-The `test` job runs in the `neon-test-branch` concurrency group so two PRs never share the branch mid-run. Per-run branches are not used because of Neon's 10-branch cap. GitHub keeps only one waiting run per group, so a third run cancels the waiting one; re-run the cancelled check.
+The db jobs share no state and no concurrency group: each run, and each shard, has its own database, so nothing queues behind another run.
 
 ### Dependency and code scanning
 
 - Dependabot (`.github/dependabot.yml`) opens grouped PRs against `dev` every Monday, labelled `chore`. Majors outside the `nextjs`, `react` and `prisma` groups come one per PR.
-- Dependabot PRs run CI with **Dependabot secrets, not Actions secrets**. Never copy a Neon secret into Dependabot secrets: `test` fails on Dependabot PRs until a maintainer reruns it as described in [Neon secrets](#neon-secrets).
+- Dependabot PRs run CI with **Dependabot secrets, not Actions secrets**, and no job needs one. Never copy a Neon secret into Dependabot secrets.
 - Dependabot ignores `package.json` `overrides` (`deepmerge-ts`, `mysql2`). Remove an override by hand once its upstream pin is fixed.
 - CodeQL (`.github/workflows/codeql.yml`) runs the `security-extended` suite on every PR, on every push to `dev` and `main`, and weekly. Alerts are under Security → Code scanning. It is not a required check, and code scanning "Default setup" must stay off.
 
