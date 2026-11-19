@@ -273,7 +273,12 @@ describe.skipIf(!url)("scanner-safe verify-email link", () => {
 
   it("answers a tampered token invalid and writes nothing", async () => {
     const { token, user } = await signUpWithToken();
-    const tampered = `${token.slice(0, -2)}xx`;
+    // Alter a character well inside the signature. Rewriting the last two
+    // characters can decode to the same signature bytes (the final base64url
+    // characters carry padding bits), which leaves a valid token.
+    const index = token.length - 5;
+    const tampered = `${token.slice(0, index)}${token[index] === "A" ? "B" : "A"}${token.slice(index + 1)}`;
+    expect(tampered).not.toBe(token);
     tokens.push(tampered);
 
     expect(result(await handle(post(tampered)))).toBe("invalid");
