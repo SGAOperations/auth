@@ -95,16 +95,16 @@ Run `npm run prisma:migrate-dev -- --name <change>` against a personal Neon bran
 
 On `pull_request`, GitHub runs the PR's own copy of `ci.yml`, so a repository secret reaches any code a same-repo PR chooses to run, whichever step the workflow file names. The Neon secrets therefore live in GitHub Environments (Settings → Environments), never in repository or Dependabot secrets:
 
-| Environment    | Used by                                                | Deployment branches          | Reviewers | Secrets                                                                                                                                           |
-| -------------- | ------------------------------------------------------ | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `neon-ci`      | not used by `ci.yml`; kept for the scheduled Neon run  | Selected: `dev`, `main` only | none      | `NEON_TEST_DATABASE_URL`, `NEON_TEST_DIRECT_URL`, and `NEON_TEST_DATABASE_URL_<n>` / `NEON_TEST_DIRECT_URL_<n>` for shards 1 to 4                 |
-| `neon-ci-pr`   | not used by `ci.yml`; kept for the scheduled Neon run  | No restriction               | none      | the same as `neon-ci`                                                                                                                             |
-| `neon-ops`     | `neon-branch-hygiene.yml` and `neon-quota-monitor.yml` | Selected: `dev` only         | none      | `NEON_API_KEY`, `NEON_PROJECT_ID`, `RESEND_API_KEY`, `NEON_QUOTA_ALERT_TO`                                                                        |
-| `neon-preview` | `neon-preview-migrate.yml`                             | Selected: `dev` only         | none      | `PREVIEW_DIRECT_URL`: the direct URL of the Neon `preview` branch's `migration` role, with that branch's reset password and `sslmode=verify-full` |
+| Environment    | Used by                                                     | Deployment branches          | Reviewers | Secrets                                                                                                                                           |
+| -------------- | ----------------------------------------------------------- | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `neon-ci`      | not used by `ci.yml`; kept for the Neon run planned in #400 | Selected: `dev`, `main` only | none      | `NEON_TEST_DATABASE_URL`, `NEON_TEST_DIRECT_URL`, and `NEON_TEST_DATABASE_URL_<n>` / `NEON_TEST_DIRECT_URL_<n>` for shards 1 to 4                 |
+| `neon-ci-pr`   | not used by `ci.yml`; kept for the Neon run planned in #400 | No restriction               | none      | the same as `neon-ci`                                                                                                                             |
+| `neon-ops`     | `neon-branch-hygiene.yml` and `neon-quota-monitor.yml`      | Selected: `dev` only         | none      | `NEON_API_KEY`, `NEON_PROJECT_ID`, `RESEND_API_KEY`, `NEON_QUOTA_ALERT_TO`                                                                        |
+| `neon-preview` | `neon-preview-migrate.yml`                                  | Selected: `dev` only         | none      | `PREVIEW_DIRECT_URL`: the direct URL of the Neon `preview` branch's `migration` role, with that branch's reset password and `sslmode=verify-full` |
 
 The test URLs point at the Neon `test` and `ci-shard-<n>` branches and use the `runtime` and `migration` roles of **those** branches. Those roles' passwords must have been reset after the branches were created ([README](README.md#database--neon)), so a test URL opens nothing but its own branch.
 
-No pull request or push job in `ci.yml` uses a Neon secret now: `db-transfer` and `test` run on service containers, so pull requests, forks and Dependabot PRs all run them with no secrets. The `neon-ci` and `neon-ci-pr` secrets stay in place for the scheduled Neon run.
+No pull request or push job in `ci.yml` uses a Neon secret now: `db-transfer` and `test` run on service containers, so pull requests, forks and Dependabot PRs all run them with no secrets. The `neon-ci` and `neon-ci-pr` secrets stay in place for the Neon run planned in #400.
 
 **No Neon API key reaches CI.** A project key can reveal or reset every branch's role passwords, `main`'s included, and a PR controls the workflow it runs under, so the only way to keep a key away from PR code would be an approval on every PR.
 
